@@ -87,6 +87,11 @@ export class AccountStore {
     return this.accounts[this.currentIndex]
   }
 
+  getCurrentUserId(): number {
+    let account = this.getCurrentAccount()
+    return account ? account.id : 0
+  }
+
   getAccounts(): Account[] {
     return this.accounts
   }

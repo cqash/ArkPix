@@ -32,7 +32,8 @@ export class UserSettingStore {
       muteTags: preferenceService.getObject('mute_tags', []) as string[],
       muteUsers: preferenceService.getObject('mute_users', []) as number[],
       aiFilter: preferenceService.getBoolean('ai_filter', false),
-      saveFormat: preferenceService.getString('save_format', 'png')
+      saveFormat: preferenceService.getString('save_format', 'png'),
+      autoBookmarkOnDownload: preferenceService.getBoolean('auto_bookmark_on_download', false)
     }
     this.settings = new AppSettings(opts)
     AppStorage.setOrCreate('appSettings', this.settings)
@@ -54,6 +55,7 @@ export class UserSettingStore {
     preferenceService.setObject('mute_users', this.settings.muteUsers)
     preferenceService.setBoolean('ai_filter', this.settings.aiFilter)
     preferenceService.setString('save_format', this.settings.saveFormat)
+    preferenceService.setBoolean('auto_bookmark_on_download', this.settings.autoBookmarkOnDownload)
     let newSettings: AppSettings = this.getSettings()
     this.settings = newSettings
     AppStorage.setOrCreate('appSettings', newSettings)
@@ -75,7 +77,8 @@ export class UserSettingStore {
       muteTags: this.settings.muteTags.slice(),
       muteUsers: this.settings.muteUsers.slice(),
       aiFilter: this.settings.aiFilter,
-      saveFormat: this.settings.saveFormat
+      saveFormat: this.settings.saveFormat,
+      autoBookmarkOnDownload: this.settings.autoBookmarkOnDownload
     })
   }
 
@@ -106,6 +109,11 @@ export class UserSettingStore {
 
   setDownloadQuality(value: number): void {
     this.settings.downloadQuality = value
+    this.saveSettings()
+  }
+
+  setAutoBookmarkOnDownload(value: boolean): void {
+    this.settings.autoBookmarkOnDownload = value
     this.saveSettings()
   }
 

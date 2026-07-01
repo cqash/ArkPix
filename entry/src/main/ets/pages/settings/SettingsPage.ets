@@ -192,6 +192,26 @@ export struct SettingsPage {
 
       ListItem() {
         Column() {
+          Text('收藏')
+            .fontSize(12)
+            .fontColor('#999999')
+            .width('100%')
+            .padding({ left: 16, bottom: 4 })
+          SettingItem({
+            title: '我的收藏',
+            value: '',
+            onItemClick: () => {
+              router.pushUrl({ url: 'pages/bookmark/BookmarkPage' })
+            }
+          })
+        }
+        .width('100%')
+        .padding({ top: 8, bottom: 8 })
+      }
+      .width('100%')
+
+      ListItem() {
+        Column() {
           Text('下载')
             .fontSize(12)
             .fontColor('#999999')
@@ -202,6 +222,14 @@ export struct SettingsPage {
             value: '',
             onItemClick: () => {
               router.pushUrl({ url: 'pages/settings/DownloadPage' })
+            }
+          })
+          SettingItem({
+            title: '下载时自动收藏',
+            value: this.settings.autoBookmarkOnDownload ? '开启' : '关闭',
+            onItemClick: () => {
+              userSettingStore.setAutoBookmarkOnDownload(!this.settings.autoBookmarkOnDownload)
+              this.settings = userSettingStore.getSettings()
             }
           })
         }

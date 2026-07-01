@@ -58,8 +58,8 @@ export class ApiService {
     return this.get(PixivEndpoints.illustRanking(mode, date))
   }
 
-  async getNewIllusts(): Promise<Object> {
-    return this.get(PixivEndpoints.illustNew())
+  async getFollowIllusts(restrict: string = 'public'): Promise<Object> {
+    return this.get(PixivEndpoints.illustFollow(restrict))
   }
 
   async getIllustDetail(id: number): Promise<Object> {

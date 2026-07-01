@@ -171,8 +171,54 @@ struct IllustDetailPage {
     let saved = await downloadService.applyToGallery(localPath, ctx)
     if (saved) {
       promptAction.showToast({ message: '已保存到图库' })
+      if (userSettingStore.getSettings().autoBookmarkOnDownload && !this.isBookmarked) {
+        try {
+          await apiService.addBookmark(this.illust.id, 'public')
+          this.isBookmarked = true
+          promptAction.showToast({ message: '已自动收藏' })
+        } catch (e) {
+          console.error('Auto bookmark failed: ' + e)
+        }
+      }
     } else {
       promptAction.showToast({ message: '保存失败' })
+    }
+  }
+
+  async handleSaveAll(): Promise<void> {
+    if (this.illust.pageCount <= 1) { return }
+    let quality = userSettingStore.getSettings().downloadQuality
+    let ctx = AppStorage.get<common.Context>('context')
+    if (!ctx) {
+      promptAction.showToast({ message: '保存失败' })
+      return
+    }
+    let successCount = 0
+    let failCount = 0
+    for (let i = 0; i < this.illust.pageCount; i++) {
+      let url = pickDetailUrl(this.illust.metaPages[i].imageUrls, quality)
+      promptAction.showToast({ message: '开始下载 第' + (i + 1) + '/' + this.illust.pageCount + '页...' })
+      let localPath = await downloadService.downloadToCache(url, this.illust.id, i)
+      if (!localPath) {
+        failCount++
+        continue
+      }
+      let saved = await downloadService.applyToGallery(localPath, ctx)
+      if (saved) {
+        successCount++
+      } else {
+        failCount++
+      }
+    }
+    promptAction.showToast({ message: '完成: 成功' + successCount + ', 失败' + failCount })
+    if (userSettingStore.getSettings().autoBookmarkOnDownload && !this.isBookmarked) {
+      try {
+        await apiService.addBookmark(this.illust.id, 'public')
+        this.isBookmarked = true
+        promptAction.showToast({ message: '已自动收藏' })
+      } catch (e) {
+        console.error('Auto bookmark failed: ' + e)
+      }
     }
   }
 
@@ -327,6 +373,9 @@ struct IllustDetailPage {
                   .padding({ left: 8, right: 8, top: 4, bottom: 4 })
                   .borderRadius(12)
                   .margin({ right: 4, bottom: 4 })
+                  .onClick(() => {
+                    router.pushUrl({ url: 'pages/search/TagSearchPage', params: { keyword: tag.name } })
+                  })
               }, (tag: Tag) => tag.name)
             }
             .width('100%')
@@ -334,17 +383,25 @@ struct IllustDetailPage {
 
               Row() {
                 Button(this.isBookmarked ? '已收藏' : '收藏')
-                  .width('30%')
+                  .width(this.illust.pageCount > 1 ? '25%' : '30%')
                   .backgroundColor(this.isBookmarked ? '#FF6B6B' : '#0096FA')
                   .onClick(() => { this.toggleBookmark() })
 
                 SaveButton({ icon: SaveIconStyle.FULL_FILLED, text: SaveDescription.SAVE })
-                  .width('30%')
+                  .width(this.illust.pageCount > 1 ? '25%' : '30%')
                   .onClick(async (_event: ClickEvent, result: SaveButtonOnClickResult) => {
                     if (result === SaveButtonOnClickResult.SUCCESS) {
                       await this.handleSave()
                     }
                   })
+
+                if (this.illust.pageCount > 1) {
+                  Button('下载全部')
+                    .width('25%')
+                    .backgroundColor('#FF8800')
+                    .fontSize(12)
+                    .onClick(() => { this.handleSaveAll() })
+                }
               }
             .width('100%')
             .justifyContent(FlexAlign.SpaceEvenly)

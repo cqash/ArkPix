@@ -14,6 +14,7 @@ export interface AppSettingsOptions {
   muteUsers?: number[]
   aiFilter?: boolean
   saveFormat?: string
+  autoBookmarkOnDownload?: boolean
 }
 
 export class AppSettings {
@@ -32,6 +33,7 @@ export class AppSettings {
   muteUsers: number[] = []
   aiFilter: boolean = false
   saveFormat: string = 'png'
+  autoBookmarkOnDownload: boolean = false
 
   constructor(options?: AppSettingsOptions) {
     if (options) {
@@ -50,6 +52,7 @@ export class AppSettings {
       this.muteUsers = options.muteUsers ?? []
       this.aiFilter = options.aiFilter ?? false
       this.saveFormat = options.saveFormat ?? 'png'
+      this.autoBookmarkOnDownload = options.autoBookmarkOnDownload ?? false
     }
   }
 }

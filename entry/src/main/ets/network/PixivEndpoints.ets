@@ -11,6 +11,7 @@ export class PixivEndpoints {
     return url
   }
   static illustNew(): string { return PixivEndpoints.API_BASE + '/v1/illust/new' }
+  static illustFollow(restrict: string): string { return PixivEndpoints.API_BASE + '/v2/illust/follow?restrict=' + restrict }
   static illustDetail(id: number): string { return PixivEndpoints.API_BASE + '/v1/illust/detail?illust_id=' + id }
   static illustRelated(id: number): string { return PixivEndpoints.API_BASE + '/v2/illust/related?illust_id=' + id }
   static illustComments(id: number): string { return PixivEndpoints.API_BASE + '/v3/illust/comments?illust_id=' + id }

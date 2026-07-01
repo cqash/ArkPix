@@ -8,6 +8,8 @@
     "pages/home/HomePage",
     "pages/detail/IllustDetailPage",
     "pages/detail/ImageViewerPage",
+    "pages/search/TagSearchPage",
+    "pages/bookmark/BookmarkPage",
     "pages/settings/DownloadPage"
   ]
 }
