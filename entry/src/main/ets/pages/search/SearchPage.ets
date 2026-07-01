@@ -1,9 +1,19 @@
 import { router } from '@kit.ArkUI';
 import { apiService } from '../../network/ApiService';
-import { Illust } from '../../models/Illust';
+import { Illust, ImageUrls } from '../../models/Illust';
 import { userSettingStore } from '../../stores/UserSettingStore';
 import { CachedImage } from '../../components/common/CachedImage';
 import { ErrorView } from '../../components/common/CommonViews';
+
+function pickPreviewUrl(urls: ImageUrls, quality: number): string {
+  if (quality === 0) {
+    return urls.squareMedium || urls.medium || urls.large
+  }
+  if (quality === 1) {
+    return urls.medium || urls.large || urls.original
+  }
+  return urls.large || urls.medium || urls.original
+}
 
 interface TrendingTagsResponse {
   trend_tags: string[]
@@ -65,7 +75,7 @@ export struct SearchPage {
   @Builder
   IllustCard(item: Illust) {
     Column() {
-      CachedImage({ url: item.imageUrls.medium })
+      CachedImage({ url: pickPreviewUrl(item.imageUrls, userSettingStore.getSettings().previewQuality) })
       Text(item.title)
         .fontSize(12)
         .fontColor('#333333')

@@ -20,6 +20,10 @@ export class UserSettingStore {
     let opts: AppSettingsOptions = {
       pictureQuality: preferenceService.getNumber('picture_quality', 1),
       mangaQuality: preferenceService.getNumber('manga_quality', 1),
+      previewQuality: preferenceService.getNumber('preview_quality', 1),
+      detailQuality: preferenceService.getNumber('detail_quality', 0),
+      fullScreenQuality: preferenceService.getNumber('full_screen_quality', 0),
+      downloadQuality: preferenceService.getNumber('download_quality', 1),
       theme: preferenceService.getString('theme', 'system'),
       language: preferenceService.getString('language', 'zh-CN'),
       networkMode: preferenceService.getString('network_mode', 'direct'),
@@ -37,6 +41,10 @@ export class UserSettingStore {
   private saveSettings(): void {
     preferenceService.setNumber('picture_quality', this.settings.pictureQuality)
     preferenceService.setNumber('manga_quality', this.settings.mangaQuality)
+    preferenceService.setNumber('preview_quality', this.settings.previewQuality)
+    preferenceService.setNumber('detail_quality', this.settings.detailQuality)
+    preferenceService.setNumber('full_screen_quality', this.settings.fullScreenQuality)
+    preferenceService.setNumber('download_quality', this.settings.downloadQuality)
     preferenceService.setString('theme', this.settings.theme)
     preferenceService.setString('language', this.settings.language)
     preferenceService.setString('network_mode', this.settings.networkMode)
@@ -55,6 +63,10 @@ export class UserSettingStore {
     return new AppSettings({
       pictureQuality: this.settings.pictureQuality,
       mangaQuality: this.settings.mangaQuality,
+      previewQuality: this.settings.previewQuality,
+      detailQuality: this.settings.detailQuality,
+      fullScreenQuality: this.settings.fullScreenQuality,
+      downloadQuality: this.settings.downloadQuality,
       theme: this.settings.theme,
       language: this.settings.language,
       networkMode: this.settings.networkMode,
@@ -74,6 +86,26 @@ export class UserSettingStore {
 
   setMangaQuality(value: number): void {
     this.settings.mangaQuality = value
+    this.saveSettings()
+  }
+
+  setPreviewQuality(value: number): void {
+    this.settings.previewQuality = value
+    this.saveSettings()
+  }
+
+  setDetailQuality(value: number): void {
+    this.settings.detailQuality = value
+    this.saveSettings()
+  }
+
+  setFullScreenQuality(value: number): void {
+    this.settings.fullScreenQuality = value
+    this.saveSettings()
+  }
+
+  setDownloadQuality(value: number): void {
+    this.settings.downloadQuality = value
     this.saveSettings()
   }
 

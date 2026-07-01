@@ -74,6 +74,42 @@ export struct SettingsPage {
               this.settings = userSettingStore.getSettings()
             }
           })
+          SettingItem({
+            title: '预览图质量',
+            value: this.settings.previewQuality === 0 ? '缩略图' : this.settings.previewQuality === 1 ? '中图' : '大图',
+            onItemClick: () => {
+              let next = (this.settings.previewQuality + 1) % 3
+              userSettingStore.setPreviewQuality(next)
+              this.settings = userSettingStore.getSettings()
+            }
+          })
+          SettingItem({
+            title: '详情页质量',
+            value: this.settings.detailQuality === 0 ? '大图' : '原图',
+            onItemClick: () => {
+              let next = this.settings.detailQuality === 0 ? 1 : 0
+              userSettingStore.setDetailQuality(next)
+              this.settings = userSettingStore.getSettings()
+            }
+          })
+          SettingItem({
+            title: '全屏查看质量',
+            value: this.settings.fullScreenQuality === 0 ? '大图' : '原图',
+            onItemClick: () => {
+              let next = this.settings.fullScreenQuality === 0 ? 1 : 0
+              userSettingStore.setFullScreenQuality(next)
+              this.settings = userSettingStore.getSettings()
+            }
+          })
+          SettingItem({
+            title: '下载图片质量',
+            value: this.settings.downloadQuality === 0 ? '大图' : '原图',
+            onItemClick: () => {
+              let next = this.settings.downloadQuality === 0 ? 1 : 0
+              userSettingStore.setDownloadQuality(next)
+              this.settings = userSettingStore.getSettings()
+            }
+          })
         }
         .width('100%')
         .padding({ top: 8, bottom: 8 })

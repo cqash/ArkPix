@@ -1,9 +1,11 @@
 import { router, promptAction } from '@kit.ArkUI';
+import { common } from '@kit.AbilityKit';
 import { imageCacheService } from '../../services/ImageCacheService';
 import { downloadService } from '../../services/DownloadService';
 
 interface ViewerParams {
   imageUrl: string
+  downloadUrl: string
   illustId?: number
   pageIndex?: number
 }
@@ -31,11 +33,21 @@ struct ImageViewerPage {
     this.isLoading = false
   }
 
-  async saveImage() {
+  async handleSave(): Promise<void> {
     let params = router.getParams() as ViewerParams
-    if (!params || !params.imageUrl) { return }
-    let success = await downloadService.downloadImage(params.imageUrl, this.illustId, this.pageIndex)
-    if (success) {
+    if (!params || !params.downloadUrl) { return }
+    let localPath = await downloadService.downloadToCache(params.downloadUrl, this.illustId, this.pageIndex)
+    if (!localPath) {
+      promptAction.showToast({ message: '下载失败' })
+      return
+    }
+    let ctx = AppStorage.get<common.Context>('context')
+    if (!ctx) {
+      promptAction.showToast({ message: '保存失败' })
+      return
+    }
+    let saved = await downloadService.applyToGallery(localPath, ctx)
+    if (saved) {
       promptAction.showToast({ message: '已保存到图库' })
     } else {
       promptAction.showToast({ message: '保存失败' })
@@ -72,10 +84,12 @@ struct ImageViewerPage {
             .onClick(() => { router.back() })
           Blank()
             .layoutWeight(1)
-          Button('保存到图库')
-            .fontSize(12)
-            .backgroundColor('rgba(0, 150, 250, 0.8)')
-            .onClick(() => { this.saveImage() })
+          SaveButton({ icon: SaveIconStyle.FULL_FILLED, text: SaveDescription.SAVE })
+            .onClick(async (_event: ClickEvent, result: SaveButtonOnClickResult) => {
+              if (result === SaveButtonOnClickResult.SUCCESS) {
+                await this.handleSave()
+              }
+            })
         }
         .width('100%')
         .padding({ left: 16, right: 16, top: 16 })

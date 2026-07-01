@@ -26,7 +26,7 @@ export struct DownloadPage {
 
   async retryTask(task: DownloadTaskItem) {
     if (task.status === 'downloading') { return }
-    await downloadService.downloadImage(task.image_url, task.illust_id, task.page_index)
+    await downloadService.downloadToCache(task.image_url, task.illust_id, task.page_index)
     await this.loadTasks()
   }
 

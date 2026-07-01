@@ -1,10 +1,21 @@
 import { router } from '@kit.ArkUI';
 import { apiService } from '../../network/ApiService';
-import { Illust } from '../../models/Illust';
+import { Illust, ImageUrls } from '../../models/Illust';
 import { User } from '../../models/User';
 import { imageCacheService } from '../../services/ImageCacheService';
 import { CachedImage } from '../../components/common/CachedImage';
 import { ErrorView } from '../../components/common/CommonViews';
+import { userSettingStore } from '../../stores/UserSettingStore';
+
+function pickPreviewUrl(urls: ImageUrls, quality: number): string {
+  if (quality === 0) {
+    return urls.squareMedium || urls.medium || urls.large
+  }
+  if (quality === 1) {
+    return urls.medium || urls.large || urls.original
+  }
+  return urls.large || urls.medium || urls.original
+}
 
 interface UserRouteParams {
   userId: number
@@ -158,7 +169,7 @@ export struct UserProfilePage {
             ForEach(this.works, (item: Illust) => {
               ListItem() {
                 Column() {
-                  CachedImage({ url: item.imageUrls.medium })
+                  CachedImage({ url: pickPreviewUrl(item.imageUrls, userSettingStore.getSettings().previewQuality) })
                 }
                 .width('100%')
                 .padding(4)

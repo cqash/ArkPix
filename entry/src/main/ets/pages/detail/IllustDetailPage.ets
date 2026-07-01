@@ -1,4 +1,5 @@
 import { router, promptAction } from '@kit.ArkUI';
+import { common } from '@kit.AbilityKit';
 import { apiService } from '../../network/ApiService';
 import { downloadService } from '../../services/DownloadService';
 import { imageCacheService } from '../../services/ImageCacheService';
@@ -14,6 +15,22 @@ function pickUrlByQuality(urls: ImageUrls, quality: number): string {
     return urls.large || urls.original || urls.medium
   }
   return urls.original || urls.large || urls.medium
+}
+
+function pickPreviewUrl(urls: ImageUrls, quality: number): string {
+  if (quality === 0) {
+    return urls.squareMedium || urls.medium || urls.large
+  }
+  if (quality === 1) {
+    return urls.medium || urls.large || urls.original
+  }
+  return urls.large || urls.medium || urls.original
+}
+
+function pickDetailUrl(urls: ImageUrls, quality: number): string {
+  return quality === 0
+    ? urls.large || urls.original || urls.medium
+    : urls.original || urls.large || urls.medium
 }
 
 interface RouteParams {
@@ -71,10 +88,10 @@ struct IllustDetailPage {
   }
 
   async loadImages() {
-    let quality = userSettingStore.getSettings().pictureQuality
+    let settings = userSettingStore.getSettings()
     let url = this.illust.pageCount > 1
-      ? pickUrlByQuality(this.illust.metaPages[this.currentPageIndex].imageUrls, quality)
-      : pickUrlByQuality(this.illust.imageUrls, quality)
+      ? pickDetailUrl(this.illust.metaPages[this.currentPageIndex].imageUrls, settings.detailQuality)
+      : pickDetailUrl(this.illust.imageUrls, settings.detailQuality)
     this.mainImagePath = await imageCacheService.getLocalPath(url)
 
     let avatarUrl = this.illust.user.profileImageUrls.medium
@@ -82,13 +99,16 @@ struct IllustDetailPage {
   }
 
   openImageViewer() {
-    let quality = userSettingStore.getSettings().pictureQuality
+    let settings = userSettingStore.getSettings()
     let url = this.illust.pageCount > 1
-      ? pickUrlByQuality(this.illust.metaPages[this.currentPageIndex].imageUrls, quality)
-      : pickUrlByQuality(this.illust.imageUrls, quality)
+      ? pickDetailUrl(this.illust.metaPages[this.currentPageIndex].imageUrls, settings.fullScreenQuality)
+      : pickDetailUrl(this.illust.imageUrls, settings.fullScreenQuality)
+    let downloadUrl = this.illust.pageCount > 1
+      ? pickDetailUrl(this.illust.metaPages[this.currentPageIndex].imageUrls, settings.downloadQuality)
+      : pickDetailUrl(this.illust.imageUrls, settings.downloadQuality)
     router.pushUrl({
       url: 'pages/detail/ImageViewerPage',
-      params: { imageUrl: url, illustId: this.illust.id, pageIndex: this.currentPageIndex }
+      params: { imageUrl: url, downloadUrl: downloadUrl, illustId: this.illust.id, pageIndex: this.currentPageIndex }
     })
   }
 
@@ -133,12 +153,23 @@ struct IllustDetailPage {
     }
   }
 
-  async downloadImage() {
+  async handleSave(): Promise<void> {
+    let quality = userSettingStore.getSettings().downloadQuality
     let url = this.illust.pageCount > 1
-      ? this.illust.metaPages[this.currentPageIndex].imageUrls.original
-      : this.illust.imageUrls.original
-    let success = await downloadService.downloadImage(url, this.illust.id, this.currentPageIndex)
-    if (success) {
+      ? pickDetailUrl(this.illust.metaPages[this.currentPageIndex].imageUrls, quality)
+      : pickDetailUrl(this.illust.imageUrls, quality)
+    let localPath = await downloadService.downloadToCache(url, this.illust.id, this.currentPageIndex)
+    if (!localPath) {
+      promptAction.showToast({ message: '下载失败' })
+      return
+    }
+    let ctx = AppStorage.get<common.Context>('context')
+    if (!ctx) {
+      promptAction.showToast({ message: '保存失败' })
+      return
+    }
+    let saved = await downloadService.applyToGallery(localPath, ctx)
+    if (saved) {
       promptAction.showToast({ message: '已保存到图库' })
     } else {
       promptAction.showToast({ message: '保存失败' })
@@ -301,17 +332,20 @@ struct IllustDetailPage {
             .width('100%')
             .padding({ left: 16, right: 16, top: 8 })
 
-            Row() {
-              Button(this.isBookmarked ? '已收藏' : '收藏')
-                .width('30%')
-                .backgroundColor(this.isBookmarked ? '#FF6B6B' : '#0096FA')
-                .onClick(() => { this.toggleBookmark() })
+              Row() {
+                Button(this.isBookmarked ? '已收藏' : '收藏')
+                  .width('30%')
+                  .backgroundColor(this.isBookmarked ? '#FF6B6B' : '#0096FA')
+                  .onClick(() => { this.toggleBookmark() })
 
-              Button('下载')
-                .width('30%')
-                .backgroundColor('#0096FA')
-                .onClick(() => { this.downloadImage() })
-            }
+                SaveButton({ icon: SaveIconStyle.FULL_FILLED, text: SaveDescription.SAVE })
+                  .width('30%')
+                  .onClick(async (_event: ClickEvent, result: SaveButtonOnClickResult) => {
+                    if (result === SaveButtonOnClickResult.SUCCESS) {
+                      await this.handleSave()
+                    }
+                  })
+              }
             .width('100%')
             .justifyContent(FlexAlign.SpaceEvenly)
             .padding({ top: 16, bottom: 16 })

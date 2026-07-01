@@ -1,6 +1,10 @@
 export interface AppSettingsOptions {
   pictureQuality?: number
   mangaQuality?: number
+  previewQuality?: number
+  detailQuality?: number
+  fullScreenQuality?: number
+  downloadQuality?: number
   theme?: string
   language?: string
   networkMode?: string
@@ -15,6 +19,10 @@ export interface AppSettingsOptions {
 export class AppSettings {
   pictureQuality: number = 1
   mangaQuality: number = 1
+  previewQuality: number = 1
+  detailQuality: number = 0
+  fullScreenQuality: number = 0
+  downloadQuality: number = 1
   theme: string = 'system'
   language: string = 'zh-CN'
   networkMode: string = 'direct'
@@ -29,6 +37,10 @@ export class AppSettings {
     if (options) {
       this.pictureQuality = options.pictureQuality ?? 1
       this.mangaQuality = options.mangaQuality ?? 1
+      this.previewQuality = options.previewQuality ?? 1
+      this.detailQuality = options.detailQuality ?? 0
+      this.fullScreenQuality = options.fullScreenQuality ?? 0
+      this.downloadQuality = options.downloadQuality ?? 1
       this.theme = options.theme ?? 'system'
       this.language = options.language ?? 'zh-CN'
       this.networkMode = options.networkMode ?? 'direct'
