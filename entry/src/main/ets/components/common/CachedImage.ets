@@ -49,12 +49,17 @@ export struct CachedImage {
         Text('加载失败')
           .fontSize(12)
           .fontColor('#999999')
+        Text('点击重试')
+          .fontSize(10)
+          .fontColor('#0096FA')
+          .margin({ top: 4 })
       }
       .width('100%')
       .aspectRatio(1)
       .justifyContent(FlexAlign.Center)
       .backgroundColor('#F5F5F5')
       .borderRadius(8)
+      .onClick(() => { this.loadImage() })
     }
   }
 }

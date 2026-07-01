@@ -4,6 +4,7 @@ import { Illust } from '../../models/Illust';
 import { User } from '../../models/User';
 import { imageCacheService } from '../../services/ImageCacheService';
 import { CachedImage } from '../../components/common/CachedImage';
+import { ErrorView } from '../../components/common/CommonViews';
 
 interface UserRouteParams {
   userId: number
@@ -23,10 +24,14 @@ export struct UserProfilePage {
   @State works: Illust[] = []
   @State isLoading: boolean = false
   @State avatarPath: string = ''
+  @State profileError: string = ''
+  @State worksError: string = ''
+  @State userId: number = 0
 
   aboutToAppear() {
     let params = router.getParams() as UserRouteParams
     if (params && params.userId) {
+      this.userId = params.userId
       this.loadProfile(params.userId)
       this.loadWorks(params.userId)
     }
@@ -34,6 +39,7 @@ export struct UserProfilePage {
 
   async loadProfile(id: number) {
     this.isLoading = true
+    this.profileError = ''
     try {
       let response = await apiService.getUserDetail(id)
       let user = (response as UserDetailResponse).user
@@ -42,6 +48,7 @@ export struct UserProfilePage {
         this.loadAvatar()
       }
     } catch (e) {
+      this.profileError = '加载失败: ' + e
       console.error('Load profile failed: ' + e)
     } finally {
       this.isLoading = false
@@ -56,6 +63,7 @@ export struct UserProfilePage {
   }
 
   async loadWorks(id: number) {
+    this.worksError = ''
     try {
       let response = await apiService.getUserIllusts(id)
       let illusts = (response as UserIllustsResponse).illusts
@@ -63,6 +71,7 @@ export struct UserProfilePage {
         this.works = illusts.map((item: Object) => Illust.fromJson(item))
       }
     } catch (e) {
+      this.worksError = '加载作品失败: ' + e
       console.error('Load works failed: ' + e)
     }
   }
@@ -82,7 +91,9 @@ export struct UserProfilePage {
 
   build() {
     Column() {
-      if (this.isLoading) {
+      if (this.profileError && this.user.id === 0) {
+        ErrorView({ message: this.profileError, onRetry: () => { this.loadProfile(this.userId); this.loadWorks(this.userId) } })
+      } else if (this.isLoading) {
         LoadingProgress()
           .width(40)
           .height(40)
@@ -133,23 +144,34 @@ export struct UserProfilePage {
         .padding(16)
         .alignItems(HorizontalAlign.Center)
 
-        List({ space: 8 }) {
-          ForEach(this.works, (item: Illust) => {
-            ListItem() {
-              Column() {
-                CachedImage({ url: item.imageUrls.medium })
+        if (this.worksError && this.works.length === 0) {
+          Column() {
+            Text(this.worksError)
+              .fontSize(14)
+              .fontColor('#999999')
+          }
+          .width('100%')
+          .layoutWeight(1)
+          .justifyContent(FlexAlign.Center)
+        } else {
+          List({ space: 8 }) {
+            ForEach(this.works, (item: Illust) => {
+              ListItem() {
+                Column() {
+                  CachedImage({ url: item.imageUrls.medium })
+                }
+                .width('100%')
+                .padding(4)
+                .onClick(() => {
+                  router.pushUrl({ url: 'pages/detail/IllustDetailPage', params: { illustId: item.id } })
+                })
               }
-              .width('100%')
-              .padding(4)
-              .onClick(() => {
-                router.pushUrl({ url: 'pages/detail/IllustDetailPage', params: { illustId: item.id } })
-              })
-            }
-          }, (item: Illust) => item.id.toString())
+            }, (item: Illust) => item.id.toString())
+          }
+          .lanes(2)
+          .padding(8)
+          .layoutWeight(1)
         }
-        .lanes(2)
-        .padding(8)
-        .layoutWeight(1)
       }
     }
     .width('100%')

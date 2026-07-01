@@ -3,6 +3,7 @@ import { apiService } from '../../network/ApiService';
 import { Illust } from '../../models/Illust';
 import { userSettingStore } from '../../stores/UserSettingStore';
 import { CachedImage } from '../../components/common/CachedImage';
+import { ErrorView } from '../../components/common/CommonViews';
 
 interface RecommendedResponse {
   illusts: Object[]
@@ -15,6 +16,7 @@ export struct RecomPage {
   @State isLoading: boolean = false
   @State isRefreshing: boolean = false
   @State hasMore: boolean = true
+  @State errorMessage: string = ''
   private nextUrl: string = ''
 
   aboutToAppear() {
@@ -24,6 +26,7 @@ export struct RecomPage {
   async loadData() {
     if (this.isLoading) { return }
     this.isLoading = true
+    this.errorMessage = ''
     try {
       let response = await apiService.getRecommendedIllusts()
       let illusts = (response as RecommendedResponse).illusts
@@ -33,6 +36,7 @@ export struct RecomPage {
       this.nextUrl = (response as RecommendedResponse).next_url || ''
       this.hasMore = this.nextUrl.length > 0
     } catch (e) {
+      this.errorMessage = '加载失败: ' + e
       console.error('Load recommend failed: ' + e)
     } finally {
       this.isLoading = false
@@ -81,26 +85,30 @@ export struct RecomPage {
   }
 
   build() {
-    Refresh({ refreshing: $$this.isRefreshing, offset: 64, friction: 100 }) {
-      List({ space: 8 }) {
-        ForEach(this.illustList, (item: Illust) => {
-          ListItem() {
-            this.IllustCard(item)
-          }
-        }, (item: Illust) => item.id.toString())
+    if (this.errorMessage && this.illustList.length === 0) {
+      ErrorView({ message: this.errorMessage, onRetry: () => { this.loadData() } })
+    } else {
+      Refresh({ refreshing: $$this.isRefreshing, offset: 64, friction: 100 }) {
+        List({ space: 8 }) {
+          ForEach(this.illustList, (item: Illust) => {
+            ListItem() {
+              this.IllustCard(item)
+            }
+          }, (item: Illust) => item.id.toString())
+        }
+        .lanes(userSettingStore.getSettings().crossCount)
+        .padding(8)
+        .layoutWeight(1)
+        .onReachEnd(() => {
+          this.onLoadMore()
+        })
       }
-      .lanes(userSettingStore.getSettings().crossCount)
-      .padding(8)
-      .layoutWeight(1)
-      .onReachEnd(() => {
-        this.onLoadMore()
+      .onRefreshing(() => {
+        this.onRefresh()
       })
+      .width('100%')
+      .height('100%')
     }
-    .onRefreshing(() => {
-      this.onRefresh()
-    })
-    .width('100%')
-    .height('100%')
   }
 }
 

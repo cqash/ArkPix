@@ -4,6 +4,7 @@ import { downloadService } from '../../services/DownloadService';
 import { imageCacheService } from '../../services/ImageCacheService';
 import { Illust, ImageUrls, Tag } from '../../models/Illust';
 import { userSettingStore } from '../../stores/UserSettingStore';
+import { ErrorView } from '../../components/common/CommonViews';
 
 function pickUrlByQuality(urls: ImageUrls, quality: number): string {
   if (quality === 0) {
@@ -32,16 +33,20 @@ struct IllustDetailPage {
   @State isBookmarked: boolean = false
   @State mainImagePath: string = ''
   @State userAvatarPath: string = ''
+  @State errorMessage: string = ''
+  @State illustId: number = 0
 
   aboutToAppear() {
     let params = router.getParams() as RouteParams
     if (params && params.illustId) {
+      this.illustId = params.illustId
       this.loadDetail(params.illustId)
     }
   }
 
   async loadDetail(id: number) {
     this.isLoading = true
+    this.errorMessage = ''
     try {
       let response = await apiService.getIllustDetail(id)
       let illust = (response as IllustDetailResponse).illust
@@ -51,6 +56,7 @@ struct IllustDetailPage {
         this.loadImages()
       }
     } catch (e) {
+      this.errorMessage = '加载失败: ' + e
       console.error('Load detail failed: ' + e)
     } finally {
       this.isLoading = false
@@ -127,7 +133,9 @@ struct IllustDetailPage {
 
   build() {
     Column() {
-      if (this.isLoading) {
+      if (this.errorMessage) {
+        ErrorView({ message: this.errorMessage, onRetry: () => { this.loadDetail(this.illustId) } })
+      } else if (this.isLoading) {
         LoadingProgress()
           .width(40)
           .height(40)
