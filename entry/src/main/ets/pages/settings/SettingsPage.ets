@@ -156,6 +156,26 @@ export struct SettingsPage {
 
       ListItem() {
         Column() {
+          Text('下载')
+            .fontSize(12)
+            .fontColor('#999999')
+            .width('100%')
+            .padding({ left: 16, bottom: 4 })
+          SettingItem({
+            title: '下载管理',
+            value: '',
+            onItemClick: () => {
+              router.pushUrl({ url: 'pages/settings/DownloadPage' })
+            }
+          })
+        }
+        .width('100%')
+        .padding({ top: 8, bottom: 8 })
+      }
+      .width('100%')
+
+      ListItem() {
+        Column() {
           Text('账户')
             .fontSize(12)
             .fontColor('#999999')

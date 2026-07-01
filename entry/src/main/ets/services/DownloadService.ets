@@ -2,6 +2,7 @@ import { common } from '@kit.AbilityKit';
 import { http } from '@kit.NetworkKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { getDbService } from './DatabaseService';
+import { Constants } from '../utils/Constants';
 
 export class DownloadService {
   private static instance: DownloadService
@@ -15,8 +16,17 @@ export class DownloadService {
     return DownloadService.instance
   }
 
+  private getExtension(url: string): string {
+    let lowerUrl = url.toLowerCase()
+    if (lowerUrl.endsWith('.png')) { return 'png' }
+    if (lowerUrl.endsWith('.jpg') || lowerUrl.endsWith('.jpeg')) { return 'jpg' }
+    if (lowerUrl.endsWith('.gif')) { return 'gif' }
+    return 'jpg'
+  }
+
   async downloadImage(url: string, illustId: number, pageIndex: number): Promise<boolean> {
     let taskId = illustId + '_' + pageIndex
+    let proxyUrl = Constants.applyProxy(url)
     let db = await getDbService()
     await db.addDownloadTask(taskId, illustId, pageIndex, url)
 
@@ -24,8 +34,9 @@ export class DownloadService {
       await db.updateDownloadStatus(taskId, 'downloading', 0, '')
       let httpClient = http.createHttp()
       let response = await new Promise<http.HttpResponse>((resolve, reject) => {
-        httpClient.request(url, {
+        httpClient.request(proxyUrl, {
           method: http.RequestMethod.GET,
+          expectDataType: http.HttpDataType.ARRAY_BUFFER,
           header: {
             'Referer': 'https://www.pixiv.net/'
           }
@@ -43,7 +54,7 @@ export class DownloadService {
         if (!fileIo.accessSync(cacheDir)) {
           fileIo.mkdirSync(cacheDir)
         }
-        let localPath = cacheDir + '/' + illustId + '_' + pageIndex + '.jpg'
+        let localPath = cacheDir + '/' + illustId + '_' + pageIndex + '.' + this.getExtension(url)
         let file = fileIo.openSync(localPath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE)
         fileIo.writeSync(file.fd, response.result)
         fileIo.closeSync(file)

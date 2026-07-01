@@ -2,6 +2,7 @@ import { common } from '@kit.AbilityKit';
 import { http } from '@kit.NetworkKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { getDbService } from './DatabaseService';
+import { Constants } from '../utils/Constants';
 
 export class ImageCacheService {
   private static instance: ImageCacheService
@@ -46,6 +47,14 @@ export class ImageCacheService {
     }
   }
 
+  private getExtension(url: string): string {
+    let lowerUrl = url.toLowerCase()
+    if (lowerUrl.endsWith('.png')) { return 'png' }
+    if (lowerUrl.endsWith('.jpg') || lowerUrl.endsWith('.jpeg')) { return 'jpg' }
+    if (lowerUrl.endsWith('.gif')) { return 'gif' }
+    return 'jpg'
+  }
+
   private getFileName(url: string): string {
     let hash = 0
     for (let i = 0; i < url.length; i++) {
@@ -53,11 +62,12 @@ export class ImageCacheService {
       hash = ((hash << 5) - hash) + char
       hash = hash & hash
     }
-    return Math.abs(hash).toString() + '.jpg'
+    return Math.abs(hash).toString() + '.' + this.getExtension(url)
   }
 
   async getLocalPath(url: string): Promise<string> {
     if (!url) { return '' }
+    let proxyUrl = Constants.applyProxy(url)
     let db = await getDbService()
     let cached = await db.getImageCache(url)
     if (cached && this.fileExists(cached)) {
@@ -67,8 +77,9 @@ export class ImageCacheService {
     try {
       let httpClient = http.createHttp()
       let response = await new Promise<http.HttpResponse>((resolve, reject) => {
-        httpClient.request(url, {
+        httpClient.request(proxyUrl, {
           method: http.RequestMethod.GET,
+          expectDataType: http.HttpDataType.ARRAY_BUFFER,
           header: {
             'Referer': 'https://www.pixiv.net/'
           }

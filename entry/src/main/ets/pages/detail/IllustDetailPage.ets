@@ -1,4 +1,4 @@
-import { router } from '@kit.ArkUI';
+import { router, promptAction } from '@kit.ArkUI';
 import { apiService } from '../../network/ApiService';
 import { downloadService } from '../../services/DownloadService';
 import { imageCacheService } from '../../services/ImageCacheService';
@@ -73,7 +73,12 @@ struct IllustDetailPage {
     let url = this.illust.pageCount > 1
       ? this.illust.metaPages[this.currentPageIndex].imageUrls.original
       : this.illust.imageUrls.original
-    await downloadService.downloadImage(url, this.illust.id, this.currentPageIndex)
+    let success = await downloadService.downloadImage(url, this.illust.id, this.currentPageIndex)
+    if (success) {
+      promptAction.showToast({ message: '下载成功' })
+    } else {
+      promptAction.showToast({ message: '下载失败' })
+    }
   }
 
   build() {

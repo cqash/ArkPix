@@ -29,6 +29,9 @@ export class Constants {
     if (url.startsWith('https://oauth.secure.pixiv.net')) {
       return url.replace('https://oauth.secure.pixiv.net', Constants.PROXY_HOST + '/oauth')
     }
+    if (url.startsWith('https://i.pximg.net')) {
+      return url.replace('https://i.pximg.net', Constants.PROXY_HOST + '/img')
+    }
     return url
   }
 }

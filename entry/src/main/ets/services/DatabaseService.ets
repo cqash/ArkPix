@@ -188,6 +188,10 @@ export class DatabaseService {
     return path
   }
 
+  async clearCompletedDownloadTasks(): Promise<void> {
+    await this.db.execute('DELETE FROM download_tasks WHERE status = ?', ['completed'])
+  }
+
   async clearImageCache(): Promise<void> {
     await this.db.execute('DELETE FROM image_cache')
   }

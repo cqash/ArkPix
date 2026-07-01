@@ -6,6 +6,7 @@
     "pages/login/WebViewLoginPage",
     "pages/login/TokenLoginPage",
     "pages/home/HomePage",
-    "pages/detail/IllustDetailPage"
+    "pages/detail/IllustDetailPage",
+    "pages/settings/DownloadPage"
   ]
 }
