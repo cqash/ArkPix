@@ -1,4 +1,3 @@
-import { http } from '@kit.NetworkKit';
 import { HttpClient } from './HttpClient';
 import { PixivEndpoints } from './PixivEndpoints';
 import { Constants } from '../utils/Constants';
@@ -33,9 +32,10 @@ export class OAuthService {
   }
 
   getAuthUrl(codeChallenge: string): string {
-    return PixivEndpoints.OAUTH_AUTH_URL +
+    let url = PixivEndpoints.OAUTH_AUTH_URL +
       '?code_challenge=' + codeChallenge +
       '&code_challenge_method=S256&client=pixiv-android'
+    return Constants.applyProxy(url)
   }
 
   async exchangeToken(code: string, codeVerifier: string): Promise<TokenResponse> {

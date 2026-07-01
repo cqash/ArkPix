@@ -12,9 +12,23 @@ export class Constants {
   static readonly ACCEPT_LANGUAGE: string = 'zh-CN'
   static readonly APP_VERSION: string = '5.0.234'
   static readonly OS_VERSION: string = 'Android 14'
+  static readonly PROXY_HOST: string = ''
 
   static readonly RANKING_MODES: string[] = [
     'day', 'week', 'month', 'day_male', 'day_female', 'week_original', 'week_rookie',
     'day_r18', 'day_male_r18', 'day_female_r18', 'week_r18', 'week_r18g'
   ]
+
+  static applyProxy(url: string): string {
+    if (Constants.PROXY_HOST.length === 0) {
+      return url
+    }
+    if (url.startsWith('https://app-api.pixiv.net')) {
+      return url.replace('https://app-api.pixiv.net', Constants.PROXY_HOST)
+    }
+    if (url.startsWith('https://oauth.secure.pixiv.net')) {
+      return url.replace('https://oauth.secure.pixiv.net', Constants.PROXY_HOST + '/oauth')
+    }
+    return url
+  }
 }

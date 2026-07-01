@@ -18,6 +18,19 @@ export class CryptoUtils {
     return output;
   }
 
+  static sha256(input: string): Uint8Array {
+    let md = cryptoFramework.createMd('SHA256');
+    let data = new Uint8Array(buffer.from(input, 'utf-8').buffer);
+    md.updateSync({ data: data });
+    let result = md.digestSync();
+    return result.data;
+  }
+
+  static base64urlEncode(input: Uint8Array): string {
+    let b64 = buffer.from(input).toString('base64');
+    return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  }
+
   static getIsoDate(): string {
     let now = new Date();
     let year = now.getUTCFullYear().toString();

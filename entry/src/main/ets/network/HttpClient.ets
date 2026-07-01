@@ -1,5 +1,6 @@
 import { http } from '@kit.NetworkKit';
 import { BusinessError } from '@kit.BasicServicesKit';
+import { Constants } from '../utils/Constants';
 
 export interface HttpRequestOptions {
   url: string
@@ -34,6 +35,7 @@ export class HttpClient {
   }
 
   async request(options: HttpRequestOptions): Promise<http.HttpResponse> {
+    options.url = Constants.applyProxy(options.url)
     return this.executeChain(options, 0)
   }
 
