@@ -2,7 +2,6 @@ import { router } from '@kit.ArkUI';
 import { webview } from '@kit.ArkWeb';
 import { oauthService } from '../../network/OAuthService';
 import { accountStore } from '../../stores/AccountStore';
-import { Constants } from '../../utils/Constants';
 import { CryptoUtils } from '../../utils/CryptoUtils';
 
 interface WebResourceRequest {
@@ -19,7 +18,6 @@ struct WebViewLoginPage {
   @State codeVerifier: string = ''
   @State codeChallenge: string = ''
   @State loginUrl: string = ''
-  @State isLoading: boolean = true
 
   aboutToAppear() {
     this.codeVerifier = this.generateCodeVerifier()
@@ -55,35 +53,9 @@ struct WebViewLoginPage {
 
   build() {
     Column() {
-      if (this.isLoading) {
-        Column() {
-          LoadingProgress()
-            .width(40)
-            .height(40)
-            .color('#0096FA')
-          Text('正在加载 Pixiv 登录页面...')
-            .fontSize(14)
-            .fontColor('#999999')
-            .margin({ top: 12 })
-          Text('如长时间未加载，请检查网络代理设置')
-            .fontSize(12)
-            .fontColor('#FF6600')
-            .margin({ top: 8 })
-        }
-        .width('100%')
-        .height('100%')
-        .justifyContent(FlexAlign.Center)
-      }
-
       Web({ src: this.loginUrl, controller: new webview.WebviewController() })
         .width('100%')
-        .height(this.isLoading ? 0 : '100%')
-        .onPageBegin(() => {
-          this.isLoading = false
-        })
-        .onPageEnd(() => {
-          this.isLoading = false
-        })
+        .height('100%')
         .onLoadIntercept((event: LoadInterceptEvent) => {
           let url: string = ''
           try {
