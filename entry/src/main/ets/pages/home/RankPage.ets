@@ -1,6 +1,8 @@
+import { router } from '@kit.ArkUI';
 import { apiService } from '../../network/ApiService';
 import { Illust } from '../../models/Illust';
 import { userSettingStore } from '../../stores/UserSettingStore';
+import { CachedImage } from '../../components/common/CachedImage';
 
 interface RankingResponse {
   illusts: Object[]
@@ -29,7 +31,7 @@ export struct RankPage {
       let response = await apiService.getRankingIllusts(this.selectedMode, this.selectedDate)
       let illusts = (response as RankingResponse).illusts
       if (illusts) {
-        this.illustList = illusts.map((item: Object) => new Illust(item as Partial<Illust>))
+        this.illustList = illusts.map((item: Object) => Illust.fromJson(item))
       }
     } catch (e) {
       console.error('Load ranking failed: ' + e)
@@ -41,11 +43,7 @@ export struct RankPage {
   @Builder
   IllustCard(item: Illust) {
     Column() {
-      Image(item.imageUrls.medium)
-        .width('100%')
-        .aspectRatio(1)
-        .objectFit(ImageFit.Cover)
-        .borderRadius(8)
+      CachedImage({ url: item.imageUrls.medium })
       Text(item.title)
         .fontSize(12)
         .fontColor('#333333')
@@ -60,6 +58,9 @@ export struct RankPage {
     }
     .width('100%')
     .padding(4)
+    .onClick(() => {
+      router.pushUrl({ url: 'pages/detail/IllustDetailPage', params: { illustId: item.id } })
+    })
   }
 
   build() {

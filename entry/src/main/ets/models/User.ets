@@ -5,6 +5,13 @@ export interface ImageUrlsOptions {
   original?: string
 }
 
+interface RawImageUrls {
+  square_medium: string
+  medium: string
+  large: string
+  original: string
+}
+
 export class ImageUrls {
   squareMedium: string = ''
   medium: string = ''
@@ -18,6 +25,17 @@ export class ImageUrls {
       this.large = options.large ?? ''
       this.original = options.original ?? ''
     }
+  }
+
+  static fromJson(json: RawImageUrls): ImageUrlsOptions {
+    let p = json
+    let opts: ImageUrlsOptions = {
+      squareMedium: p.square_medium,
+      medium: p.medium,
+      large: p.large,
+      original: p.original
+    }
+    return opts
   }
 }
 
@@ -33,6 +51,20 @@ export interface UserOptions {
   totalIllusts?: number
   totalManga?: number
   totalNovels?: number
+}
+
+interface RawUser {
+  id: number
+  name: string
+  account: string
+  profile_image_urls: RawImageUrls
+  comment: string
+  is_followed: boolean
+  is_friend: boolean
+  total_follow_users: number
+  total_illusts: number
+  total_manga: number
+  total_novels: number
 }
 
 export class User {
@@ -62,5 +94,23 @@ export class User {
       this.totalManga = options.totalManga ?? 0
       this.totalNovels = options.totalNovels ?? 0
     }
+  }
+
+  static fromJson(json: Object): User {
+    let p = json as RawUser
+    let opts: UserOptions = {
+      id: p.id,
+      name: p.name,
+      account: p.account,
+      profileImageUrls: ImageUrls.fromJson(p.profile_image_urls),
+      comment: p.comment,
+      isFollowed: p.is_followed,
+      isFriend: p.is_friend,
+      totalFollowUsers: p.total_follow_users,
+      totalIllusts: p.total_illusts,
+      totalManga: p.total_manga,
+      totalNovels: p.total_novels
+    }
+    return new User(opts)
   }
 }

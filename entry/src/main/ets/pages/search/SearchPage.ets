@@ -1,6 +1,8 @@
+import { router } from '@kit.ArkUI';
 import { apiService } from '../../network/ApiService';
 import { Illust } from '../../models/Illust';
 import { userSettingStore } from '../../stores/UserSettingStore';
+import { CachedImage } from '../../components/common/CachedImage';
 
 interface TrendingTagsResponse {
   trend_tags: string[]
@@ -47,7 +49,7 @@ export struct SearchPage {
       let response = await apiService.searchIllusts(this.searchKeyword)
       let illusts = (response as SearchResponse).illusts
       if (illusts) {
-        this.illustList = illusts.map((item: Object) => new Illust(item as Partial<Illust>))
+        this.illustList = illusts.map((item: Object) => Illust.fromJson(item))
       }
     } catch (e) {
       console.error('Search failed: ' + e)
@@ -59,11 +61,7 @@ export struct SearchPage {
   @Builder
   IllustCard(item: Illust) {
     Column() {
-      Image(item.imageUrls.medium)
-        .width('100%')
-        .aspectRatio(1)
-        .objectFit(ImageFit.Cover)
-        .borderRadius(8)
+      CachedImage({ url: item.imageUrls.medium })
       Text(item.title)
         .fontSize(12)
         .fontColor('#333333')
@@ -78,6 +76,9 @@ export struct SearchPage {
     }
     .width('100%')
     .padding(4)
+    .onClick(() => {
+      router.pushUrl({ url: 'pages/detail/IllustDetailPage', params: { illustId: item.id } })
+    })
   }
 
   build() {

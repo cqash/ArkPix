@@ -13,9 +13,7 @@ export class ImageCacheService {
       throw new Error('Context not found')
     }
     this.cacheDir = ctx.getApplicationContext().cacheDir + '/images'
-    if (!fileIo.accessSync(this.cacheDir)) {
-      fileIo.mkdirSync(this.cacheDir)
-    }
+    this.ensureCacheDir()
   }
 
   static getInstance(): ImageCacheService {
@@ -23,6 +21,29 @@ export class ImageCacheService {
       ImageCacheService.instance = new ImageCacheService()
     }
     return ImageCacheService.instance
+  }
+
+  private ensureCacheDir(): void {
+    try {
+      let exists = fileIo.accessSync(this.cacheDir)
+      if (!exists) {
+        fileIo.mkdirSync(this.cacheDir)
+      }
+    } catch (e) {
+      try {
+        fileIo.mkdirSync(this.cacheDir)
+      } catch (mkdirErr) {
+        console.error('Failed to create cache dir: ' + mkdirErr)
+      }
+    }
+  }
+
+  private fileExists(path: string): boolean {
+    try {
+      return fileIo.accessSync(path)
+    } catch (e) {
+      return false
+    }
   }
 
   private getFileName(url: string): string {
@@ -39,14 +60,19 @@ export class ImageCacheService {
     if (!url) { return '' }
     let db = await getDbService()
     let cached = await db.getImageCache(url)
-    if (cached && fileIo.accessSync(cached)) {
+    if (cached && this.fileExists(cached)) {
       return cached
     }
     let localPath = this.cacheDir + '/' + this.getFileName(url)
     try {
       let httpClient = http.createHttp()
       let response = await new Promise<http.HttpResponse>((resolve, reject) => {
-        httpClient.request(url, { method: http.RequestMethod.GET }, (err, data) => {
+        httpClient.request(url, {
+          method: http.RequestMethod.GET,
+          header: {
+            'Referer': 'https://www.pixiv.net/'
+          }
+        }, (err, data) => {
           if (err) { reject(err) } else { resolve(data) }
         })
       })
@@ -66,9 +92,13 @@ export class ImageCacheService {
   async clearCache(): Promise<void> {
     let db = await getDbService()
     await db.clearImageCache()
-    let files = fileIo.listFileSync(this.cacheDir)
-    for (let file of files) {
-      fileIo.unlinkSync(this.cacheDir + '/' + file)
+    try {
+      let files = fileIo.listFileSync(this.cacheDir)
+      for (let file of files) {
+        fileIo.unlinkSync(this.cacheDir + '/' + file)
+      }
+    } catch (e) {
+      console.error('Clear cache failed: ' + e)
     }
   }
 }

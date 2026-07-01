@@ -5,6 +5,13 @@ export interface ImageUrlsOptions {
   original?: string
 }
 
+interface RawImageUrls {
+  square_medium: string
+  medium: string
+  large: string
+  original: string
+}
+
 export class ImageUrls {
   squareMedium: string = ''
   medium: string = ''
@@ -19,10 +26,25 @@ export class ImageUrls {
       this.original = options.original ?? ''
     }
   }
+
+  static fromJson(json: RawImageUrls): ImageUrlsOptions {
+    let p = json
+    let opts: ImageUrlsOptions = {
+      squareMedium: p.square_medium,
+      medium: p.medium,
+      large: p.large,
+      original: p.original
+    }
+    return opts
+  }
 }
 
 export interface MetaPageOptions {
   imageUrls?: ImageUrlsOptions
+}
+
+interface RawMetaPage {
+  image_urls: RawImageUrls
 }
 
 export class MetaPage {
@@ -33,11 +55,24 @@ export class MetaPage {
       this.imageUrls = new ImageUrls(options.imageUrls)
     }
   }
+
+  static fromJson(json: RawMetaPage): MetaPageOptions {
+    let p = json
+    let opts: MetaPageOptions = {
+      imageUrls: ImageUrls.fromJson(p.image_urls)
+    }
+    return opts
+  }
 }
 
 export interface TagOptions {
   name?: string
   translatedName?: string
+}
+
+interface RawTag {
+  name: string
+  translated_name: string
 }
 
 export class Tag {
@@ -50,6 +85,15 @@ export class Tag {
       this.translatedName = options.translatedName ?? ''
     }
   }
+
+  static fromJson(json: RawTag): TagOptions {
+    let p = json
+    let opts: TagOptions = {
+      name: p.name,
+      translatedName: p.translated_name
+    }
+    return opts
+  }
 }
 
 export interface UserPreviewOptions {
@@ -57,6 +101,13 @@ export interface UserPreviewOptions {
   name?: string
   account?: string
   profileImageUrls?: ImageUrlsOptions
+}
+
+interface RawUserPreview {
+  id: number
+  name: string
+  account: string
+  profile_image_urls: RawImageUrls
 }
 
 export class UserPreview {
@@ -72,6 +123,17 @@ export class UserPreview {
       this.account = options.account ?? ''
       this.profileImageUrls = new ImageUrls(options.profileImageUrls)
     }
+  }
+
+  static fromJson(json: RawUserPreview): UserPreviewOptions {
+    let p = json
+    let opts: UserPreviewOptions = {
+      id: p.id,
+      name: p.name,
+      account: p.account,
+      profileImageUrls: ImageUrls.fromJson(p.profile_image_urls)
+    }
+    return opts
   }
 }
 
@@ -95,6 +157,28 @@ export interface IllustOptions {
   restrict?: string
   xRestrict?: number
   illustAIType?: number
+}
+
+interface RawIllust {
+  id: number
+  title: string
+  type: string
+  image_urls: RawImageUrls
+  meta_pages: RawMetaPage[]
+  user: RawUserPreview
+  tags: RawTag[]
+  tools: string[]
+  create_date: string
+  page_count: number
+  width: number
+  height: number
+  total_view: number
+  total_bookmarks: number
+  is_bookmarked: boolean
+  is_muted: boolean
+  restrict: string
+  x_restrict: number
+  illust_ai_type: number
 }
 
 export class Illust {
@@ -140,6 +224,32 @@ export class Illust {
       this.xRestrict = options.xRestrict ?? 0
       this.illustAIType = options.illustAIType ?? 0
     }
+  }
+
+  static fromJson(json: Object): Illust {
+    let p = json as RawIllust
+    let opts: IllustOptions = {
+      id: p.id,
+      title: p.title,
+      type: p.type,
+      imageUrls: ImageUrls.fromJson(p.image_urls),
+      metaPages: p.meta_pages ? p.meta_pages.map((mp: RawMetaPage) => MetaPage.fromJson(mp)) : [],
+      user: UserPreview.fromJson(p.user),
+      tags: p.tags ? p.tags.map((t: RawTag) => Tag.fromJson(t)) : [],
+      tools: p.tools ? p.tools : [],
+      createDate: p.create_date,
+      pageCount: p.page_count,
+      width: p.width,
+      height: p.height,
+      totalView: p.total_view,
+      totalBookmarks: p.total_bookmarks,
+      isBookmarked: p.is_bookmarked,
+      isMuted: p.is_muted,
+      restrict: p.restrict,
+      xRestrict: p.x_restrict,
+      illustAIType: p.illust_ai_type
+    }
+    return new Illust(opts)
   }
 
   get detailUrl(): string {

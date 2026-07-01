@@ -24,7 +24,12 @@ export class DownloadService {
       await db.updateDownloadStatus(taskId, 'downloading', 0, '')
       let httpClient = http.createHttp()
       let response = await new Promise<http.HttpResponse>((resolve, reject) => {
-        httpClient.request(url, { method: http.RequestMethod.GET }, (err, data) => {
+        httpClient.request(url, {
+          method: http.RequestMethod.GET,
+          header: {
+            'Referer': 'https://www.pixiv.net/'
+          }
+        }, (err, data) => {
           if (err) { reject(err) } else { resolve(data) }
         })
       })

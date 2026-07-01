@@ -1,6 +1,7 @@
 import { router } from '@kit.ArkUI';
 import { apiService } from '../../network/ApiService';
 import { downloadService } from '../../services/DownloadService';
+import { imageCacheService } from '../../services/ImageCacheService';
 import { Illust, Tag } from '../../models/Illust';
 
 interface RouteParams {
@@ -18,6 +19,8 @@ struct IllustDetailPage {
   @State isLoading: boolean = false
   @State currentPageIndex: number = 0
   @State isBookmarked: boolean = false
+  @State mainImagePath: string = ''
+  @State userAvatarPath: string = ''
 
   aboutToAppear() {
     let params = router.getParams() as RouteParams
@@ -32,14 +35,25 @@ struct IllustDetailPage {
       let response = await apiService.getIllustDetail(id)
       let illust = (response as IllustDetailResponse).illust
       if (illust) {
-        this.illust = new Illust(illust as Partial<Illust>)
+        this.illust = Illust.fromJson(illust)
         this.isBookmarked = this.illust.isBookmarked
+        this.loadImages()
       }
     } catch (e) {
       console.error('Load detail failed: ' + e)
     } finally {
       this.isLoading = false
     }
+  }
+
+  async loadImages() {
+    let url = this.illust.pageCount > 1
+      ? this.illust.metaPages[this.currentPageIndex].imageUrls.large
+      : this.illust.imageUrls.large
+    this.mainImagePath = await imageCacheService.getLocalPath(url)
+
+    let avatarUrl = this.illust.user.profileImageUrls.medium
+    this.userAvatarPath = await imageCacheService.getLocalPath(avatarUrl)
   }
 
   async toggleBookmark() {
@@ -72,12 +86,6 @@ struct IllustDetailPage {
       } else {
         Scroll() {
           Column() {
-            Image(this.illust.pageCount > 1
-              ? this.illust.metaPages[this.currentPageIndex].imageUrls.large
-              : this.illust.imageUrls.large)
-              .width('100%')
-              .objectFit(ImageFit.Contain)
-
             if (this.illust.pageCount > 1) {
               Row() {
                 Text('第 ' + (this.currentPageIndex + 1) + ' / ' + this.illust.pageCount + ' 页')
@@ -87,6 +95,23 @@ struct IllustDetailPage {
               .width('100%')
               .justifyContent(FlexAlign.Center)
               .padding({ top: 8, bottom: 8 })
+            }
+
+            if (this.mainImagePath) {
+              Image('file://' + this.mainImagePath)
+                .width('100%')
+                .objectFit(ImageFit.Contain)
+            } else {
+              Column() {
+                LoadingProgress()
+                  .width(24)
+                  .height(24)
+                  .color('#0096FA')
+              }
+              .width('100%')
+              .height(200)
+              .justifyContent(FlexAlign.Center)
+              .backgroundColor('#F5F5F5')
             }
 
             Row() {
@@ -100,10 +125,18 @@ struct IllustDetailPage {
             .padding({ left: 16, right: 16, top: 8 })
 
             Row() {
-              Image(this.illust.user.profileImageUrls.medium)
-                .width(32)
-                .height(32)
-                .borderRadius(16)
+              if (this.userAvatarPath) {
+                Image('file://' + this.userAvatarPath)
+                  .width(32)
+                  .height(32)
+                  .borderRadius(16)
+              } else {
+                Column()
+                  .width(32)
+                  .height(32)
+                  .borderRadius(16)
+                  .backgroundColor('#F5F5F5')
+              }
               Text(this.illust.user.name)
                 .fontSize(14)
                 .fontColor('#333333')

@@ -2,6 +2,8 @@ import { router } from '@kit.ArkUI';
 import { apiService } from '../../network/ApiService';
 import { Illust } from '../../models/Illust';
 import { User } from '../../models/User';
+import { imageCacheService } from '../../services/ImageCacheService';
+import { CachedImage } from '../../components/common/CachedImage';
 
 interface UserRouteParams {
   userId: number
@@ -20,6 +22,7 @@ export struct UserProfilePage {
   @State user: User = new User()
   @State works: Illust[] = []
   @State isLoading: boolean = false
+  @State avatarPath: string = ''
 
   aboutToAppear() {
     let params = router.getParams() as UserRouteParams
@@ -35,7 +38,8 @@ export struct UserProfilePage {
       let response = await apiService.getUserDetail(id)
       let user = (response as UserDetailResponse).user
       if (user) {
-        this.user = new User(user as Partial<User>)
+        this.user = User.fromJson(user)
+        this.loadAvatar()
       }
     } catch (e) {
       console.error('Load profile failed: ' + e)
@@ -44,12 +48,19 @@ export struct UserProfilePage {
     }
   }
 
+  async loadAvatar() {
+    let url = this.user.profileImageUrls.medium
+    if (url) {
+      this.avatarPath = await imageCacheService.getLocalPath(url)
+    }
+  }
+
   async loadWorks(id: number) {
     try {
       let response = await apiService.getUserIllusts(id)
       let illusts = (response as UserIllustsResponse).illusts
       if (illusts) {
-        this.works = illusts.map((item: Object) => new Illust(item as Partial<Illust>))
+        this.works = illusts.map((item: Object) => Illust.fromJson(item))
       }
     } catch (e) {
       console.error('Load works failed: ' + e)
@@ -78,10 +89,18 @@ export struct UserProfilePage {
           .color('#0096FA')
       } else {
         Column() {
-          Image(this.user.profileImageUrls.medium)
-            .width(80)
-            .height(80)
-            .borderRadius(40)
+          if (this.avatarPath) {
+            Image('file://' + this.avatarPath)
+              .width(80)
+              .height(80)
+              .borderRadius(40)
+          } else {
+            Column()
+              .width(80)
+              .height(80)
+              .borderRadius(40)
+              .backgroundColor('#F5F5F5')
+          }
           Text(this.user.name)
             .fontSize(20)
             .fontWeight(FontWeight.Bold)
@@ -118,14 +137,13 @@ export struct UserProfilePage {
           ForEach(this.works, (item: Illust) => {
             ListItem() {
               Column() {
-                Image(item.imageUrls.medium)
-                  .width('100%')
-                  .aspectRatio(1)
-                  .objectFit(ImageFit.Cover)
-                  .borderRadius(8)
+                CachedImage({ url: item.imageUrls.medium })
               }
               .width('100%')
               .padding(4)
+              .onClick(() => {
+                router.pushUrl({ url: 'pages/detail/IllustDetailPage', params: { illustId: item.id } })
+              })
             }
           }, (item: Illust) => item.id.toString())
         }
