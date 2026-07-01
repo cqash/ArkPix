@@ -1,18 +1,21 @@
+import { router } from '@kit.ArkUI';
+import { accountStore } from '../../stores/AccountStore';
 import { AppSettings } from '../../models/AppSettings'
 import { imageCacheService } from '../../services/ImageCacheService';
 import { userSettingStore } from '../../stores/UserSettingStore';
 
 @Component
-export struct SettingsPage {
-  @State settings: AppSettings = userSettingStore.getSettings()
+struct SettingItem {
+  @Prop title: string = ''
+  @Prop value: string = ''
+  onItemClick: (() => void) | null = null
 
-  @Builder
-  SettingItem(title: string, value: string, onClick: () => void) {
+  build() {
     Row() {
-      Text(title)
+      Text(this.title)
         .fontSize(14)
         .fontColor('#333333')
-      Text(value)
+      Text(this.value)
         .fontSize(14)
         .fontColor('#999999')
     }
@@ -21,8 +24,17 @@ export struct SettingsPage {
     .justifyContent(FlexAlign.SpaceBetween)
     .padding({ left: 16, right: 16 })
     .backgroundColor('#FFFFFF')
-    .onClick(onClick)
+    .onClick(() => {
+      if (this.onItemClick) {
+        this.onItemClick()
+      }
+    })
   }
+}
+
+@Component
+export struct SettingsPage {
+  @State settings: AppSettings = userSettingStore.getSettings()
 
   build() {
     List() {
@@ -33,19 +45,29 @@ export struct SettingsPage {
             .fontColor('#999999')
             .width('100%')
             .padding({ left: 16, bottom: 4 })
-          this.SettingItem('插画质量', this.settings.pictureQuality === 0 ? '中' : this.settings.pictureQuality === 1 ? '大' : '原图', () => {
-            let next = (this.settings.pictureQuality + 1) % 3
-            userSettingStore.setPictureQuality(next)
-            this.settings = userSettingStore.getSettings()
+          SettingItem({
+            title: '插画质量',
+            value: this.settings.pictureQuality === 0 ? '中' : this.settings.pictureQuality === 1 ? '大' : '原图',
+            onItemClick: () => {
+              let next = (this.settings.pictureQuality + 1) % 3
+              userSettingStore.setPictureQuality(next)
+              this.settings = userSettingStore.getSettings()
+            }
           })
-          this.SettingItem('漫画质量', this.settings.mangaQuality === 0 ? '中' : this.settings.mangaQuality === 1 ? '大' : '原图', () => {
-            let next = (this.settings.mangaQuality + 1) % 3
-            userSettingStore.setMangaQuality(next)
-            this.settings = userSettingStore.getSettings()
+          SettingItem({
+            title: '漫画质量',
+            value: this.settings.mangaQuality === 0 ? '中' : this.settings.mangaQuality === 1 ? '大' : '原图',
+            onItemClick: () => {
+              let next = (this.settings.mangaQuality + 1) % 3
+              userSettingStore.setMangaQuality(next)
+              this.settings = userSettingStore.getSettings()
+            }
           })
         }
+        .width('100%')
         .padding({ top: 8, bottom: 8 })
       }
+      .width('100%')
 
       ListItem() {
         Column() {
@@ -54,20 +76,30 @@ export struct SettingsPage {
             .fontColor('#999999')
             .width('100%')
             .padding({ left: 16, bottom: 4 })
-          this.SettingItem('主题', this.settings.theme === 'light' ? '浅色' : this.settings.theme === 'dark' ? '深色' : '跟随系统', () => {
-            let modes = ['light', 'dark', 'system']
-            let next = modes[(modes.indexOf(this.settings.theme) + 1) % modes.length]
-            userSettingStore.setTheme(next)
-            this.settings = userSettingStore.getSettings()
+          SettingItem({
+            title: '主题',
+            value: this.settings.theme === 'light' ? '浅色' : this.settings.theme === 'dark' ? '深色' : '跟随系统',
+            onItemClick: () => {
+              let modes = ['light', 'dark', 'system']
+              let next = modes[(modes.indexOf(this.settings.theme) + 1) % modes.length]
+              userSettingStore.setTheme(next)
+              this.settings = userSettingStore.getSettings()
+            }
           })
-          this.SettingItem('网格列数', this.settings.crossCount.toString(), () => {
-            let next = this.settings.crossCount === 2 ? 3 : 2
-            userSettingStore.setCrossCount(next)
-            this.settings = userSettingStore.getSettings()
+          SettingItem({
+            title: '网格列数',
+            value: this.settings.crossCount.toString(),
+            onItemClick: () => {
+              let next = this.settings.crossCount === 2 ? 3 : 2
+              userSettingStore.setCrossCount(next)
+              this.settings = userSettingStore.getSettings()
+            }
           })
         }
+        .width('100%')
         .padding({ top: 8, bottom: 8 })
       }
+      .width('100%')
 
       ListItem() {
         Column() {
@@ -76,14 +108,20 @@ export struct SettingsPage {
             .fontColor('#999999')
             .width('100%')
             .padding({ left: 16, bottom: 4 })
-          this.SettingItem('网络模式', this.settings.networkMode === 'direct' ? '直连' : '代理', () => {
-            let next = this.settings.networkMode === 'direct' ? 'proxy' : 'direct'
-            userSettingStore.setNetworkMode(next)
-            this.settings = userSettingStore.getSettings()
+          SettingItem({
+            title: '网络模式',
+            value: this.settings.networkMode === 'direct' ? '直连' : '代理',
+            onItemClick: () => {
+              let next = this.settings.networkMode === 'direct' ? 'proxy' : 'direct'
+              userSettingStore.setNetworkMode(next)
+              this.settings = userSettingStore.getSettings()
+            }
           })
         }
+        .width('100%')
         .padding({ top: 8, bottom: 8 })
       }
+      .width('100%')
 
       ListItem() {
         Column() {
@@ -92,12 +130,18 @@ export struct SettingsPage {
             .fontColor('#999999')
             .width('100%')
             .padding({ left: 16, bottom: 4 })
-          this.SettingItem('清理图片缓存', '', () => {
-            imageCacheService.clearCache()
+          SettingItem({
+            title: '清理图片缓存',
+            value: '',
+            onItemClick: () => {
+              imageCacheService.clearCache()
+            }
           })
         }
+        .width('100%')
         .padding({ top: 8, bottom: 8 })
       }
+      .width('100%')
 
       ListItem() {
         Column() {
@@ -116,11 +160,14 @@ export struct SettingsPage {
           .padding({ left: 16, right: 16 })
           .backgroundColor('#FFFFFF')
           .onClick(() => {
-            // TODO: logout
+            accountStore.logout()
+            router.replaceUrl({ url: 'pages/login/LoginPage' })
           })
         }
+        .width('100%')
         .padding({ top: 8, bottom: 8 })
       }
+      .width('100%')
     }
     .width('100%')
     .height('100%')

@@ -46,11 +46,25 @@ export class UserSettingStore {
     preferenceService.setObject('mute_users', this.settings.muteUsers)
     preferenceService.setBoolean('ai_filter', this.settings.aiFilter)
     preferenceService.setString('save_format', this.settings.saveFormat)
-    AppStorage.setOrCreate('appSettings', this.settings)
+    let newSettings: AppSettings = this.getSettings()
+    this.settings = newSettings
+    AppStorage.setOrCreate('appSettings', newSettings)
   }
 
   getSettings(): AppSettings {
-    return this.settings
+    return new AppSettings({
+      pictureQuality: this.settings.pictureQuality,
+      mangaQuality: this.settings.mangaQuality,
+      theme: this.settings.theme,
+      language: this.settings.language,
+      networkMode: this.settings.networkMode,
+      crossCount: this.settings.crossCount,
+      isTopMode: this.settings.isTopMode,
+      muteTags: this.settings.muteTags.slice(),
+      muteUsers: this.settings.muteUsers.slice(),
+      aiFilter: this.settings.aiFilter,
+      saveFormat: this.settings.saveFormat
+    })
   }
 
   setPictureQuality(value: number): void {
