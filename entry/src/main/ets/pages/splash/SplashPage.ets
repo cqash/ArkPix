@@ -1,4 +1,5 @@
 import { router } from '@kit.ArkUI';
+import { accountStore } from '../../stores/AccountStore';
 
 @Entry
 @Component
@@ -8,8 +9,7 @@ struct SplashPage {
   aboutToAppear() {
     setTimeout(() => {
       this.isReady = true
-      let isLoggedIn = AppStorage.get('isLoggedIn') as boolean
-      if (isLoggedIn) {
+      if (accountStore.getIsLoggedIn()) {
         router.replaceUrl({ url: 'pages/home/HomePage' })
       } else {
         router.replaceUrl({ url: 'pages/login/LoginPage' })

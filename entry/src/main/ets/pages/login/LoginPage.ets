@@ -10,7 +10,7 @@ interface WebResourceRequest {
 }
 
 interface LoadInterceptEvent {
-  data: WebResourceRequest | string
+  data: WebResourceRequest
 }
 
 @Entry
@@ -53,15 +53,18 @@ struct LoginPage {
         .width('100%')
         .height('100%')
         .onLoadIntercept((event: LoadInterceptEvent) => {
-          if (event && event.data && typeof event.data !== 'string') {
-            let url = event.data.getRequestUrl()
-            if (url && url.includes('pixiv://')) {
-              let code = this.extractCode(url)
-              if (code) {
-                this.doLogin(code)
-              }
-              return true
+          let url: string = ''
+          try {
+            url = event.data.getRequestUrl()
+          } catch (e) {
+            console.error('getRequestUrl failed: ' + e)
+          }
+          if (url && url.includes('pixiv://')) {
+            let code = this.extractCode(url)
+            if (code) {
+              this.doLogin(code)
             }
+            return true
           }
           return false
         })
