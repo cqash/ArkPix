@@ -2,7 +2,18 @@ import { router, promptAction } from '@kit.ArkUI';
 import { apiService } from '../../network/ApiService';
 import { downloadService } from '../../services/DownloadService';
 import { imageCacheService } from '../../services/ImageCacheService';
-import { Illust, Tag } from '../../models/Illust';
+import { Illust, ImageUrls, Tag } from '../../models/Illust';
+import { userSettingStore } from '../../stores/UserSettingStore';
+
+function pickUrlByQuality(urls: ImageUrls, quality: number): string {
+  if (quality === 0) {
+    return urls.medium || urls.large || urls.original
+  }
+  if (quality === 1) {
+    return urls.large || urls.original || urls.medium
+  }
+  return urls.original || urls.large || urls.medium
+}
 
 interface RouteParams {
   illustId: number
@@ -47,13 +58,25 @@ struct IllustDetailPage {
   }
 
   async loadImages() {
+    let quality = userSettingStore.getSettings().pictureQuality
     let url = this.illust.pageCount > 1
-      ? this.illust.metaPages[this.currentPageIndex].imageUrls.large
-      : this.illust.imageUrls.large
+      ? pickUrlByQuality(this.illust.metaPages[this.currentPageIndex].imageUrls, quality)
+      : pickUrlByQuality(this.illust.imageUrls, quality)
     this.mainImagePath = await imageCacheService.getLocalPath(url)
 
     let avatarUrl = this.illust.user.profileImageUrls.medium
     this.userAvatarPath = await imageCacheService.getLocalPath(avatarUrl)
+  }
+
+  openImageViewer() {
+    let quality = userSettingStore.getSettings().pictureQuality
+    let url = this.illust.pageCount > 1
+      ? pickUrlByQuality(this.illust.metaPages[this.currentPageIndex].imageUrls, quality)
+      : pickUrlByQuality(this.illust.imageUrls, quality)
+    router.pushUrl({
+      url: 'pages/detail/ImageViewerPage',
+      params: { imageUrl: url, illustId: this.illust.id, pageIndex: this.currentPageIndex }
+    })
   }
 
   prevPage() {
@@ -155,6 +178,9 @@ struct IllustDetailPage {
                       }
                     })
                 )
+                .onClick(() => {
+                  this.openImageViewer()
+                })
             } else {
               Column() {
                 LoadingProgress()
