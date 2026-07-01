@@ -1,0 +1,24 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "module description"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "description"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "label"
+    },
+    {
+      "name": "permission_read_media_reason",
+      "value": "Read images from device storage"
+    },
+    {
+      "name": "permission_write_media_reason",
+      "value": "Save images to device storage"
+    }
+  ]
+}

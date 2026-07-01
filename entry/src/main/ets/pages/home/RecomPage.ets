@@ -1,0 +1,105 @@
+import { apiService } from '../../network/ApiService';
+import { Illust } from '../../models/Illust';
+import { userSettingStore } from '../../stores/UserSettingStore';
+import { imageCacheService } from '../../services/ImageCacheService';
+
+interface RecommendedResponse {
+  illusts: Object[]
+  next_url: string
+}
+
+@Component
+export struct RecomPage {
+  @State illustList: Illust[] = []
+  @State isLoading: boolean = false
+  @State isRefreshing: boolean = false
+  @State hasMore: boolean = true
+  private nextUrl: string = ''
+
+  aboutToAppear() {
+    this.loadData()
+  }
+
+  async loadData() {
+    if (this.isLoading) { return }
+    this.isLoading = true
+    try {
+      let response = await apiService.getRecommendedIllusts()
+      let illusts = (response as RecommendedResponse).illusts
+      if (illusts) {
+        this.illustList = illusts.map((item: Object) => new Illust(item as Partial<Illust>))
+      }
+      this.nextUrl = (response as RecommendedResponse).next_url || ''
+      this.hasMore = this.nextUrl.length > 0
+    } catch (e) {
+      console.error('Load recommend failed: ' + e)
+    } finally {
+      this.isLoading = false
+    }
+  }
+
+  async onRefresh() {
+    this.isRefreshing = true
+    await this.loadData()
+    this.isRefreshing = false
+  }
+
+  async onLoadMore() {
+    if (!this.hasMore || this.isLoading) { return }
+    this.isLoading = true
+    try {
+      // TODO: follow next_url for pagination
+    } catch (e) {
+      console.error('Load more failed: ' + e)
+    } finally {
+      this.isLoading = false
+    }
+  }
+
+  @Builder
+  IllustCard(item: Illust) {
+    Column() {
+      Image(item.imageUrls.medium)
+        .width('100%')
+        .aspectRatio(1)
+        .objectFit(ImageFit.Cover)
+        .borderRadius(8)
+      Text(item.title)
+        .fontSize(12)
+        .fontColor('#333333')
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .margin({ top: 4 })
+      Text(item.user.name)
+        .fontSize(10)
+        .fontColor('#999999')
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .width('100%')
+    .padding(4)
+  }
+
+  build() {
+    Refresh({ refreshing: $$this.isRefreshing, offset: 64, friction: 100 }) {
+      List({ space: 8 }) {
+        ForEach(this.illustList, (item: Illust) => {
+          ListItem() {
+            this.IllustCard(item)
+          }
+        }, (item: Illust) => item.id.toString())
+      }
+      .lanes(userSettingStore.getSettings().crossCount)
+      .padding(8)
+      .layoutWeight(1)
+      .onReachEnd(() => {
+        this.onLoadMore()
+      })
+    }
+    .onRefreshing(() => {
+      this.onRefresh()
+    })
+    .width('100%')
+    .height('100%')
+  }
+}
