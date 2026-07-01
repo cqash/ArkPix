@@ -30,10 +30,10 @@ export class ImageUrls {
   static fromJson(json: RawImageUrls): ImageUrlsOptions {
     let p = json
     let opts: ImageUrlsOptions = {
-      squareMedium: p.square_medium,
-      medium: p.medium,
-      large: p.large,
-      original: p.original
+      squareMedium: p?.square_medium ?? '',
+      medium: p?.medium ?? '',
+      large: p?.large ?? '',
+      original: p?.original ?? ''
     }
     return opts
   }
@@ -99,17 +99,17 @@ export class User {
   static fromJson(json: Object): User {
     let p = json as RawUser
     let opts: UserOptions = {
-      id: p.id,
-      name: p.name,
-      account: p.account,
-      profileImageUrls: ImageUrls.fromJson(p.profile_image_urls),
-      comment: p.comment,
-      isFollowed: p.is_followed,
-      isFriend: p.is_friend,
-      totalFollowUsers: p.total_follow_users,
-      totalIllusts: p.total_illusts,
-      totalManga: p.total_manga,
-      totalNovels: p.total_novels
+      id: p?.id ?? 0,
+      name: p?.name ?? '',
+      account: p?.account ?? '',
+      profileImageUrls: p?.profile_image_urls ? ImageUrls.fromJson(p.profile_image_urls) : undefined,
+      comment: p?.comment ?? '',
+      isFollowed: p?.is_followed ?? false,
+      isFriend: p?.is_friend ?? false,
+      totalFollowUsers: p?.total_follow_users ?? 0,
+      totalIllusts: p?.total_illusts ?? 0,
+      totalManga: p?.total_manga ?? 0,
+      totalNovels: p?.total_novels ?? 0
     }
     return new User(opts)
   }

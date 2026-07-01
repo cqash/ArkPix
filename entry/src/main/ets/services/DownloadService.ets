@@ -28,7 +28,8 @@ export class DownloadService {
           method: http.RequestMethod.GET,
           header: {
             'Referer': 'https://www.pixiv.net/'
-          }
+          },
+          expectDataType: http.HttpDataType.ARRAY_BUFFER
         }, (err, data) => {
           if (err) { reject(err) } else { resolve(data) }
         })

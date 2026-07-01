@@ -30,10 +30,10 @@ export class ImageUrls {
   static fromJson(json: RawImageUrls): ImageUrlsOptions {
     let p = json
     let opts: ImageUrlsOptions = {
-      squareMedium: p.square_medium,
-      medium: p.medium,
-      large: p.large,
-      original: p.original
+      squareMedium: p?.square_medium ?? '',
+      medium: p?.medium ?? '',
+      large: p?.large ?? '',
+      original: p?.original ?? ''
     }
     return opts
   }
@@ -59,7 +59,7 @@ export class MetaPage {
   static fromJson(json: RawMetaPage): MetaPageOptions {
     let p = json
     let opts: MetaPageOptions = {
-      imageUrls: ImageUrls.fromJson(p.image_urls)
+      imageUrls: p?.image_urls ? ImageUrls.fromJson(p.image_urls) : undefined
     }
     return opts
   }
@@ -89,8 +89,8 @@ export class Tag {
   static fromJson(json: RawTag): TagOptions {
     let p = json
     let opts: TagOptions = {
-      name: p.name,
-      translatedName: p.translated_name
+      name: p?.name ?? '',
+      translatedName: p?.translated_name ?? ''
     }
     return opts
   }
@@ -128,10 +128,10 @@ export class UserPreview {
   static fromJson(json: RawUserPreview): UserPreviewOptions {
     let p = json
     let opts: UserPreviewOptions = {
-      id: p.id,
-      name: p.name,
-      account: p.account,
-      profileImageUrls: ImageUrls.fromJson(p.profile_image_urls)
+      id: p?.id ?? 0,
+      name: p?.name ?? '',
+      account: p?.account ?? '',
+      profileImageUrls: p?.profile_image_urls ? ImageUrls.fromJson(p.profile_image_urls) : undefined
     }
     return opts
   }
@@ -229,25 +229,25 @@ export class Illust {
   static fromJson(json: Object): Illust {
     let p = json as RawIllust
     let opts: IllustOptions = {
-      id: p.id,
-      title: p.title,
-      type: p.type,
-      imageUrls: ImageUrls.fromJson(p.image_urls),
-      metaPages: p.meta_pages ? p.meta_pages.map((mp: RawMetaPage) => MetaPage.fromJson(mp)) : [],
-      user: UserPreview.fromJson(p.user),
-      tags: p.tags ? p.tags.map((t: RawTag) => Tag.fromJson(t)) : [],
-      tools: p.tools ? p.tools : [],
-      createDate: p.create_date,
-      pageCount: p.page_count,
-      width: p.width,
-      height: p.height,
-      totalView: p.total_view,
-      totalBookmarks: p.total_bookmarks,
-      isBookmarked: p.is_bookmarked,
-      isMuted: p.is_muted,
-      restrict: p.restrict,
-      xRestrict: p.x_restrict,
-      illustAIType: p.illust_ai_type
+      id: p?.id ?? 0,
+      title: p?.title ?? '',
+      type: p?.type ?? '',
+      imageUrls: p?.image_urls ? ImageUrls.fromJson(p.image_urls) : undefined,
+      metaPages: p?.meta_pages ? p.meta_pages.map((mp: RawMetaPage) => MetaPage.fromJson(mp)) : [],
+      user: p?.user ? UserPreview.fromJson(p.user) : undefined,
+      tags: p?.tags ? p.tags.map((t: RawTag) => Tag.fromJson(t)) : [],
+      tools: p?.tools ?? [],
+      createDate: p?.create_date ?? '',
+      pageCount: p?.page_count ?? 1,
+      width: p?.width ?? 0,
+      height: p?.height ?? 0,
+      totalView: p?.total_view ?? 0,
+      totalBookmarks: p?.total_bookmarks ?? 0,
+      isBookmarked: p?.is_bookmarked ?? false,
+      isMuted: p?.is_muted ?? false,
+      restrict: p?.restrict ?? '',
+      xRestrict: p?.x_restrict ?? 0,
+      illustAIType: p?.illust_ai_type ?? 0
     }
     return new Illust(opts)
   }
