@@ -56,6 +56,27 @@ struct IllustDetailPage {
     this.userAvatarPath = await imageCacheService.getLocalPath(avatarUrl)
   }
 
+  prevPage() {
+    if (this.currentPageIndex > 0) {
+      this.currentPageIndex--
+      this.loadImages()
+    }
+  }
+
+  nextPage() {
+    if (this.currentPageIndex < this.illust.pageCount - 1) {
+      this.currentPageIndex++
+      this.loadImages()
+    }
+  }
+
+  goToPage(index: number) {
+    if (index >= 0 && index < this.illust.pageCount && index !== this.currentPageIndex) {
+      this.currentPageIndex = index
+      this.loadImages()
+    }
+  }
+
   async toggleBookmark() {
     try {
       if (this.isBookmarked) {
@@ -100,12 +121,40 @@ struct IllustDetailPage {
               .width('100%')
               .justifyContent(FlexAlign.Center)
               .padding({ top: 8, bottom: 8 })
+
+              Row() {
+                Button('上一页')
+                  .fontSize(12)
+                  .width('40%')
+                  .backgroundColor('#0096FA')
+                  .enabled(this.currentPageIndex > 0)
+                  .onClick(() => { this.prevPage() })
+                Button('下一页')
+                  .fontSize(12)
+                  .width('40%')
+                  .backgroundColor('#0096FA')
+                  .enabled(this.currentPageIndex < this.illust.pageCount - 1)
+                  .onClick(() => { this.nextPage() })
+              }
+              .width('100%')
+              .justifyContent(FlexAlign.SpaceEvenly)
+              .padding({ bottom: 8 })
             }
 
             if (this.mainImagePath) {
               Image('file://' + this.mainImagePath)
                 .width('100%')
                 .objectFit(ImageFit.Contain)
+                .gesture(
+                  SwipeGesture({ direction: SwipeDirection.Horizontal })
+                    .onAction((event: GestureEvent) => {
+                      if (event.offsetX > 0) {
+                        this.prevPage()
+                      } else {
+                        this.nextPage()
+                      }
+                    })
+                )
             } else {
               Column() {
                 LoadingProgress()
@@ -117,6 +166,24 @@ struct IllustDetailPage {
               .height(200)
               .justifyContent(FlexAlign.Center)
               .backgroundColor('#F5F5F5')
+            }
+
+            if (this.illust.pageCount > 1) {
+              Row() {
+                ForEach(new Array<number>(this.illust.pageCount).fill(0), (_: number, index: number) => {
+                  Column()
+                    .width(8)
+                    .height(8)
+                    .borderRadius(4)
+                    .backgroundColor(index === this.currentPageIndex ? '#0096FA' : '#DDDDDD')
+                    .margin({ left: 4, right: 4 })
+                    .onClick(() => { this.goToPage(index) })
+                }, (index: number) => index.toString())
+              }
+              .width('100%')
+              .height(24)
+              .justifyContent(FlexAlign.Center)
+              .padding({ top: 8, bottom: 8 })
             }
 
             Row() {
