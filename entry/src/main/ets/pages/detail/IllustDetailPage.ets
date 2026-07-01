@@ -125,9 +125,9 @@ struct IllustDetailPage {
       : this.illust.imageUrls.original
     let success = await downloadService.downloadImage(url, this.illust.id, this.currentPageIndex)
     if (success) {
-      promptAction.showToast({ message: '下载成功' })
+      promptAction.showToast({ message: '已保存到图库' })
     } else {
-      promptAction.showToast({ message: '下载失败' })
+      promptAction.showToast({ message: '保存失败' })
     }
   }
 

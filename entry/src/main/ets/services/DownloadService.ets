@@ -1,6 +1,7 @@
 import { common } from '@kit.AbilityKit';
 import { http } from '@kit.NetworkKit';
-import { fileIo } from '@kit.CoreFileKit';
+import { fileIo, fileUri } from '@kit.CoreFileKit';
+import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { getDbService } from './DatabaseService';
 import { Constants } from '../utils/Constants';
 
@@ -22,6 +23,43 @@ export class DownloadService {
     if (lowerUrl.endsWith('.jpg') || lowerUrl.endsWith('.jpeg')) { return 'jpg' }
     if (lowerUrl.endsWith('.gif')) { return 'gif' }
     return 'jpg'
+  }
+
+  private getExtensionFromPath(path: string): string {
+    let lowerPath = path.toLowerCase()
+    if (lowerPath.endsWith('.png')) { return 'png' }
+    if (lowerPath.endsWith('.jpg') || lowerPath.endsWith('.jpeg')) { return 'jpg' }
+    if (lowerPath.endsWith('.gif')) { return 'gif' }
+    return 'jpg'
+  }
+
+  async saveToGallery(localPath: string): Promise<boolean> {
+    try {
+      let ctx = AppStorage.get<common.Context>('context')
+      if (!ctx) {
+        throw new Error('Context not found')
+      }
+      let ph = photoAccessHelper.getPhotoAccessHelper(ctx)
+      let srcUri = fileUri.getUriFromPath(localPath)
+      let photoCreationConfigs: photoAccessHelper.PhotoCreationConfig[] = [{
+        title: 'PixEz',
+        fileNameExtension: this.getExtensionFromPath(localPath),
+        photoType: photoAccessHelper.PhotoType.IMAGE,
+        subtype: photoAccessHelper.PhotoSubtype.DEFAULT
+      }]
+      let desUris = await ph.showAssetsCreationDialog([srcUri], photoCreationConfigs)
+      if (desUris.length > 0) {
+        let srcFile = fileIo.openSync(srcUri, fileIo.OpenMode.READ_ONLY)
+        let dstFile = fileIo.openSync(desUris[0], fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE)
+        await fileIo.copyFile(srcFile.fd, dstFile.fd)
+        fileIo.closeSync(srcFile)
+        fileIo.closeSync(dstFile)
+        return true
+      }
+    } catch (e) {
+      console.error('Save to gallery failed: ' + e)
+    }
+    return false
   }
 
   async downloadImage(url: string, illustId: number, pageIndex: number): Promise<boolean> {
@@ -59,7 +97,8 @@ export class DownloadService {
         fileIo.writeSync(file.fd, response.result)
         fileIo.closeSync(file)
         await db.updateDownloadStatus(taskId, 'completed', 100, localPath)
-        return true
+        let savedToGallery = await this.saveToGallery(localPath)
+        return savedToGallery
       }
     } catch (e) {
       await db.updateDownloadStatus(taskId, 'failed', 0, '')
