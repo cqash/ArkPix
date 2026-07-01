@@ -80,6 +80,8 @@ export class ImageCacheService {
         httpClient.request(proxyUrl, {
           method: http.RequestMethod.GET,
           expectDataType: http.HttpDataType.ARRAY_BUFFER,
+          connectTimeout: 30000,
+          readTimeout: 30000,
           header: {
             'Referer': 'https://www.pixiv.net/'
           }

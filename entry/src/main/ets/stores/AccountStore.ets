@@ -39,6 +39,7 @@ export class AccountStore {
 
   private constructor() {
     this.loadAccounts()
+    this.registerRefreshHandler()
   }
 
   static getInstance(): AccountStore {
@@ -46,6 +47,14 @@ export class AccountStore {
       AccountStore.instance = new AccountStore()
     }
     return AccountStore.instance
+  }
+
+  private registerRefreshHandler(): void {
+    authInterceptor.setRefreshHandler(async () => {
+      let success = await this.refreshToken()
+      let current = this.getCurrentAccount()
+      return current ? current.accessToken : ''
+    })
   }
 
   private loadAccounts(): void {

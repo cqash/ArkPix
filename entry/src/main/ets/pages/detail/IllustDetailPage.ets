@@ -50,11 +50,18 @@ struct IllustDetailPage {
     try {
       let response = await apiService.getIllustDetail(id)
       let illust = (response as IllustDetailResponse).illust
-      if (illust) {
-        this.illust = Illust.fromJson(illust)
-        this.isBookmarked = this.illust.isBookmarked
-        this.loadImages()
+      if (!illust) {
+        this.errorMessage = '返回数据无效，请重试'
+        return
       }
+      let parsed = Illust.fromJson(illust)
+      if (!parsed.id || !parsed.title) {
+        this.errorMessage = '作品数据解析失败'
+        return
+      }
+      this.illust = parsed
+      this.isBookmarked = this.illust.isBookmarked
+      this.loadImages()
     } catch (e) {
       this.errorMessage = '加载失败: ' + e
       console.error('Load detail failed: ' + e)
@@ -104,6 +111,13 @@ struct IllustDetailPage {
       this.currentPageIndex = index
       this.loadImages()
     }
+  }
+
+  private getImageAspectRatio(): number {
+    if (this.illust.width > 0 && this.illust.height > 0) {
+      return this.illust.width / this.illust.height
+    }
+    return 0.75
   }
 
   async toggleBookmark() {
@@ -172,35 +186,45 @@ struct IllustDetailPage {
               .padding({ bottom: 8 })
             }
 
-            if (this.mainImagePath) {
-              Image('file://' + this.mainImagePath)
+            Column() {
+              if (this.mainImagePath) {
+                Image('file://' + this.mainImagePath)
+                  .width('100%')
+                  .height('100%')
+                  .objectFit(ImageFit.Contain)
+                  .gesture(
+                    SwipeGesture({ direction: SwipeDirection.Horizontal })
+                      .onAction((event: GestureEvent) => {
+                        if (event.offsetX > 0) {
+                          this.prevPage()
+                        } else {
+                          this.nextPage()
+                        }
+                      })
+                  )
+                  .onClick(() => {
+                    this.openImageViewer()
+                  })
+              } else {
+                Column() {
+                  LoadingProgress()
+                    .width(40)
+                    .height(40)
+                    .color('#0096FA')
+                  Text('图片加载中...')
+                    .fontSize(12)
+                    .fontColor('#999999')
+                    .margin({ top: 8 })
+                }
                 .width('100%')
-                .objectFit(ImageFit.Contain)
-                .gesture(
-                  SwipeGesture({ direction: SwipeDirection.Horizontal })
-                    .onAction((event: GestureEvent) => {
-                      if (event.offsetX > 0) {
-                        this.prevPage()
-                      } else {
-                        this.nextPage()
-                      }
-                    })
-                )
-                .onClick(() => {
-                  this.openImageViewer()
-                })
-            } else {
-              Column() {
-                LoadingProgress()
-                  .width(24)
-                  .height(24)
-                  .color('#0096FA')
+                .height('100%')
+                .justifyContent(FlexAlign.Center)
               }
-              .width('100%')
-              .height(200)
-              .justifyContent(FlexAlign.Center)
-              .backgroundColor('#F5F5F5')
             }
+            .width('100%')
+            .aspectRatio(this.getImageAspectRatio())
+            .backgroundColor('#F5F5F5')
+            .border({ width: 1, color: '#E5E5E5' })
 
             if (this.illust.pageCount > 1) {
               Row() {

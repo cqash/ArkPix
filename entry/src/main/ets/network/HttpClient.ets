@@ -51,7 +51,9 @@ export class HttpClient {
     let reqOptions: http.HttpRequestOptions = {
       method: options.method ?? http.RequestMethod.GET,
       header: options.header ?? emptyHeader,
-      expectDataType: http.HttpDataType.STRING
+      expectDataType: http.HttpDataType.STRING,
+      connectTimeout: 30000,
+      readTimeout: 30000
     }
 
     if (options.body) {

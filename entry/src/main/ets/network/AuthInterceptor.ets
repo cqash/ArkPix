@@ -6,6 +6,7 @@ export class AuthInterceptor implements HttpInterceptor {
   private refreshToken: string = ''
   private isRefreshing: boolean = false
   private pendingRequests: Array<(token: string) => void> = []
+  private refreshHandler: () => Promise<string> = async () => { return '' }
 
   setTokens(accessToken: string, refreshToken: string): void {
     this.accessToken = accessToken
@@ -25,6 +26,10 @@ export class AuthInterceptor implements HttpInterceptor {
     this.refreshToken = ''
   }
 
+  setRefreshHandler(handler: () => Promise<string>): void {
+    this.refreshHandler = handler
+  }
+
   async intercept(options: HttpRequestOptions, next: (opts: HttpRequestOptions) => Promise<http.HttpResponse>): Promise<http.HttpResponse> {
     if (!options.header) {
       options.header = {}
@@ -35,12 +40,10 @@ export class AuthInterceptor implements HttpInterceptor {
     try {
       let response = await next(options)
       if (response.responseCode === 401) {
-        if (this.refreshToken) {
-          let newToken = await this.refreshAccessToken()
-          if (newToken) {
-            options.header['Authorization'] = 'Bearer ' + newToken
-            return next(options)
-          }
+        let newToken = await this.refreshAccessToken()
+        if (newToken) {
+          options.header['Authorization'] = 'Bearer ' + newToken
+          return next(options)
         }
       }
       return response
@@ -57,9 +60,10 @@ export class AuthInterceptor implements HttpInterceptor {
     }
     this.isRefreshing = true
     try {
-      // TODO: call OAuth refresh endpoint
-      let newToken = ''
-      this.accessToken = newToken
+      if (!this.refreshToken) {
+        return ''
+      }
+      let newToken = await this.refreshHandler()
       this.pendingRequests.forEach(cb => cb(newToken))
       this.pendingRequests = []
       return newToken
