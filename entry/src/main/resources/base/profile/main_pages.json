@@ -3,6 +3,8 @@
     "pages/Index",
     "pages/splash/SplashPage",
     "pages/login/LoginPage",
+    "pages/login/WebViewLoginPage",
+    "pages/login/TokenLoginPage",
     "pages/home/HomePage",
     "pages/detail/IllustDetailPage"
   ]

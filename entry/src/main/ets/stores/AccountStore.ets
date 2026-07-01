@@ -103,6 +103,26 @@ export class AccountStore {
     }
   }
 
+  async loginWithRefreshToken(refreshToken: string): Promise<boolean> {
+    try {
+      let tokens = await oauthService.refreshToken(refreshToken)
+      let accountOpts: AccountOptions = {
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token
+      }
+      let account = new Account(accountOpts)
+      this.accounts.push(account)
+      this.currentIndex = this.accounts.length - 1
+      this.isLoggedIn = true
+      this.saveAccounts()
+      authInterceptor.setTokens(tokens.access_token, tokens.refresh_token)
+      return true
+    } catch (e) {
+      console.error('Token login failed: ' + e)
+      return false
+    }
+  }
+
   async refreshToken(): Promise<boolean> {
     let current = this.accounts[this.currentIndex]
     if (!current || !current.refreshToken) { return false }
