@@ -15,15 +15,26 @@ struct SettingItem {
       Text(this.title)
         .fontSize(14)
         .fontColor('#333333')
-      Text(this.value)
-        .fontSize(14)
-        .fontColor('#999999')
+      Row() {
+        Text(this.value)
+          .fontSize(14)
+          .fontColor('#0096FA')
+        Text(' >')
+          .fontSize(16)
+          .fontColor('#999999')
+      }
+      .justifyContent(FlexAlign.End)
     }
     .width('100%')
     .height(48)
     .justifyContent(FlexAlign.SpaceBetween)
     .padding({ left: 16, right: 16 })
     .backgroundColor('#FFFFFF')
+    .stateStyles({
+      pressed: {
+        .backgroundColor('#F0F0F0')
+      }
+    })
     .onClick(() => {
       if (this.onItemClick) {
         this.onItemClick()
@@ -154,11 +165,20 @@ export struct SettingsPage {
             Text('退出登录')
               .fontSize(14)
               .fontColor('#FF4444')
+            Text(' >')
+              .fontSize(16)
+              .fontColor('#999999')
           }
           .width('100%')
           .height(48)
+          .justifyContent(FlexAlign.SpaceBetween)
           .padding({ left: 16, right: 16 })
           .backgroundColor('#FFFFFF')
+          .stateStyles({
+            pressed: {
+              .backgroundColor('#F0F0F0')
+            }
+          })
           .onClick(() => {
             accountStore.logout()
             router.replaceUrl({ url: 'pages/login/LoginPage' })
