@@ -67,6 +67,8 @@ export class DownloadService {
       return { name: t.name, translatedName: t.translatedName }
     })
     return {
+      illustId: illust.id,
+      userId: illust.user.id,
       title: illust.title,
       userName: illust.user.name,
       tags: tags,

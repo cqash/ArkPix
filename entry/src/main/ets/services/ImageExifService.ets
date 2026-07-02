@@ -7,22 +7,12 @@ export interface ExifTag {
 }
 
 export interface ExifInfo {
+  illustId: number
+  userId: number
   title: string
   userName: string
   tags: ExifTag[]
   createDate: string
-}
-
-function padTwo(n: number): string {
-  return n.toString().padStart(2, '0')
-}
-
-function formatExifDateTime(isoDate: string): string {
-  let date = new Date(isoDate)
-  if (isNaN(date.getTime())) {
-    return ''
-  }
-  return `${date.getFullYear()}:${padTwo(date.getMonth() + 1)}:${padTwo(date.getDate())} ${padTwo(date.getHours())}:${padTwo(date.getMinutes())}:${padTwo(date.getSeconds())}`
 }
 
 function formatTags(tags: ExifTag[]): string {
@@ -52,18 +42,14 @@ export class ImageExifService {
     let file: fileIo.File | undefined = undefined
     try {
       source = image.createImageSource(srcPath)
-      await source.modifyImageProperty(image.PropertyKey.USER_COMMENT, formatTags(info.tags))
-      if (info.title) {
-        await source.modifyImageProperty(image.PropertyKey.IMAGE_DESCRIPTION, info.title)
-      }
-      await source.modifyImageProperty(image.PropertyKey.ARTIST, info.userName)
+      let desc = `Pixiv ID: ${info.illustId} | User ID: ${info.userId} | ${info.title}`
+      await source.modifyImageProperty(image.PropertyKey.IMAGE_DESCRIPTION, desc)
+      await source.modifyImageProperty(image.PropertyKey.ARTIST, `${info.userName} (ID: ${info.userId})`)
+      let tagStr = formatTags(info.tags)
+      await source.modifyImageProperty(image.PropertyKey.USER_COMMENT, `Pixiv ID: ${info.illustId} | Tags: ${tagStr}`)
       await source.modifyImageProperty(image.PropertyKey.COPYRIGHT, 'Pixiv')
-      let dateTime = formatExifDateTime(info.createDate)
-      if (dateTime) {
-        await source.modifyImageProperty(image.PropertyKey.DATE_TIME_ORIGINAL, dateTime)
-      }
       packer = image.createImagePacker()
-      let options: image.PackingOption = { format: 'image/jpeg', quality: 95 }
+      let options: image.PackingOption = { format: 'image/jpeg', quality: 95, needsPackProperties: true }
       let data: ArrayBuffer = await packer.packToData(source, options)
       file = fileIo.openSync(dstPath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE)
       fileIo.writeSync(file.fd, data)
