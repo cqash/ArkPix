@@ -9,6 +9,7 @@ export class Constants {
   static readonly BASE_IMAGE_URL: string = 'https://i.pximg.net'
   static readonly REDIRECT_URI: string = 'https://app-api.pixiv.net/web/v1/users/auth/pixiv/callback'
   static readonly USER_AGENT: string = 'PixivAndroidApp/5.0.234 (Android 14; Pixel 7)'
+  static readonly IMAGE_USER_AGENT: string = 'PixivIOSApp/5.8.0'
   static readonly ACCEPT_LANGUAGE: string = 'zh-CN'
   static readonly APP_VERSION: string = '5.0.234'
   static readonly OS_VERSION: string = 'Android 14'

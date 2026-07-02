@@ -3,6 +3,7 @@ import { http } from '@kit.NetworkKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { getDbService } from './DatabaseService';
 import { Constants } from '../utils/Constants';
+import { authInterceptor } from '../network/AuthInterceptor';
 
 export class ImageCacheService {
   private static instance: ImageCacheService
@@ -76,6 +77,13 @@ export class ImageCacheService {
     let localPath = this.cacheDir + '/' + this.getFileName(url)
     try {
       let httpClient = http.createHttp()
+      let headers: Record<string, string> = {
+        'Referer': 'https://www.pixiv.net/'
+      }
+      let token = authInterceptor.getAccessToken()
+      if (token) {
+        headers['Authorization'] = 'Bearer ' + token
+      }
       let response = await new Promise<http.HttpResponse>((resolve, reject) => {
         httpClient.request(proxyUrl, {
           method: http.RequestMethod.GET,
@@ -83,9 +91,9 @@ export class ImageCacheService {
           connectTimeout: 30000,
           readTimeout: 30000,
           header: {
-            'Referer': 'https://www.pixiv.net/'
-          },
-          expectDataType: http.HttpDataType.ARRAY_BUFFER
+            'Referer': 'https://app-api.pixiv.net/',
+            'User-Agent': Constants.IMAGE_USER_AGENT
+          }
         }, (err, data) => {
           if (err) { reject(err) } else { resolve(data) }
         })

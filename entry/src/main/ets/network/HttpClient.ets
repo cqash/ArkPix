@@ -17,10 +17,8 @@ export interface HttpInterceptor {
 export class HttpClient {
   private static instance: HttpClient
   private interceptors: HttpInterceptor[] = []
-  private httpClient: http.HttpRequest
 
   private constructor() {
-    this.httpClient = http.createHttp()
   }
 
   static getInstance(): HttpClient {
@@ -47,6 +45,7 @@ export class HttpClient {
   }
 
   private async doRequest(options: HttpRequestOptions): Promise<http.HttpResponse> {
+    let httpClient = http.createHttp()
     let emptyHeader: Record<string, string> = {}
     let reqOptions: http.HttpRequestOptions = {
       method: options.method ?? http.RequestMethod.GET,
@@ -65,7 +64,8 @@ export class HttpClient {
     }
 
     return new Promise((resolve, reject) => {
-      this.httpClient.request(options.url, reqOptions, (err: BusinessError, data: http.HttpResponse) => {
+      httpClient.request(options.url, reqOptions, (err: BusinessError, data: http.HttpResponse) => {
+        httpClient.destroy()
         if (!err) {
           resolve(data)
         } else {

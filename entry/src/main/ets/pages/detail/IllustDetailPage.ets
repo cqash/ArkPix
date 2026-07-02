@@ -27,10 +27,17 @@ function pickPreviewUrl(urls: ImageUrls, quality: number): string {
   return urls.large || urls.medium || urls.original
 }
 
-function pickDetailUrl(urls: ImageUrls, quality: number): string {
-  return quality === 0
-    ? urls.large || urls.original || urls.medium
-    : urls.original || urls.large || urls.medium
+function pickDetailUrl(illust: Illust, pageIndex: number, quality: number): string {
+  let urls = illust.pageCount > 1
+    ? illust.metaPages[pageIndex].imageUrls
+    : illust.imageUrls
+  if (quality === 1) {
+    if (illust.pageCount > 1) {
+      return urls.original || urls.large || urls.medium
+    }
+    return illust.metaSinglePage.originalImageUrl || urls.large || urls.original || urls.medium
+  }
+  return urls.large || urls.medium
 }
 
 interface RouteParams {
@@ -89,9 +96,7 @@ struct IllustDetailPage {
 
   async loadImages() {
     let settings = userSettingStore.getSettings()
-    let url = this.illust.pageCount > 1
-      ? pickDetailUrl(this.illust.metaPages[this.currentPageIndex].imageUrls, settings.detailQuality)
-      : pickDetailUrl(this.illust.imageUrls, settings.detailQuality)
+    let url = pickDetailUrl(this.illust, this.currentPageIndex, settings.detailQuality)
     this.mainImagePath = await imageCacheService.getLocalPath(url)
 
     let avatarUrl = this.illust.user.profileImageUrls.medium
@@ -100,15 +105,11 @@ struct IllustDetailPage {
 
   openImageViewer() {
     let settings = userSettingStore.getSettings()
-    let url = this.illust.pageCount > 1
-      ? pickDetailUrl(this.illust.metaPages[this.currentPageIndex].imageUrls, settings.fullScreenQuality)
-      : pickDetailUrl(this.illust.imageUrls, settings.fullScreenQuality)
-    let downloadUrl = this.illust.pageCount > 1
-      ? pickDetailUrl(this.illust.metaPages[this.currentPageIndex].imageUrls, settings.downloadQuality)
-      : pickDetailUrl(this.illust.imageUrls, settings.downloadQuality)
+    let url = pickDetailUrl(this.illust, this.currentPageIndex, settings.fullScreenQuality)
+    let downloadUrl = pickDetailUrl(this.illust, this.currentPageIndex, settings.downloadQuality)
     router.pushUrl({
       url: 'pages/detail/ImageViewerPage',
-      params: { imageUrl: url, downloadUrl: downloadUrl, illustId: this.illust.id, pageIndex: this.currentPageIndex }
+      params: { imageUrl: url, downloadUrl: downloadUrl, illust: this.illust, pageIndex: this.currentPageIndex }
     })
   }
 
@@ -140,6 +141,39 @@ struct IllustDetailPage {
     return 0.75
   }
 
+  @Builder
+  TagChip(tag: Tag) {
+    if (userSettingStore.getSettings().showTranslatedTags && tag.translatedName) {
+      Column() {
+        Text(tag.name)
+          .fontSize(10)
+          .fontColor('#0096FA')
+        Text(tag.translatedName)
+          .fontSize(8)
+          .fontColor('#0096FA')
+          .opacity(0.8)
+      }
+      .backgroundColor('#E6F4FF')
+      .padding({ left: 8, right: 8, top: 4, bottom: 4 })
+      .borderRadius(12)
+      .margin({ right: 4, bottom: 4 })
+      .onClick(() => {
+        router.pushUrl({ url: 'pages/search/TagSearchPage', params: { keyword: tag.name } })
+      })
+    } else {
+      Text(tag.name)
+        .fontSize(10)
+        .fontColor('#0096FA')
+        .backgroundColor('#E6F4FF')
+        .padding({ left: 8, right: 8, top: 4, bottom: 4 })
+        .borderRadius(12)
+        .margin({ right: 4, bottom: 4 })
+        .onClick(() => {
+          router.pushUrl({ url: 'pages/search/TagSearchPage', params: { keyword: tag.name } })
+        })
+    }
+  }
+
   async toggleBookmark() {
     try {
       if (this.isBookmarked) {
@@ -155,10 +189,8 @@ struct IllustDetailPage {
 
   async handleSave(): Promise<void> {
     let quality = userSettingStore.getSettings().downloadQuality
-    let url = this.illust.pageCount > 1
-      ? pickDetailUrl(this.illust.metaPages[this.currentPageIndex].imageUrls, quality)
-      : pickDetailUrl(this.illust.imageUrls, quality)
-    let localPath = await downloadService.downloadToCache(url, this.illust.id, this.currentPageIndex)
+    let url = pickDetailUrl(this.illust, this.currentPageIndex, quality)
+    let localPath = await downloadService.downloadToCache(url, this.illust, this.currentPageIndex)
     if (!localPath) {
       promptAction.showToast({ message: '下载失败' })
       return
@@ -196,9 +228,9 @@ struct IllustDetailPage {
     let successCount = 0
     let failCount = 0
     for (let i = 0; i < this.illust.pageCount; i++) {
-      let url = pickDetailUrl(this.illust.metaPages[i].imageUrls, quality)
+      let url = pickDetailUrl(this.illust, i, quality)
       promptAction.showToast({ message: '开始下载 第' + (i + 1) + '/' + this.illust.pageCount + '页...' })
-      let localPath = await downloadService.downloadToCache(url, this.illust.id, i)
+      let localPath = await downloadService.downloadToCache(url, this.illust, i)
       if (!localPath) {
         failCount++
         continue
@@ -366,16 +398,7 @@ struct IllustDetailPage {
 
             Flex({ wrap: FlexWrap.Wrap }) {
               ForEach(this.illust.tags, (tag: Tag) => {
-                Text(tag.name)
-                  .fontSize(10)
-                  .fontColor('#0096FA')
-                  .backgroundColor('#E6F4FF')
-                  .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-                  .borderRadius(12)
-                  .margin({ right: 4, bottom: 4 })
-                  .onClick(() => {
-                    router.pushUrl({ url: 'pages/search/TagSearchPage', params: { keyword: tag.name } })
-                  })
+                this.TagChip(tag)
               }, (tag: Tag) => tag.name)
             }
             .width('100%')

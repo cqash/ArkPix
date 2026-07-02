@@ -1,6 +1,12 @@
-import { router } from '@kit.ArkUI';
+import { router, promptAction } from '@kit.ArkUI';
 import { getDbService, DownloadTaskItem } from '../../services/DatabaseService';
 import { downloadService } from '../../services/DownloadService';
+import { apiService } from '../../network/ApiService';
+import { Illust } from '../../models/Illust';
+
+interface IllustDetailResponse {
+  illust: Object
+}
 
 @Entry
 @Component
@@ -26,8 +32,20 @@ export struct DownloadPage {
 
   async retryTask(task: DownloadTaskItem) {
     if (task.status === 'downloading') { return }
-    await downloadService.downloadToCache(task.image_url, task.illust_id, task.page_index)
-    await this.loadTasks()
+    try {
+      let response = await apiService.getIllustDetail(task.illust_id)
+      let illustObj = (response as IllustDetailResponse).illust
+      if (!illustObj) {
+        promptAction.showToast({ message: '获取作品信息失败' })
+        return
+      }
+      let illust = Illust.fromJson(illustObj)
+      await downloadService.downloadToCache(task.image_url, illust, task.page_index)
+      await this.loadTasks()
+    } catch (e) {
+      console.error('Retry task failed: ' + e)
+      promptAction.showToast({ message: '重试失败: ' + e })
+    }
   }
 
   async clearCompleted() {

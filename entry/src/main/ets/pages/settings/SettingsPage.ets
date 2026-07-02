@@ -225,6 +225,29 @@ export struct SettingsPage {
             }
           })
           SettingItem({
+            title: '文件名模板',
+            value: this.settings.filenameTemplate,
+            onItemClick: () => {
+              router.pushUrl({ url: 'pages/settings/FilenameTemplatePage' })
+            }
+          })
+          SettingItem({
+            title: '写入图片元数据',
+            value: this.settings.embedExifMetadata ? '开启' : '关闭',
+            onItemClick: () => {
+              userSettingStore.setEmbedExifMetadata(!this.settings.embedExifMetadata)
+              this.settings = userSettingStore.getSettings()
+            }
+          })
+          SettingItem({
+            title: '显示翻译标签',
+            value: this.settings.showTranslatedTags ? '开启' : '关闭',
+            onItemClick: () => {
+              userSettingStore.setShowTranslatedTags(!this.settings.showTranslatedTags)
+              this.settings = userSettingStore.getSettings()
+            }
+          })
+          SettingItem({
             title: '下载时自动收藏',
             value: this.settings.autoBookmarkOnDownload ? '开启' : '关闭',
             onItemClick: () => {

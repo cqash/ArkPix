@@ -10,6 +10,7 @@
     "pages/detail/ImageViewerPage",
     "pages/search/TagSearchPage",
     "pages/bookmark/BookmarkPage",
-    "pages/settings/DownloadPage"
+    "pages/settings/DownloadPage",
+    "pages/settings/FilenameTemplatePage"
   ]
 }

@@ -2,11 +2,12 @@ import { router, promptAction } from '@kit.ArkUI';
 import { common } from '@kit.AbilityKit';
 import { imageCacheService } from '../../services/ImageCacheService';
 import { downloadService } from '../../services/DownloadService';
+import { Illust } from '../../models/Illust';
 
 interface ViewerParams {
   imageUrl: string
   downloadUrl: string
-  illustId?: number
+  illust?: Illust
   pageIndex?: number
 }
 
@@ -15,13 +16,13 @@ interface ViewerParams {
 struct ImageViewerPage {
   @State imagePath: string = ''
   @State isLoading: boolean = false
-  @State illustId: number = 0
+  @State illust: Illust = new Illust()
   @State pageIndex: number = 0
 
   aboutToAppear() {
     let params = router.getParams() as ViewerParams
     if (params && params.imageUrl) {
-      this.illustId = params.illustId ?? 0
+      this.illust = params.illust ?? new Illust()
       this.pageIndex = params.pageIndex ?? 0
       this.loadImage(params.imageUrl)
     }
@@ -36,7 +37,8 @@ struct ImageViewerPage {
   async handleSave(): Promise<void> {
     let params = router.getParams() as ViewerParams
     if (!params || !params.downloadUrl) { return }
-    let localPath = await downloadService.downloadToCache(params.downloadUrl, this.illustId, this.pageIndex)
+    let illust = params.illust ?? new Illust()
+    let localPath = await downloadService.downloadToCache(params.downloadUrl, illust, this.pageIndex)
     if (!localPath) {
       promptAction.showToast({ message: '下载失败' })
       return

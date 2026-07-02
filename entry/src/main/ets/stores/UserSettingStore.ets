@@ -33,7 +33,10 @@ export class UserSettingStore {
       muteUsers: preferenceService.getObject('mute_users', []) as number[],
       aiFilter: preferenceService.getBoolean('ai_filter', false),
       saveFormat: preferenceService.getString('save_format', 'png'),
-      autoBookmarkOnDownload: preferenceService.getBoolean('auto_bookmark_on_download', false)
+      autoBookmarkOnDownload: preferenceService.getBoolean('auto_bookmark_on_download', false),
+      filenameTemplate: preferenceService.getString('filename_template', '{illust_id}_p{part}'),
+      embedExifMetadata: preferenceService.getBoolean('embed_exif_metadata', true),
+      showTranslatedTags: preferenceService.getBoolean('show_translated_tags', true)
     }
     this.settings = new AppSettings(opts)
     AppStorage.setOrCreate('appSettings', this.settings)
@@ -56,6 +59,9 @@ export class UserSettingStore {
     preferenceService.setBoolean('ai_filter', this.settings.aiFilter)
     preferenceService.setString('save_format', this.settings.saveFormat)
     preferenceService.setBoolean('auto_bookmark_on_download', this.settings.autoBookmarkOnDownload)
+    preferenceService.setString('filename_template', this.settings.filenameTemplate)
+    preferenceService.setBoolean('embed_exif_metadata', this.settings.embedExifMetadata)
+    preferenceService.setBoolean('show_translated_tags', this.settings.showTranslatedTags)
     let newSettings: AppSettings = this.getSettings()
     this.settings = newSettings
     AppStorage.setOrCreate('appSettings', newSettings)
@@ -78,7 +84,10 @@ export class UserSettingStore {
       muteUsers: this.settings.muteUsers.slice(),
       aiFilter: this.settings.aiFilter,
       saveFormat: this.settings.saveFormat,
-      autoBookmarkOnDownload: this.settings.autoBookmarkOnDownload
+      autoBookmarkOnDownload: this.settings.autoBookmarkOnDownload,
+      filenameTemplate: this.settings.filenameTemplate,
+      embedExifMetadata: this.settings.embedExifMetadata,
+      showTranslatedTags: this.settings.showTranslatedTags
     })
   }
 
@@ -114,6 +123,21 @@ export class UserSettingStore {
 
   setAutoBookmarkOnDownload(value: boolean): void {
     this.settings.autoBookmarkOnDownload = value
+    this.saveSettings()
+  }
+
+  setFilenameTemplate(value: string): void {
+    this.settings.filenameTemplate = value
+    this.saveSettings()
+  }
+
+  setEmbedExifMetadata(value: boolean): void {
+    this.settings.embedExifMetadata = value
+    this.saveSettings()
+  }
+
+  setShowTranslatedTags(value: boolean): void {
+    this.settings.showTranslatedTags = value
     this.saveSettings()
   }
 

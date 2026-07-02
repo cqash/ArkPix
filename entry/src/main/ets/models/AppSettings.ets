@@ -15,6 +15,9 @@ export interface AppSettingsOptions {
   aiFilter?: boolean
   saveFormat?: string
   autoBookmarkOnDownload?: boolean
+  filenameTemplate?: string
+  embedExifMetadata?: boolean
+  showTranslatedTags?: boolean
 }
 
 export class AppSettings {
@@ -34,6 +37,9 @@ export class AppSettings {
   aiFilter: boolean = false
   saveFormat: string = 'png'
   autoBookmarkOnDownload: boolean = false
+  filenameTemplate: string = '{illust_id}_p{part}'
+  embedExifMetadata: boolean = true
+  showTranslatedTags: boolean = true
 
   constructor(options?: AppSettingsOptions) {
     if (options) {
@@ -53,6 +59,9 @@ export class AppSettings {
       this.aiFilter = options.aiFilter ?? false
       this.saveFormat = options.saveFormat ?? 'png'
       this.autoBookmarkOnDownload = options.autoBookmarkOnDownload ?? false
+      this.filenameTemplate = options.filenameTemplate ?? '{illust_id}_p{part}'
+      this.embedExifMetadata = options.embedExifMetadata ?? true
+      this.showTranslatedTags = options.showTranslatedTags ?? true
     }
   }
 }

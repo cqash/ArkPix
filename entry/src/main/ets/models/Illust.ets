@@ -65,6 +65,32 @@ export class MetaPage {
   }
 }
 
+export interface MetaSinglePageOptions {
+  originalImageUrl?: string
+}
+
+interface RawMetaSinglePage {
+  original_image_url: string
+}
+
+export class MetaSinglePage {
+  originalImageUrl: string = ''
+
+  constructor(options?: MetaSinglePageOptions) {
+    if (options) {
+      this.originalImageUrl = options.originalImageUrl ?? ''
+    }
+  }
+
+  static fromJson(json: RawMetaSinglePage): MetaSinglePageOptions {
+    let p = json
+    let opts: MetaSinglePageOptions = {
+      originalImageUrl: p?.original_image_url ?? ''
+    }
+    return opts
+  }
+}
+
 export interface TagOptions {
   name?: string
   translatedName?: string
@@ -142,6 +168,7 @@ export interface IllustOptions {
   title?: string
   type?: string
   imageUrls?: ImageUrlsOptions
+  metaSinglePage?: MetaSinglePageOptions
   metaPages?: MetaPageOptions[]
   user?: UserPreviewOptions
   tags?: TagOptions[]
@@ -164,6 +191,7 @@ interface RawIllust {
   title: string
   type: string
   image_urls: RawImageUrls
+  meta_single_page: RawMetaSinglePage
   meta_pages: RawMetaPage[]
   user: RawUserPreview
   tags: RawTag[]
@@ -186,6 +214,7 @@ export class Illust {
   title: string = ''
   type: string = ''
   imageUrls: ImageUrls = new ImageUrls()
+  metaSinglePage: MetaSinglePage = new MetaSinglePage()
   metaPages: MetaPage[] = []
   user: UserPreview = new UserPreview()
   tags: Tag[] = []
@@ -208,6 +237,7 @@ export class Illust {
       this.title = options.title ?? ''
       this.type = options.type ?? ''
       this.imageUrls = new ImageUrls(options.imageUrls)
+      this.metaSinglePage = new MetaSinglePage(options.metaSinglePage)
       this.metaPages = (options.metaPages ?? []).map((p: MetaPageOptions) => new MetaPage(p))
       this.user = new UserPreview(options.user)
       this.tags = (options.tags ?? []).map((t: TagOptions) => new Tag(t))
@@ -233,6 +263,7 @@ export class Illust {
       title: p?.title ?? '',
       type: p?.type ?? '',
       imageUrls: p?.image_urls ? ImageUrls.fromJson(p.image_urls) : undefined,
+      metaSinglePage: p?.meta_single_page ? MetaSinglePage.fromJson(p.meta_single_page) : undefined,
       metaPages: p?.meta_pages ? p.meta_pages.map((mp: RawMetaPage) => MetaPage.fromJson(mp)) : [],
       user: p?.user ? UserPreview.fromJson(p.user) : undefined,
       tags: p?.tags ? p.tags.map((t: RawTag) => Tag.fromJson(t)) : [],

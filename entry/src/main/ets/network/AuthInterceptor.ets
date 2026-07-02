@@ -7,6 +7,7 @@ export class AuthInterceptor implements HttpInterceptor {
   private isRefreshing: boolean = false
   private pendingRequests: Array<(token: string) => void> = []
   private refreshHandler: () => Promise<string> = async () => { return '' }
+  private onRefreshFailed: (() => void) | null = null
 
   setTokens(accessToken: string, refreshToken: string): void {
     this.accessToken = accessToken
@@ -28,6 +29,10 @@ export class AuthInterceptor implements HttpInterceptor {
 
   setRefreshHandler(handler: () => Promise<string>): void {
     this.refreshHandler = handler
+  }
+
+  setOnRefreshFailed(callback: () => void): void {
+    this.onRefreshFailed = callback
   }
 
   async intercept(options: HttpRequestOptions, next: (opts: HttpRequestOptions) => Promise<http.HttpResponse>): Promise<http.HttpResponse> {
@@ -69,6 +74,9 @@ export class AuthInterceptor implements HttpInterceptor {
       return newToken
     } catch (err) {
       this.pendingRequests = []
+      if (this.onRefreshFailed) {
+        this.onRefreshFailed()
+      }
       return ''
     } finally {
       this.isRefreshing = false

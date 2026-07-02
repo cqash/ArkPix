@@ -55,6 +55,14 @@ export class AccountStore {
       let current = this.getCurrentAccount()
       return current ? current.accessToken : ''
     })
+    authInterceptor.setOnRefreshFailed(() => {
+      this.forceLogout()
+    })
+  }
+
+  private forceLogout(): void {
+    this.isLoggedIn = false
+    AppStorage.setOrCreate('isLoggedIn', false)
   }
 
   private loadAccounts(): void {
@@ -64,12 +72,17 @@ export class AccountStore {
       this.currentIndex = preferenceService.getNumber('current_account_index', 0)
       this.isLoggedIn = this.accounts.length > 0
       if (this.isLoggedIn) {
+        if (this.currentIndex >= this.accounts.length) {
+          this.currentIndex = 0
+        }
         let current = this.accounts[this.currentIndex]
         authInterceptor.setTokens(current.accessToken, current.refreshToken)
       }
+      AppStorage.setOrCreate('isLoggedIn', this.isLoggedIn)
     } catch (e) {
       this.accounts = []
       this.isLoggedIn = false
+      AppStorage.setOrCreate('isLoggedIn', false)
     }
   }
 
@@ -130,6 +143,7 @@ export class AccountStore {
       this.isLoggedIn = true
       this.saveAccounts()
       authInterceptor.setTokens(tokens.access_token, tokens.refresh_token)
+      AppStorage.setOrCreate('isLoggedIn', true)
       return true
     } catch (e) {
       console.error('Token login failed: ' + e)
@@ -150,6 +164,7 @@ export class AccountStore {
       return true
     } catch (e) {
       console.error('Token refresh failed: ' + e)
+      this.forceLogout()
       return false
     }
   }
