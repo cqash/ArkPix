@@ -5,12 +5,12 @@
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "C:\\Users\\***REMOVED***\\.ohos\\config\\default_Pixez_***REMOVED***=.cer",
+          "certpath": "C:\\Users\\A\\.ohos\\config\\default_pixiv-_***REMOVED***.cer",
           "keyAlias": "debugKey",
           "keyPassword": "***REMOVED***",
-          "profile": "C:\\Users\\***REMOVED***\\.ohos\\config\\default_Pixez_***REMOVED***=.p7b",
+          "profile": "C:\\Users\\A\\.ohos\\config\\default_pixiv-_***REMOVED***.p7b",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "C:\\Users\\***REMOVED***\\.ohos\\config\\default_Pixez_***REMOVED***=.p12",
+          "storeFile": "C:\\Users\\A\\.ohos\\config\\default_pixiv-_***REMOVED***.p12",
           "storePassword": "***REMOVED***"
         }
       }

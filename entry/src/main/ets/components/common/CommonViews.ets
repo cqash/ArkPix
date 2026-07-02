@@ -19,13 +19,18 @@ export struct LoadingView {
 
 @Component
 export struct ErrorView {
+  message: string = '加载失败'
   onRetry: () => void = () => {}
 
   build() {
     Column() {
-      Text('加载失败')
+      Text(this.message)
         .fontSize(16)
         .fontColor('#999999')
+        .maxLines(2)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .textAlign(TextAlign.Center)
+        .padding({ left: 16, right: 16 })
       Button('重试')
         .width(120)
         .height(36)

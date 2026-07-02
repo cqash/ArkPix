@@ -5,6 +5,14 @@ import { userSettingStore } from '../../stores/UserSettingStore';
 import { CachedImage } from '../../components/common/CachedImage';
 import { ErrorView } from '../../components/common/CommonViews';
 
+interface TagSearchParams {
+  keyword: string
+}
+
+interface SearchResponse {
+  illusts: Object[]
+}
+
 function pickPreviewUrl(urls: ImageUrls, quality: number): string {
   if (quality === 0) {
     return urls.squareMedium || urls.medium || urls.large
@@ -15,57 +23,34 @@ function pickPreviewUrl(urls: ImageUrls, quality: number): string {
   return urls.large || urls.medium || urls.original
 }
 
-interface RecommendedResponse {
-  illusts: Object[]
-  next_url: string
-}
-
+@Entry
 @Component
-export struct RecomPage {
+struct TagSearchPage {
+  @State keyword: string = ''
   @State illustList: Illust[] = []
   @State isLoading: boolean = false
-  @State isRefreshing: boolean = false
-  @State hasMore: boolean = true
   @State errorMessage: string = ''
-  private nextUrl: string = ''
 
   aboutToAppear() {
-    this.loadData()
-  }
-
-  async loadData() {
-    if (this.isLoading) { return }
-    this.isLoading = true
-    this.errorMessage = ''
-    try {
-      let response = await apiService.getRecommendedIllusts()
-      let illusts = (response as RecommendedResponse).illusts
-      if (illusts) {
-        this.illustList = illusts.map((item: Object) => Illust.fromJson(item))
-      }
-      this.nextUrl = (response as RecommendedResponse).next_url || ''
-      this.hasMore = this.nextUrl.length > 0
-    } catch (e) {
-      this.errorMessage = '加载失败: ' + e
-      console.error('Load recommend failed: ' + e)
-    } finally {
-      this.isLoading = false
+    let params = router.getParams() as TagSearchParams
+    if (params && params.keyword) {
+      this.keyword = params.keyword
+      this.search()
     }
   }
 
-  async onRefresh() {
-    this.isRefreshing = true
-    await this.loadData()
-    this.isRefreshing = false
-  }
-
-  async onLoadMore() {
-    if (!this.hasMore || this.isLoading) { return }
+  async search() {
     this.isLoading = true
+    this.errorMessage = ''
     try {
-      // TODO: follow next_url for pagination
+      let response = await apiService.searchIllusts(this.keyword)
+      let illusts = (response as SearchResponse).illusts
+      if (illusts) {
+        this.illustList = illusts.map((item: Object) => Illust.fromJson(item))
+      }
     } catch (e) {
-      console.error('Load more failed: ' + e)
+      this.errorMessage = '搜索失败: ' + e
+      console.error('Tag search failed: ' + e)
     } finally {
       this.isLoading = false
     }
@@ -95,10 +80,36 @@ export struct RecomPage {
   }
 
   build() {
-    if (this.errorMessage && this.illustList.length === 0) {
-      ErrorView({ message: this.errorMessage, onRetry: () => { this.loadData() } })
-    } else {
-      Refresh({ refreshing: $$this.isRefreshing, offset: 64, friction: 100 }) {
+    Column() {
+      Row() {
+        Button('返回')
+          .fontSize(14)
+          .backgroundColor('#F5F5F5')
+          .fontColor('#333333')
+          .onClick(() => { router.back() })
+        Text(this.keyword)
+          .fontSize(16)
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#333333')
+          .layoutWeight(1)
+          .textAlign(TextAlign.Center)
+        Blank()
+          .width(60)
+      }
+      .width('100%')
+      .height(48)
+      .padding({ left: 8, right: 8 })
+      .backgroundColor('#FFFFFF')
+
+      if (this.errorMessage && this.illustList.length === 0) {
+        ErrorView({ message: this.errorMessage, onRetry: () => { this.search() } })
+      } else if (this.isLoading) {
+        LoadingProgress()
+          .width(40)
+          .height(40)
+          .color('#0096FA')
+          .margin({ top: 32 })
+      } else {
         List({ space: 8 }) {
           ForEach(this.illustList, (item: Illust) => {
             ListItem() {
@@ -109,16 +120,10 @@ export struct RecomPage {
         .lanes(userSettingStore.getSettings().crossCount)
         .padding(8)
         .layoutWeight(1)
-        .onReachEnd(() => {
-          this.onLoadMore()
-        })
       }
-      .onRefreshing(() => {
-        this.onRefresh()
-      })
-      .width('100%')
-      .height('100%')
     }
+    .width('100%')
+    .height('100%')
+    .backgroundColor('#F5F5F5')
   }
 }
-

@@ -5,6 +5,11 @@ import { userSettingStore } from '../../stores/UserSettingStore';
 import { CachedImage } from '../../components/common/CachedImage';
 import { ErrorView } from '../../components/common/CommonViews';
 
+interface FollowResponse {
+  illusts: Object[]
+  next_url: string
+}
+
 function pickPreviewUrl(urls: ImageUrls, quality: number): string {
   if (quality === 0) {
     return urls.squareMedium || urls.medium || urls.large
@@ -15,24 +20,16 @@ function pickPreviewUrl(urls: ImageUrls, quality: number): string {
   return urls.large || urls.medium || urls.original
 }
 
-interface RankingResponse {
-  illusts: Object[]
-  next_url: string
-}
-
 @Component
-export struct RankPage {
+export struct FollowPage {
   @State illustList: Illust[] = []
   @State isLoading: boolean = false
   @State isRefreshing: boolean = false
-  @State selectedMode: string = 'day'
-  @State selectedDate: string = ''
+  @State hasMore: boolean = true
   @State errorMessage: string = ''
+  private nextUrl: string = ''
 
   aboutToAppear() {
-    let yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
-    this.selectedDate = yesterday.toISOString().split('T')[0]
     this.loadData()
   }
 
@@ -41,14 +38,41 @@ export struct RankPage {
     this.isLoading = true
     this.errorMessage = ''
     try {
-      let response = await apiService.getRankingIllusts(this.selectedMode, this.selectedDate)
-      let illusts = (response as RankingResponse).illusts
+      let response = await apiService.getFollowIllusts('public')
+      let illusts = (response as FollowResponse).illusts
       if (illusts) {
         this.illustList = illusts.map((item: Object) => Illust.fromJson(item))
       }
+      this.nextUrl = (response as FollowResponse).next_url || ''
+      this.hasMore = this.nextUrl.length > 0
     } catch (e) {
       this.errorMessage = '加载失败: ' + e
-      console.error('Load ranking failed: ' + e)
+      console.error('Load follow illusts failed: ' + e)
+    } finally {
+      this.isLoading = false
+    }
+  }
+
+  async onRefresh() {
+    this.isRefreshing = true
+    await this.loadData()
+    this.isRefreshing = false
+  }
+
+  async onLoadMore() {
+    if (!this.hasMore || this.isLoading) { return }
+    this.isLoading = true
+    try {
+      let response = await apiService.getFollowIllusts('public')
+      let illusts = (response as FollowResponse).illusts
+      if (illusts) {
+        let newItems = illusts.map((item: Object) => Illust.fromJson(item))
+        this.illustList = this.illustList.concat(newItems)
+      }
+      this.nextUrl = (response as FollowResponse).next_url || ''
+      this.hasMore = this.nextUrl.length > 0
+    } catch (e) {
+      console.error('Load more follow illusts failed: ' + e)
     } finally {
       this.isLoading = false
     }
@@ -81,43 +105,24 @@ export struct RankPage {
     if (this.errorMessage && this.illustList.length === 0) {
       ErrorView({ message: this.errorMessage, onRetry: () => { this.loadData() } })
     } else {
-      Column() {
-        Row() {
-          Text('日榜')
-            .fontSize(14)
-            .fontColor(this.selectedMode === 'day' ? '#0096FA' : '#333333')
-            .padding({ left: 16, right: 16, top: 8, bottom: 8 })
-            .onClick(() => { this.selectedMode = 'day'; this.loadData() })
-          Text('周榜')
-            .fontSize(14)
-            .fontColor(this.selectedMode === 'week' ? '#0096FA' : '#333333')
-            .padding({ left: 16, right: 16, top: 8, bottom: 8 })
-            .onClick(() => { this.selectedMode = 'week'; this.loadData() })
-          Text('月榜')
-            .fontSize(14)
-            .fontColor(this.selectedMode === 'month' ? '#0096FA' : '#333333')
-            .padding({ left: 16, right: 16, top: 8, bottom: 8 })
-            .onClick(() => { this.selectedMode = 'month'; this.loadData() })
+      Refresh({ refreshing: $$this.isRefreshing, offset: 64, friction: 100 }) {
+        List({ space: 8 }) {
+          ForEach(this.illustList, (item: Illust) => {
+            ListItem() {
+              this.IllustCard(item)
+            }
+          }, (item: Illust) => item.id.toString())
         }
-        .width('100%')
-        .justifyContent(FlexAlign.Center)
-        .padding({ top: 8, bottom: 8 })
-
-        Refresh({ refreshing: $$this.isRefreshing, offset: 64, friction: 100 }) {
-          List({ space: 8 }) {
-            ForEach(this.illustList, (item: Illust) => {
-              ListItem() {
-                this.IllustCard(item)
-              }
-            }, (item: Illust) => item.id.toString())
-          }
-          .lanes(userSettingStore.getSettings().crossCount)
-          .padding(8)
-          .layoutWeight(1)
-        }
-        .onRefreshing(() => { this.loadData() })
+        .lanes(userSettingStore.getSettings().crossCount)
+        .padding(8)
         .layoutWeight(1)
+        .onReachEnd(() => {
+          this.onLoadMore()
+        })
       }
+      .onRefreshing(() => {
+        this.onRefresh()
+      })
       .width('100%')
       .height('100%')
     }

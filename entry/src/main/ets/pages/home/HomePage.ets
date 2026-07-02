@@ -1,4 +1,5 @@
 import { accountStore } from '../../stores/AccountStore';
+import { FollowPage } from './FollowPage'
 import { RankPage } from './RankPage'
 import { RecomPage } from './RecomPage'
 import { SearchPage } from '../search/SearchPage'
@@ -32,19 +33,24 @@ struct HomePage {
       .tabBar(this.TabBuilder('推荐', 0))
 
       TabContent() {
+        FollowPage()
+      }
+      .tabBar(this.TabBuilder('动态', 1))
+
+      TabContent() {
         RankPage()
       }
-      .tabBar(this.TabBuilder('排行', 1))
+      .tabBar(this.TabBuilder('排行', 2))
 
       TabContent() {
         SearchPage()
       }
-      .tabBar(this.TabBuilder('搜索', 2))
+      .tabBar(this.TabBuilder('搜索', 3))
 
       TabContent() {
         SettingsPage()
       }
-      .tabBar(this.TabBuilder('设置', 3))
+      .tabBar(this.TabBuilder('设置', 4))
     }
     .onChange((index: number) => {
       this.currentIndex = index

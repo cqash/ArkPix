@@ -39,6 +39,7 @@ export class AccountStore {
 
   private constructor() {
     this.loadAccounts()
+    this.registerRefreshHandler()
   }
 
   static getInstance(): AccountStore {
@@ -46,6 +47,14 @@ export class AccountStore {
       AccountStore.instance = new AccountStore()
     }
     return AccountStore.instance
+  }
+
+  private registerRefreshHandler(): void {
+    authInterceptor.setRefreshHandler(async () => {
+      let success = await this.refreshToken()
+      let current = this.getCurrentAccount()
+      return current ? current.accessToken : ''
+    })
   }
 
   private loadAccounts(): void {
@@ -76,6 +85,11 @@ export class AccountStore {
   getCurrentAccount(): Account | null {
     if (this.accounts.length === 0) { return null }
     return this.accounts[this.currentIndex]
+  }
+
+  getCurrentUserId(): number {
+    let account = this.getCurrentAccount()
+    return account ? account.id : 0
   }
 
   getAccounts(): Account[] {

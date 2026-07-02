@@ -1,8 +1,19 @@
 import { router } from '@kit.ArkUI';
 import { apiService } from '../../network/ApiService';
-import { Illust } from '../../models/Illust';
+import { Illust, ImageUrls } from '../../models/Illust';
 import { userSettingStore } from '../../stores/UserSettingStore';
 import { CachedImage } from '../../components/common/CachedImage';
+import { ErrorView } from '../../components/common/CommonViews';
+
+function pickPreviewUrl(urls: ImageUrls, quality: number): string {
+  if (quality === 0) {
+    return urls.squareMedium || urls.medium || urls.large
+  }
+  if (quality === 1) {
+    return urls.medium || urls.large || urls.original
+  }
+  return urls.large || urls.medium || urls.original
+}
 
 interface TrendingTagsResponse {
   trend_tags: string[]
@@ -19,6 +30,7 @@ export struct SearchPage {
   @State isLoading: boolean = false
   @State trendingTags: string[] = []
   @State searchHistory: string[] = []
+  @State searchError: string = ''
 
   aboutToAppear() {
     this.loadTrendingTags()
@@ -45,6 +57,7 @@ export struct SearchPage {
   async search() {
     if (!this.searchKeyword.trim()) { return }
     this.isLoading = true
+    this.searchError = ''
     try {
       let response = await apiService.searchIllusts(this.searchKeyword)
       let illusts = (response as SearchResponse).illusts
@@ -52,6 +65,7 @@ export struct SearchPage {
         this.illustList = illusts.map((item: Object) => Illust.fromJson(item))
       }
     } catch (e) {
+      this.searchError = '搜索失败: ' + e
       console.error('Search failed: ' + e)
     } finally {
       this.isLoading = false
@@ -61,7 +75,7 @@ export struct SearchPage {
   @Builder
   IllustCard(item: Illust) {
     Column() {
-      CachedImage({ url: item.imageUrls.medium })
+      CachedImage({ url: pickPreviewUrl(item.imageUrls, userSettingStore.getSettings().previewQuality) })
       Text(item.title)
         .fontSize(12)
         .fontColor('#333333')
@@ -101,7 +115,13 @@ export struct SearchPage {
       .padding(16)
       .justifyContent(FlexAlign.SpaceBetween)
 
-      if (this.illustList.length === 0 && !this.isLoading) {
+      if (this.searchError && this.illustList.length === 0) {
+        Column() {
+          ErrorView({ message: this.searchError, onRetry: () => { this.search() } })
+        }
+        .width('100%')
+        .layoutWeight(1)
+      } else if (this.illustList.length === 0 && !this.isLoading) {
         Column() {
           Text('热门标签')
             .fontSize(16)
