@@ -113,8 +113,12 @@ export class AccountStore {
     try {
       let tokens = await oauthService.exchangeToken(code, codeVerifier)
       let accountOpts: AccountOptions = {
+        id: Number(tokens.user.id),
+        name: tokens.user.name,
+        account: tokens.user.account,
         accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token
+        refreshToken: tokens.refresh_token,
+        avatarUrl: tokens.user.profile_image_urls?.px_170x170 ?? tokens.user.profile_image_urls?.px_50x50 ?? ''
       }
       let account = new Account(accountOpts)
       this.accounts.push(account)
@@ -134,8 +138,12 @@ export class AccountStore {
     try {
       let tokens = await oauthService.refreshToken(refreshToken)
       let accountOpts: AccountOptions = {
+        id: Number(tokens.user.id),
+        name: tokens.user.name,
+        account: tokens.user.account,
         accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token
+        refreshToken: tokens.refresh_token,
+        avatarUrl: tokens.user.profile_image_urls?.px_170x170 ?? tokens.user.profile_image_urls?.px_50x50 ?? ''
       }
       let account = new Account(accountOpts)
       this.accounts.push(account)

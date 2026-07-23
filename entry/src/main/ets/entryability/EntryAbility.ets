@@ -1,6 +1,8 @@
 import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
+import { hoster } from '../network/Hoster';
+import { preferenceService } from '../services/PreferenceService';
 
 const DOMAIN = 0x0000;
 
@@ -13,6 +15,12 @@ export default class EntryAbility extends UIAbility {
       hilog.error(DOMAIN, 'testTag', 'Failed to set colorMode. Cause: %{public}s', JSON.stringify(err));
     }
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onCreate');
+
+    hoster.init();
+    let networkMode = preferenceService.getString('network_mode', 'direct');
+    if (networkMode === 'bypass') {
+      hoster.refreshAll();
+    }
   }
 
   onDestroy(): void {

@@ -17,6 +17,7 @@ export interface AppSettingsOptions {
   autoBookmarkOnDownload?: boolean
   filenameTemplate?: string
   embedExifMetadata?: boolean
+  exifCommentTemplate?: string
   showTranslatedTags?: boolean
 }
 
@@ -39,6 +40,7 @@ export class AppSettings {
   autoBookmarkOnDownload: boolean = false
   filenameTemplate: string = '{illust_id}_p{part}'
   embedExifMetadata: boolean = true
+  exifCommentTemplate: string = 'PID:{illust_id} | {tags}'
   showTranslatedTags: boolean = true
 
   constructor(options?: AppSettingsOptions) {
@@ -61,6 +63,7 @@ export class AppSettings {
       this.autoBookmarkOnDownload = options.autoBookmarkOnDownload ?? false
       this.filenameTemplate = options.filenameTemplate ?? '{illust_id}_p{part}'
       this.embedExifMetadata = options.embedExifMetadata ?? true
+      this.exifCommentTemplate = options.exifCommentTemplate ?? 'PID:{illust_id} | {tags}'
       this.showTranslatedTags = options.showTranslatedTags ?? true
     }
   }

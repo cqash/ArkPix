@@ -36,6 +36,7 @@ export class UserSettingStore {
       autoBookmarkOnDownload: preferenceService.getBoolean('auto_bookmark_on_download', false),
       filenameTemplate: preferenceService.getString('filename_template', '{illust_id}_p{part}'),
       embedExifMetadata: preferenceService.getBoolean('embed_exif_metadata', true),
+      exifCommentTemplate: preferenceService.getString('exif_comment_template', 'PID:{illust_id} | {tags}'),
       showTranslatedTags: preferenceService.getBoolean('show_translated_tags', true)
     }
     this.settings = new AppSettings(opts)
@@ -61,6 +62,7 @@ export class UserSettingStore {
     preferenceService.setBoolean('auto_bookmark_on_download', this.settings.autoBookmarkOnDownload)
     preferenceService.setString('filename_template', this.settings.filenameTemplate)
     preferenceService.setBoolean('embed_exif_metadata', this.settings.embedExifMetadata)
+    preferenceService.setString('exif_comment_template', this.settings.exifCommentTemplate)
     preferenceService.setBoolean('show_translated_tags', this.settings.showTranslatedTags)
     let newSettings: AppSettings = this.getSettings()
     this.settings = newSettings
@@ -87,6 +89,7 @@ export class UserSettingStore {
       autoBookmarkOnDownload: this.settings.autoBookmarkOnDownload,
       filenameTemplate: this.settings.filenameTemplate,
       embedExifMetadata: this.settings.embedExifMetadata,
+      exifCommentTemplate: this.settings.exifCommentTemplate,
       showTranslatedTags: this.settings.showTranslatedTags
     })
   }
@@ -133,6 +136,11 @@ export class UserSettingStore {
 
   setEmbedExifMetadata(value: boolean): void {
     this.settings.embedExifMetadata = value
+    this.saveSettings()
+  }
+
+  setExifCommentTemplate(value: string): void {
+    this.settings.exifCommentTemplate = value
     this.saveSettings()
   }
 

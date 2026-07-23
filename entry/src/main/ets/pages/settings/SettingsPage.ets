@@ -157,9 +157,15 @@ export struct SettingsPage {
             .padding({ left: 16, bottom: 4 })
           SettingItem({
             title: '网络模式',
-            value: this.settings.networkMode === 'direct' ? '直连' : '代理',
+            value: this.settings.networkMode === 'direct' ? '直连' : this.settings.networkMode === 'bypass' ? '绕过' : '代理',
             onItemClick: () => {
-              let next = this.settings.networkMode === 'direct' ? 'proxy' : 'direct'
+              let modes: string[] = ['direct', 'bypass', 'proxy']
+              let currentIndex: number = modes.indexOf(this.settings.networkMode)
+              if (currentIndex < 0) {
+                currentIndex = 0
+              }
+              let nextIndex: number = (currentIndex + 1) % modes.length
+              let next: string = modes[nextIndex]
               userSettingStore.setNetworkMode(next)
               this.settings = userSettingStore.getSettings()
             }
@@ -237,6 +243,13 @@ export struct SettingsPage {
             onItemClick: () => {
               userSettingStore.setEmbedExifMetadata(!this.settings.embedExifMetadata)
               this.settings = userSettingStore.getSettings()
+            }
+          })
+          SettingItem({
+            title: '备注模板',
+            value: this.settings.exifCommentTemplate,
+            onItemClick: () => {
+              router.pushUrl({ url: 'pages/settings/ExifTemplatePage' })
             }
           })
           SettingItem({

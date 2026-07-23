@@ -3,6 +3,7 @@ import { common } from '@kit.AbilityKit';
 import { apiService } from '../../network/ApiService';
 import { downloadService } from '../../services/DownloadService';
 import { imageCacheService } from '../../services/ImageCacheService';
+import { getDbService } from '../../services/DatabaseService';
 import { Illust, ImageUrls, Tag } from '../../models/Illust';
 import { userSettingStore } from '../../stores/UserSettingStore';
 import { ErrorView } from '../../components/common/CommonViews';
@@ -68,26 +69,55 @@ struct IllustDetailPage {
     }
   }
 
-  async loadDetail(id: number) {
-    this.isLoading = true
+  async loadDetail(id: number, forceRefresh: boolean = false) {
     this.errorMessage = ''
+    let db = await getDbService()
+    let hasCache = false
+    try {
+      let cached = await db.getIllustDetailCache(id)
+      if (cached && !forceRefresh) {
+        let parsed = (JSON.parse(cached) as IllustDetailResponse).illust
+        if (parsed) {
+          let illust = Illust.fromJson(parsed)
+          this.illust = illust
+          this.isBookmarked = illust.isBookmarked
+          this.illustId = illust.id
+          this.loadImages()
+          hasCache = true
+        }
+      }
+    } catch (e) {
+      console.error('Load illust detail cache failed: ' + e)
+    }
+    if (hasCache) {
+      this.isLoading = false
+    } else {
+      this.isLoading = true
+    }
     try {
       let response = await apiService.getIllustDetail(id)
       let illust = (response as IllustDetailResponse).illust
       if (!illust) {
-        this.errorMessage = '返回数据无效，请重试'
+        if (!hasCache) {
+          this.errorMessage = '返回数据无效，请重试'
+        }
         return
       }
       let parsed = Illust.fromJson(illust)
       if (!parsed.id || !parsed.title) {
-        this.errorMessage = '作品数据解析失败'
+        if (!hasCache) {
+          this.errorMessage = '作品数据解析失败'
+        }
         return
       }
       this.illust = parsed
       this.isBookmarked = this.illust.isBookmarked
       this.loadImages()
+      await db.setIllustDetailCache(id, JSON.stringify(response as object))
     } catch (e) {
-      this.errorMessage = '加载失败: ' + e
+      if (!hasCache) {
+        this.errorMessage = '加载失败: ' + e
+      }
       console.error('Load detail failed: ' + e)
     } finally {
       this.isLoading = false
@@ -97,10 +127,13 @@ struct IllustDetailPage {
   async loadImages() {
     let settings = userSettingStore.getSettings()
     let url = pickDetailUrl(this.illust, this.currentPageIndex, settings.detailQuality)
-    this.mainImagePath = await imageCacheService.getLocalPath(url)
-
     let avatarUrl = this.illust.user.profileImageUrls.medium
-    this.userAvatarPath = await imageCacheService.getLocalPath(avatarUrl)
+    let paths: string[] = await Promise.all([
+      imageCacheService.getLocalPath(url),
+      imageCacheService.getLocalPath(avatarUrl)
+    ])
+    this.mainImagePath = paths[0]
+    this.userAvatarPath = paths[1]
   }
 
   openImageViewer() {

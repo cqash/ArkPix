@@ -1,5 +1,6 @@
 import { router } from '@kit.ArkUI';
-import { Constants } from '../../utils/Constants';
+import { userSettingStore } from '../../stores/UserSettingStore';
+import { hoster } from '../../network/Hoster';
 
 @Entry
 @Component
@@ -7,12 +8,7 @@ struct LoginPage {
   @State useBypass: boolean = false
 
   aboutToAppear() {
-    // 加载之前保存的网络模式设置
-    this.useBypass = false
-  }
-
-  toggleBypass() {
-    this.useBypass = !this.useBypass
+    this.useBypass = userSettingStore.getSettings().networkMode === 'bypass'
   }
 
   build() {
@@ -54,6 +50,11 @@ struct LoginPage {
           .selectedColor('#0096FA')
           .onChange((isOn: boolean) => {
             this.useBypass = isOn
+            userSettingStore.setNetworkMode(isOn ? 'bypass' : 'direct')
+            if (isOn) {
+              hoster.init()
+              hoster.refreshAll()
+            }
           })
         Text('使用内置绕过方式')
           .fontSize(14)
@@ -64,7 +65,7 @@ struct LoginPage {
       .margin({ top: 16 })
 
       if (this.useBypass) {
-        Text('内置绕过将使用代理服务器访问 Pixiv，适合网络受限环境')
+        Text('内置绕过通过自定义 DNS 解析直连 Pixiv；WebView 登录不经过绕过，网络受限时建议使用 Token 登录')
           .fontSize(12)
           .fontColor('#FF8800')
           .width('85%')

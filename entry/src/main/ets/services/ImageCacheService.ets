@@ -1,21 +1,28 @@
 import { common } from '@kit.AbilityKit';
 import { http } from '@kit.NetworkKit';
+import { rcp } from '@kit.RemoteCommunicationKit';
 import { fileIo } from '@kit.CoreFileKit';
-import { getDbService } from './DatabaseService';
+import { getDbService, DatabaseService } from './DatabaseService';
 import { Constants } from '../utils/Constants';
-import { authInterceptor } from '../network/AuthInterceptor';
+import { preferenceService } from './PreferenceService';
+import { hoster } from '../network/Hoster';
 
 export class ImageCacheService {
   private static instance: ImageCacheService
   private cacheDir: string
+  private oldCacheDir: string = ''
+  private migrationPromise: Promise<void> | null = null
+  private memoryCache: Map<string, string> = new Map<string, string>()
 
   private constructor() {
     let ctx = AppStorage.get<common.Context>('context')
     if (!ctx) {
       throw new Error('Context not found')
     }
-    this.cacheDir = ctx.getApplicationContext().cacheDir + '/images'
+    this.cacheDir = ctx.filesDir + '/images'
+    this.oldCacheDir = ctx.cacheDir + '/images'
     this.ensureCacheDir()
+    this.migrationPromise = this.migrateOldCache()
   }
 
   static getInstance(): ImageCacheService {
@@ -37,6 +44,40 @@ export class ImageCacheService {
       } catch (mkdirErr) {
         console.error('Failed to create cache dir: ' + mkdirErr)
       }
+    }
+  }
+
+  private async migrateOldCache(): Promise<void> {
+    if (!fileIo.accessSync(this.oldCacheDir)) {
+      return
+    }
+    try {
+      let files = fileIo.listFileSync(this.oldCacheDir)
+      for (let file of files) {
+        let oldPath = this.oldCacheDir + '/' + file
+        let newPath = this.cacheDir + '/' + file
+        try {
+          fileIo.moveFile(oldPath, newPath)
+        } catch (moveErr) {
+          console.error('Move cache file failed: ' + moveErr)
+        }
+      }
+      let db = await getDbService()
+      await db.updateImageCachePathPrefix(this.oldCacheDir, this.cacheDir)
+      try {
+        fileIo.rmdirSync(this.oldCacheDir)
+      } catch (rmdirErr) {
+        console.error('Remove old cache dir failed: ' + rmdirErr)
+      }
+    } catch (e) {
+      console.error('Migrate old cache failed: ' + e)
+    }
+  }
+
+  private async ensureMigrated(): Promise<void> {
+    if (this.migrationPromise) {
+      await this.migrationPromise
+      this.migrationPromise = null
     }
   }
 
@@ -68,22 +109,27 @@ export class ImageCacheService {
 
   async getLocalPath(url: string): Promise<string> {
     if (!url) { return '' }
+    await this.ensureMigrated()
+    let memory = this.memoryCache.get(url)
+    if (memory && this.fileExists(memory)) {
+      return memory
+    }
     let proxyUrl = Constants.applyProxy(url)
     let db = await getDbService()
     let cached = await db.getImageCache(url)
     if (cached && this.fileExists(cached)) {
+      this.memoryCache.set(url, cached)
       return cached
     }
     let localPath = this.cacheDir + '/' + this.getFileName(url)
+
+    let networkMode = preferenceService.getString('network_mode', 'direct')
+    if (networkMode === 'bypass') {
+      return this.getLocalPathBypass(url, localPath, db)
+    }
+
     try {
       let httpClient = http.createHttp()
-      let headers: Record<string, string> = {
-        'Referer': 'https://www.pixiv.net/'
-      }
-      let token = authInterceptor.getAccessToken()
-      if (token) {
-        headers['Authorization'] = 'Bearer ' + token
-      }
       let response = await new Promise<http.HttpResponse>((resolve, reject) => {
         httpClient.request(proxyUrl, {
           method: http.RequestMethod.GET,
@@ -103,6 +149,7 @@ export class ImageCacheService {
         fileIo.writeSync(file.fd, response.result)
         fileIo.closeSync(file)
         await db.addImageCache(url, localPath)
+        this.memoryCache.set(url, localPath)
         return localPath
       }
     } catch (e) {
@@ -111,7 +158,44 @@ export class ImageCacheService {
     return ''
   }
 
+  private async getLocalPathBypass(url: string, localPath: string, db: DatabaseService): Promise<string> {
+    let session: rcp.Session = rcp.createSession({
+      requestConfiguration: {
+        dns: {
+          dnsRules: (host: string, port: number): string[] => {
+            return hoster.resolveIps(host)
+          }
+        },
+        transfer: {
+          timeout: { connectMs: 30000, transferMs: 30000 }
+        }
+      }
+    })
+    try {
+      let request: rcp.Request = new rcp.Request(url, 'GET')
+      request.headers = {
+        'Referer': 'https://app-api.pixiv.net/',
+        'User-Agent': Constants.IMAGE_USER_AGENT
+      }
+      let response: rcp.Response = await session.fetch(request)
+      if (response.statusCode === 200 && response.body) {
+        let file = fileIo.openSync(localPath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE)
+        fileIo.writeSync(file.fd, response.body)
+        fileIo.closeSync(file)
+        await db.addImageCache(url, localPath)
+        this.memoryCache.set(url, localPath)
+        return localPath
+      }
+    } catch (e) {
+      console.error('ImageCache bypass download failed: ' + e)
+    } finally {
+      session.close()
+    }
+    return ''
+  }
+
   async clearCache(): Promise<void> {
+    this.memoryCache.clear()
     let db = await getDbService()
     await db.clearImageCache()
     try {

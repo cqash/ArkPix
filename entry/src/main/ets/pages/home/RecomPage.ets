@@ -4,6 +4,7 @@ import { Illust, ImageUrls } from '../../models/Illust';
 import { userSettingStore } from '../../stores/UserSettingStore';
 import { CachedImage } from '../../components/common/CachedImage';
 import { ErrorView } from '../../components/common/CommonViews';
+import { getDbService } from '../../services/DatabaseService';
 
 function pickPreviewUrl(urls: ImageUrls, quality: number): string {
   if (quality === 0) {
@@ -33,29 +34,50 @@ export struct RecomPage {
     this.loadData()
   }
 
-  async loadData() {
-    if (this.isLoading) { return }
-    this.isLoading = true
+  async loadData(forceRefresh: boolean = false) {
+    if (this.isLoading && !forceRefresh) { return }
+    if (!forceRefresh) {
+      this.isLoading = true
+    }
     this.errorMessage = ''
+    let db = await getDbService()
+    let hasCache = false
+    try {
+      let cached = await db.getRecommendCache()
+      if (cached && !forceRefresh) {
+        let parsed = JSON.parse(cached) as RecommendedResponse
+        this.illustList = parsed.illusts.map((item: Object) => Illust.fromJson(item))
+        this.nextUrl = parsed.next_url || ''
+        this.hasMore = this.nextUrl.length > 0
+        hasCache = true
+      }
+    } catch (e) {
+      console.error('Load recommend cache failed: ' + e)
+    }
     try {
       let response = await apiService.getRecommendedIllusts()
-      let illusts = (response as RecommendedResponse).illusts
-      if (illusts) {
-        this.illustList = illusts.map((item: Object) => Illust.fromJson(item))
+      let parsed = response as RecommendedResponse
+      if (parsed.illusts) {
+        this.illustList = parsed.illusts.map((item: Object) => Illust.fromJson(item))
       }
-      this.nextUrl = (response as RecommendedResponse).next_url || ''
+      this.nextUrl = parsed.next_url || ''
       this.hasMore = this.nextUrl.length > 0
+      await db.setRecommendCache(JSON.stringify(response as object))
     } catch (e) {
-      this.errorMessage = '加载失败: ' + e
+      if (!hasCache) {
+        this.errorMessage = '加载失败: ' + e
+      }
       console.error('Load recommend failed: ' + e)
     } finally {
-      this.isLoading = false
+      if (!forceRefresh) {
+        this.isLoading = false
+      }
     }
   }
 
   async onRefresh() {
     this.isRefreshing = true
-    await this.loadData()
+    await this.loadData(true)
     this.isRefreshing = false
   }
 

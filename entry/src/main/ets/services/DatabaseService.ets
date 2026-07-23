@@ -60,6 +60,9 @@ export class DatabaseService {
       await db.execute('CREATE TABLE IF NOT EXISTS search_history (id INTEGER PRIMARY KEY, keyword TEXT, search_type TEXT, timestamp INTEGER)')
       await db.execute('CREATE TABLE IF NOT EXISTS download_tasks (id TEXT PRIMARY KEY, illust_id INTEGER, page_index INTEGER, image_url TEXT, local_path TEXT, status TEXT, progress INTEGER, timestamp INTEGER)')
       await db.execute('CREATE TABLE IF NOT EXISTS image_cache (id INTEGER PRIMARY KEY, url TEXT, local_path TEXT, timestamp INTEGER)')
+      await db.execute('CREATE TABLE IF NOT EXISTS recommend_cache (id INTEGER PRIMARY KEY, data TEXT, timestamp INTEGER)')
+      await db.execute('CREATE TABLE IF NOT EXISTS ranking_cache (id INTEGER PRIMARY KEY, mode TEXT, date TEXT, data TEXT, timestamp INTEGER)')
+      await db.execute('CREATE TABLE IF NOT EXISTS illust_detail_cache (id INTEGER PRIMARY KEY, illust_id INTEGER, data TEXT, timestamp INTEGER)')
       DatabaseService.instance = new DatabaseService(db)
     }
     return DatabaseService.instance
@@ -178,6 +181,11 @@ export class DatabaseService {
       [url, localPath, Date.now()])
   }
 
+  async updateImageCachePathPrefix(oldPrefix: string, newPrefix: string): Promise<void> {
+    await this.db.execute('UPDATE image_cache SET local_path = REPLACE(local_path, ?, ?) WHERE local_path LIKE ?',
+      [oldPrefix, newPrefix, oldPrefix + '%'])
+  }
+
   async getImageCache(url: string): Promise<string> {
     let resultSet = await this.db.querySql('SELECT local_path FROM image_cache WHERE url = ?', [url])
     let path = ''
@@ -186,6 +194,51 @@ export class DatabaseService {
     }
     resultSet.close()
     return path
+  }
+
+  async getRecommendCache(): Promise<string> {
+    let resultSet = await this.db.querySql('SELECT data FROM recommend_cache WHERE id = 1')
+    let data = ''
+    if (resultSet.goToNextRow()) {
+      data = String(resultSet.getValue(resultSet.getColumnIndex('data')))
+    }
+    resultSet.close()
+    return data
+  }
+
+  async setRecommendCache(data: string): Promise<void> {
+    await this.db.execute('INSERT OR REPLACE INTO recommend_cache (id, data, timestamp) VALUES (?, ?, ?)',
+      [1, data, Date.now()])
+  }
+
+  async getRankingCache(mode: string, date: string): Promise<string> {
+    let resultSet = await this.db.querySql('SELECT data FROM ranking_cache WHERE mode = ? AND date = ?', [mode, date])
+    let data = ''
+    if (resultSet.goToNextRow()) {
+      data = String(resultSet.getValue(resultSet.getColumnIndex('data')))
+    }
+    resultSet.close()
+    return data
+  }
+
+  async setRankingCache(mode: string, date: string, data: string): Promise<void> {
+    await this.db.execute('INSERT OR REPLACE INTO ranking_cache (mode, date, data, timestamp) VALUES (?, ?, ?, ?)',
+      [mode, date, data, Date.now()])
+  }
+
+  async getIllustDetailCache(illustId: number): Promise<string> {
+    let resultSet = await this.db.querySql('SELECT data FROM illust_detail_cache WHERE illust_id = ?', [illustId])
+    let data = ''
+    if (resultSet.goToNextRow()) {
+      data = String(resultSet.getValue(resultSet.getColumnIndex('data')))
+    }
+    resultSet.close()
+    return data
+  }
+
+  async setIllustDetailCache(illustId: number, data: string): Promise<void> {
+    await this.db.execute('INSERT OR REPLACE INTO illust_detail_cache (illust_id, data, timestamp) VALUES (?, ?, ?)',
+      [illustId, data, Date.now()])
   }
 
   async clearCompletedDownloadTasks(): Promise<void> {

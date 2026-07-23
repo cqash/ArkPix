@@ -4,9 +4,23 @@ import { Constants } from '../utils/Constants';
 import { CryptoUtils } from '../utils/CryptoUtils';
 import { authInterceptor } from './AuthInterceptor';
 
+interface ProfileImageUrls {
+  px_16x16?: string
+  px_50x50?: string
+  px_170x170?: string
+}
+
+interface UserInfo {
+  id: string
+  name: string
+  account: string
+  profile_image_urls: ProfileImageUrls
+}
+
 interface TokenResponse {
   access_token: string
   refresh_token: string
+  user: UserInfo
 }
 
 interface AuthHeaders {
