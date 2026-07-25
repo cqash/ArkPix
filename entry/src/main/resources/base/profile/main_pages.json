@@ -12,6 +12,7 @@
     "pages/bookmark/BookmarkPage",
     "pages/settings/DownloadPage",
     "pages/settings/FilenameTemplatePage",
-    "pages/settings/ExifTemplatePage"
+    "pages/settings/ExifTemplatePage",
+    "pages/user/UserProfilePage"
   ]
 }

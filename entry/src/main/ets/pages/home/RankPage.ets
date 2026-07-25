@@ -1,156 +1,124 @@
-import { router } from '@kit.ArkUI';
 import { apiService } from '../../network/ApiService';
-import { Illust, ImageUrls } from '../../models/Illust';
-import { userSettingStore } from '../../stores/UserSettingStore';
-import { CachedImage } from '../../components/common/CachedImage';
-import { ErrorView } from '../../components/common/CommonViews';
+import { IllustWaterfall, IllustListPage, parseIllustListPage } from '../../components/illust/IllustWaterfall';
 import { getDbService } from '../../services/DatabaseService';
+import { userSettingStore } from '../../stores/UserSettingStore';
 
-function pickPreviewUrl(urls: ImageUrls, quality: number): string {
-  if (quality === 0) {
-    return urls.squareMedium || urls.medium || urls.large
-  }
-  if (quality === 1) {
-    return urls.medium || urls.large || urls.original
-  }
-  return urls.large || urls.medium || urls.original
+interface RankModeItem {
+  label: string
+  mode: string
+  r18: boolean
 }
 
-interface RankingResponse {
-  illusts: Object[]
-  next_url: string
-}
+const RANK_MODES: RankModeItem[] = [
+  { label: '日榜', mode: 'day', r18: false },
+  { label: '周榜', mode: 'week', r18: false },
+  { label: '月榜', mode: 'month', r18: false },
+  { label: '新人', mode: 'rookie', r18: false },
+  { label: '原创', mode: 'original', r18: false },
+  { label: '男性向', mode: 'male', r18: false },
+  { label: '女性向', mode: 'female', r18: false },
+  { label: 'R18日', mode: 'day_r18', r18: true },
+  { label: 'R18周', mode: 'week_r18', r18: true },
+  { label: 'R18G', mode: 'day_r18g', r18: true }
+]
 
 @Component
 export struct RankPage {
-  @State illustList: Illust[] = []
-  @State isLoading: boolean = false
-  @State isRefreshing: boolean = false
   @State selectedMode: string = 'day'
   @State selectedDate: string = ''
-  @State errorMessage: string = ''
+  @State reloadToken: number = 0
 
   aboutToAppear() {
     let yesterday = new Date()
     yesterday.setDate(yesterday.getDate() - 1)
     this.selectedDate = yesterday.toISOString().split('T')[0]
-    this.loadData()
   }
 
-  async loadData(forceRefresh: boolean = false) {
-    if (this.isLoading && !forceRefresh) { return }
-    if (!forceRefresh) {
-      this.isLoading = true
-    }
-    this.errorMessage = ''
+  private async fetchFirst(): Promise<IllustListPage> {
     let db = await getDbService()
-    let hasCache = false
-    try {
-      let cached = await db.getRankingCache(this.selectedMode, this.selectedDate)
-      if (cached && !forceRefresh) {
-        let parsed = JSON.parse(cached) as RankingResponse
-        this.illustList = parsed.illusts.map((item: Object) => Illust.fromJson(item))
-        hasCache = true
-      }
-    } catch (e) {
-      console.error('Load ranking cache failed: ' + e)
-    }
     try {
       let response = await apiService.getRankingIllusts(this.selectedMode, this.selectedDate)
-      let parsed = response as RankingResponse
-      if (parsed.illusts) {
-        this.illustList = parsed.illusts.map((item: Object) => Illust.fromJson(item))
+      let page = parseIllustListPage(response)
+      if (page.illusts.length > 0) {
+        await db.setRankingCache(this.selectedMode, this.selectedDate, JSON.stringify(response as object))
       }
-      await db.setRankingCache(this.selectedMode, this.selectedDate, JSON.stringify(response as object))
+      return page
     } catch (e) {
-      if (!hasCache) {
-        this.errorMessage = '加载失败: ' + e
+      let cached = await db.getRankingCache(this.selectedMode, this.selectedDate)
+      if (cached) {
+        return parseIllustListPage(JSON.parse(cached))
       }
-      console.error('Load ranking failed: ' + e)
-    } finally {
-      if (!forceRefresh) {
-        this.isLoading = false
-      }
+      throw new Error('排行榜加载失败: ' + e)
     }
-  }
-
-  async onRefresh() {
-    this.isRefreshing = true
-    await this.loadData(true)
-    this.isRefreshing = false
   }
 
   selectMode(mode: string) {
+    if (this.selectedMode === mode) {
+      return
+    }
     this.selectedMode = mode
-    this.loadData()
+    this.reloadToken++
   }
 
-  @Builder
-  IllustCard(item: Illust) {
-    Column() {
-      CachedImage({ url: pickPreviewUrl(item.imageUrls, userSettingStore.getSettings().previewQuality) })
-      Text(item.title)
-        .fontSize(12)
-        .fontColor('#333333')
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .margin({ top: 4 })
-      Text(item.user.name)
-        .fontSize(10)
-        .fontColor('#999999')
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-    }
-    .width('100%')
-    .padding(4)
-    .onClick(() => {
-      router.pushUrl({ url: 'pages/detail/IllustDetailPage', params: { illustId: item.id } })
+  showDatePicker() {
+    let yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    let selected = new Date(this.selectedDate + 'T00:00:00')
+    DatePickerDialog.show({
+      start: new Date('2016-01-01T00:00:00'),
+      end: yesterday,
+      selected: selected,
+      onDateAccept: (value: Date) => {
+        let year = value.getFullYear()
+        let month = (value.getMonth() + 1).toString().padStart(2, '0')
+        let day = value.getDate().toString().padStart(2, '0')
+        this.selectedDate = year + '-' + month + '-' + day
+        this.reloadToken++
+      }
     })
   }
 
   build() {
-    if (this.errorMessage && this.illustList.length === 0) {
-      ErrorView({ message: this.errorMessage, onRetry: () => { this.loadData() } })
-    } else {
-      Column() {
+    Column() {
+      Scroll() {
         Row() {
-          Text('日榜')
-            .fontSize(14)
-            .fontColor(this.selectedMode === 'day' ? '#0096FA' : '#333333')
-            .padding({ left: 16, right: 16, top: 8, bottom: 8 })
-            .onClick(() => { this.selectMode('day') })
-          Text('周榜')
-            .fontSize(14)
-            .fontColor(this.selectedMode === 'week' ? '#0096FA' : '#333333')
-            .padding({ left: 16, right: 16, top: 8, bottom: 8 })
-            .onClick(() => { this.selectMode('week') })
-          Text('月榜')
-            .fontSize(14)
-            .fontColor(this.selectedMode === 'month' ? '#0096FA' : '#333333')
-            .padding({ left: 16, right: 16, top: 8, bottom: 8 })
-            .onClick(() => { this.selectMode('month') })
+          ForEach(RANK_MODES, (item: RankModeItem) => {
+            if (!item.r18 || userSettingStore.getSettings().showR18Rank) {
+              Text(item.label)
+                .fontSize(14)
+                .fontColor(this.selectedMode === item.mode ? '#0096FA' : '#333333')
+                .fontWeight(this.selectedMode === item.mode ? FontWeight.Bold : FontWeight.Normal)
+                .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+                .onClick(() => { this.selectMode(item.mode) })
+            }
+          }, (item: RankModeItem) => item.mode)
         }
-        .width('100%')
-        .justifyContent(FlexAlign.Center)
-        .padding({ top: 8, bottom: 8 })
+      }
+      .scrollable(ScrollDirection.Horizontal)
+      .scrollBar(BarState.Off)
+      .width('100%')
+      .padding({ top: 8, bottom: 8 })
 
-        Refresh({ refreshing: $$this.isRefreshing, offset: 64, friction: 100 }) {
-          List({ space: 8 }) {
-            ForEach(this.illustList, (item: Illust) => {
-              ListItem() {
-                this.IllustCard(item)
-              }
-            }, (item: Illust) => item.id.toString())
-          }
-          .lanes(userSettingStore.getSettings().crossCount)
-          .padding(8)
-          .layoutWeight(1)
-        }
-        .onRefreshing(() => { this.onRefresh() })
-        .layoutWeight(1)
+      Row() {
+        Text('日期: ' + this.selectedDate)
+          .fontSize(12)
+          .fontColor('#0096FA')
+          .padding({ left: 16, right: 16, top: 4, bottom: 4 })
+          .backgroundColor('#E6F4FF')
+          .borderRadius(12)
+          .onClick(() => { this.showDatePicker() })
       }
       .width('100%')
-      .height('100%')
+      .justifyContent(FlexAlign.End)
+      .padding({ left: 16, right: 16, bottom: 4 })
+
+      IllustWaterfall({
+        fetchFirst: (): Promise<IllustListPage> => this.fetchFirst(),
+        reloadToken: this.reloadToken
+      })
+      .layoutWeight(1)
     }
+    .width('100%')
+    .height('100%')
   }
 }

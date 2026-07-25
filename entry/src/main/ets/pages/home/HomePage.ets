@@ -1,10 +1,8 @@
-import { accountStore } from '../../stores/AccountStore';
 import { FollowPage } from './FollowPage'
 import { RankPage } from './RankPage'
 import { RecomPage } from './RecomPage'
 import { SearchPage } from '../search/SearchPage'
 import { SettingsPage } from '../settings/SettingsPage'
-import { userSettingStore } from '../../stores/UserSettingStore';
 
 @Entry
 @Component

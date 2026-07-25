@@ -37,7 +37,8 @@ export class UserSettingStore {
       filenameTemplate: preferenceService.getString('filename_template', '{illust_id}_p{part}'),
       embedExifMetadata: preferenceService.getBoolean('embed_exif_metadata', true),
       exifCommentTemplate: preferenceService.getString('exif_comment_template', 'PID:{illust_id} | {tags}'),
-      showTranslatedTags: preferenceService.getBoolean('show_translated_tags', true)
+      showTranslatedTags: preferenceService.getBoolean('show_translated_tags', true),
+      showR18Rank: preferenceService.getBoolean('show_r18_rank', false)
     }
     this.settings = new AppSettings(opts)
     AppStorage.setOrCreate('appSettings', this.settings)
@@ -64,6 +65,7 @@ export class UserSettingStore {
     preferenceService.setBoolean('embed_exif_metadata', this.settings.embedExifMetadata)
     preferenceService.setString('exif_comment_template', this.settings.exifCommentTemplate)
     preferenceService.setBoolean('show_translated_tags', this.settings.showTranslatedTags)
+    preferenceService.setBoolean('show_r18_rank', this.settings.showR18Rank)
     let newSettings: AppSettings = this.getSettings()
     this.settings = newSettings
     AppStorage.setOrCreate('appSettings', newSettings)
@@ -90,7 +92,8 @@ export class UserSettingStore {
       filenameTemplate: this.settings.filenameTemplate,
       embedExifMetadata: this.settings.embedExifMetadata,
       exifCommentTemplate: this.settings.exifCommentTemplate,
-      showTranslatedTags: this.settings.showTranslatedTags
+      showTranslatedTags: this.settings.showTranslatedTags,
+      showR18Rank: this.settings.showR18Rank
     })
   }
 
@@ -146,6 +149,11 @@ export class UserSettingStore {
 
   setShowTranslatedTags(value: boolean): void {
     this.settings.showTranslatedTags = value
+    this.saveSettings()
+  }
+
+  setShowR18Rank(value: boolean): void {
+    this.settings.showR18Rank = value
     this.saveSettings()
   }
 

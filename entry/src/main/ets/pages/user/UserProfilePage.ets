@@ -1,21 +1,9 @@
-import { router } from '@kit.ArkUI';
+import { router, promptAction } from '@kit.ArkUI';
 import { apiService } from '../../network/ApiService';
-import { Illust, ImageUrls } from '../../models/Illust';
-import { User } from '../../models/User';
+import { User, ProfileStats, profileStatsFromJson } from '../../models/User';
 import { imageCacheService } from '../../services/ImageCacheService';
-import { CachedImage } from '../../components/common/CachedImage';
 import { ErrorView } from '../../components/common/CommonViews';
-import { userSettingStore } from '../../stores/UserSettingStore';
-
-function pickPreviewUrl(urls: ImageUrls, quality: number): string {
-  if (quality === 0) {
-    return urls.squareMedium || urls.medium || urls.large
-  }
-  if (quality === 1) {
-    return urls.medium || urls.large || urls.original
-  }
-  return urls.large || urls.medium || urls.original
-}
+import { IllustWaterfall, IllustListPage, parseIllustListPage } from '../../components/illust/IllustWaterfall';
 
 interface UserRouteParams {
   userId: number
@@ -23,20 +11,17 @@ interface UserRouteParams {
 
 interface UserDetailResponse {
   user: Object
+  profile: Object
 }
 
-interface UserIllustsResponse {
-  illusts: Object[]
-}
-
+@Entry
 @Component
 export struct UserProfilePage {
   @State user: User = new User()
-  @State works: Illust[] = []
+  @State stats: ProfileStats = new ProfileStats()
   @State isLoading: boolean = false
   @State avatarPath: string = ''
   @State profileError: string = ''
-  @State worksError: string = ''
   @State userId: number = 0
 
   aboutToAppear() {
@@ -44,7 +29,6 @@ export struct UserProfilePage {
     if (params && params.userId) {
       this.userId = params.userId
       this.loadProfile(params.userId)
-      this.loadWorks(params.userId)
     }
   }
 
@@ -53,10 +37,14 @@ export struct UserProfilePage {
     this.profileError = ''
     try {
       let response = await apiService.getUserDetail(id)
-      let user = (response as UserDetailResponse).user
-      if (user) {
-        this.user = User.fromJson(user)
+      let detail = response as UserDetailResponse
+      if (detail.user) {
+        this.user = User.fromJson(detail.user)
         this.loadAvatar()
+      }
+      // 统计字段位于响应的 profile 对象内（user 对象不含这些字段）
+      if (detail.profile) {
+        this.stats = profileStatsFromJson(detail.profile)
       }
     } catch (e) {
       this.profileError = '加载失败: ' + e
@@ -73,37 +61,31 @@ export struct UserProfilePage {
     }
   }
 
-  async loadWorks(id: number) {
-    this.worksError = ''
-    try {
-      let response = await apiService.getUserIllusts(id)
-      let illusts = (response as UserIllustsResponse).illusts
-      if (illusts) {
-        this.works = illusts.map((item: Object) => Illust.fromJson(item))
-      }
-    } catch (e) {
-      this.worksError = '加载作品失败: ' + e
-      console.error('Load works failed: ' + e)
-    }
+  private async fetchFirst(): Promise<IllustListPage> {
+    let response = await apiService.getUserIllusts(this.userId)
+    return parseIllustListPage(response)
   }
 
   async toggleFollow() {
+    let wasFollowed = this.user.isFollowed
     try {
-      if (this.user.isFollowed) {
+      if (wasFollowed) {
         await apiService.unfollowUser(this.user.id)
       } else {
         await apiService.followUser(this.user.id, 'public')
       }
-      this.user.isFollowed = !this.user.isFollowed
+      this.user.isFollowed = !wasFollowed
+      promptAction.showToast({ message: wasFollowed ? '已取消关注' : '已关注' })
     } catch (e) {
       console.error('Follow failed: ' + e)
+      promptAction.showToast({ message: (wasFollowed ? '取消关注失败' : '关注失败') + '，请重试' })
     }
   }
 
   build() {
     Column() {
       if (this.profileError && this.user.id === 0) {
-        ErrorView({ message: this.profileError, onRetry: () => { this.loadProfile(this.userId); this.loadWorks(this.userId) } })
+        ErrorView({ message: this.profileError, onRetry: () => { this.loadProfile(this.userId) } })
       } else if (this.isLoading) {
         LoadingProgress()
           .width(40)
@@ -135,10 +117,10 @@ export struct UserProfilePage {
             .maxLines(2)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
           Row() {
-            Text('关注 ' + this.user.totalFollowUsers)
+            Text('关注 ' + this.stats.totalFollowUsers)
               .fontSize(12)
               .fontColor('#999999')
-            Text('作品 ' + this.user.totalIllusts)
+            Text('作品 ' + this.stats.totalIllusts)
               .fontSize(12)
               .fontColor('#999999')
               .margin({ left: 16 })
@@ -155,34 +137,11 @@ export struct UserProfilePage {
         .padding(16)
         .alignItems(HorizontalAlign.Center)
 
-        if (this.worksError && this.works.length === 0) {
-          Column() {
-            Text(this.worksError)
-              .fontSize(14)
-              .fontColor('#999999')
-          }
-          .width('100%')
-          .layoutWeight(1)
-          .justifyContent(FlexAlign.Center)
-        } else {
-          List({ space: 8 }) {
-            ForEach(this.works, (item: Illust) => {
-              ListItem() {
-                Column() {
-                  CachedImage({ url: pickPreviewUrl(item.imageUrls, userSettingStore.getSettings().previewQuality) })
-                }
-                .width('100%')
-                .padding(4)
-                .onClick(() => {
-                  router.pushUrl({ url: 'pages/detail/IllustDetailPage', params: { illustId: item.id } })
-                })
-              }
-            }, (item: Illust) => item.id.toString())
-          }
-          .lanes(2)
-          .padding(8)
-          .layoutWeight(1)
-        }
+        // 作品列表接入公共瀑布流（分页/角标/红心/长按菜单自动获得）
+        IllustWaterfall({
+          fetchFirst: (): Promise<IllustListPage> => this.fetchFirst()
+        })
+        .layoutWeight(1)
       }
     }
     .width('100%')

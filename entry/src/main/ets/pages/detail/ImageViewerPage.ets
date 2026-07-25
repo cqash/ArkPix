@@ -1,12 +1,17 @@
 import { router, promptAction } from '@kit.ArkUI';
 import { common } from '@kit.AbilityKit';
-import { imageCacheService } from '../../services/ImageCacheService';
 import { downloadService } from '../../services/DownloadService';
 import { Illust } from '../../models/Illust';
+import { userSettingStore } from '../../stores/UserSettingStore';
+import { bookmarkStateStore, BOOKMARK_DONE } from '../../stores/BookmarkStateStore';
+import { ZoomableImage } from '../../components/viewer/ZoomableImage';
+import { prefetchCachedImage } from '../../components/common/CachedImage';
 
 interface ViewerParams {
-  imageUrl: string
-  downloadUrl: string
+  imageUrl?: string
+  downloadUrl?: string
+  urls?: string[]
+  downloadUrls?: string[]
   illust?: Illust
   pageIndex?: number
 }
@@ -14,31 +19,76 @@ interface ViewerParams {
 @Entry
 @Component
 struct ImageViewerPage {
-  @State imagePath: string = ''
-  @State isLoading: boolean = false
+  @State urls: string[] = []
+  @State downloadUrls: string[] = []
   @State illust: Illust = new Illust()
-  @State pageIndex: number = 0
+  @State currentIndex: number = 0
+  @State isZoomed: boolean = false
 
   aboutToAppear() {
     let params = router.getParams() as ViewerParams
-    if (params && params.imageUrl) {
-      this.illust = params.illust ?? new Illust()
-      this.pageIndex = params.pageIndex ?? 0
-      this.loadImage(params.imageUrl)
+    if (!params) {
+      return
+    }
+    this.illust = params.illust ?? new Illust()
+    if (params.urls !== undefined && params.urls.length > 0) {
+      this.urls = params.urls
+      this.downloadUrls = params.downloadUrls ?? params.urls
+      let index = params.pageIndex ?? 0
+      if (index < 0 || index >= this.urls.length) {
+        index = 0
+      }
+      this.currentIndex = index
+    } else if (params.imageUrl !== undefined) {
+      // 兼容旧单页入口
+      this.urls = [params.imageUrl]
+      this.downloadUrls = [params.downloadUrl ?? params.imageUrl]
+      this.currentIndex = 0
+    }
+    this.prefetchNeighbors(this.currentIndex)
+  }
+
+  private prefetchNeighbors(index: number): void {
+    if (index - 1 >= 0 && index - 1 < this.urls.length) {
+      prefetchCachedImage(this.urls[index - 1])
+    }
+    if (index + 1 >= 0 && index + 1 < this.urls.length) {
+      prefetchCachedImage(this.urls[index + 1])
     }
   }
 
-  async loadImage(url: string) {
-    this.isLoading = true
-    this.imagePath = await imageCacheService.getLocalPath(url)
-    this.isLoading = false
+  onIndexChange(index: number): void {
+    this.currentIndex = index
+    this.prefetchNeighbors(index)
   }
 
   async handleSave(): Promise<void> {
-    let params = router.getParams() as ViewerParams
-    if (!params || !params.downloadUrl) { return }
-    let illust = params.illust ?? new Illust()
-    let localPath = await downloadService.downloadToCache(params.downloadUrl, illust, this.pageIndex)
+    if (this.downloadUrls.length === 0 || this.currentIndex >= this.downloadUrls.length) {
+      return
+    }
+    let downloaded = await downloadService.isDownloaded(this.illust.id, this.currentIndex)
+    if (downloaded) {
+      this.getUIContext().showAlertDialog({
+        title: '提示',
+        message: '该图片已下载过',
+        autoCancel: true,
+        primaryButton: {
+          value: '取消',
+          action: () => {}
+        },
+        secondaryButton: {
+          value: '仍要下载',
+          action: () => { this.doSave() }
+        }
+      })
+      return
+    }
+    await this.doSave()
+  }
+
+  private async doSave(): Promise<void> {
+    let localPath = await downloadService.downloadToCache(
+      this.downloadUrls[this.currentIndex], this.illust, this.currentIndex)
     if (!localPath) {
       promptAction.showToast({ message: '下载失败' })
       return
@@ -51,6 +101,11 @@ struct ImageViewerPage {
     let saved = await downloadService.applyToGallery(localPath, ctx)
     if (saved) {
       promptAction.showToast({ message: '已保存到图库' })
+      // 下载时自动收藏联动，走 BookmarkStateStore 保证跨页同步
+      if (userSettingStore.getSettings().autoBookmarkOnDownload && this.illust.id > 0 &&
+        bookmarkStateStore.stateOf(this.illust.id, this.illust.isBookmarked) !== BOOKMARK_DONE) {
+        await bookmarkStateStore.star(this.illust, 'public')
+      }
     } else {
       promptAction.showToast({ message: '保存失败' })
     }
@@ -58,25 +113,20 @@ struct ImageViewerPage {
 
   build() {
     Stack({ alignContent: Alignment.Center }) {
-      if (this.imagePath) {
-        Image('file://' + this.imagePath)
-          .width('100%')
-          .height('100%')
-          .objectFit(ImageFit.Contain)
-          .backgroundColor('#000000')
-          .onClick(() => {
-            router.back()
+      Swiper() {
+        ForEach(this.urls, (url: string) => {
+          ZoomableImage({
+            url: url,
+            onZoomChange: (zoomed: boolean) => { this.isZoomed = zoomed }
           })
-      } else if (this.isLoading) {
-        LoadingProgress()
-          .width(48)
-          .height(48)
-          .color('#FFFFFF')
-      } else {
-        Text('图片加载失败')
-          .fontSize(16)
-          .fontColor('#FFFFFF')
+        }, (url: string) => url)
       }
+      .index(this.currentIndex)
+      .indicator(false)
+      .disableSwipe(this.isZoomed)
+      .onChange((index: number) => { this.onIndexChange(index) })
+      .width('100%')
+      .height('100%')
 
       Column() {
         Row() {
@@ -100,6 +150,23 @@ struct ImageViewerPage {
       .width('100%')
       .height('100%')
       .justifyContent(FlexAlign.Start)
+
+      if (this.urls.length > 1) {
+        Column() {
+          Text((this.currentIndex + 1) + '/' + this.urls.length)
+            .fontSize(14)
+            .fontColor('#FFFFFF')
+            .backgroundColor('rgba(0, 0, 0, 0.5)')
+            .padding({ left: 12, right: 12, top: 4, bottom: 4 })
+            .borderRadius(12)
+            .margin({ bottom: 32 })
+        }
+        .width('100%')
+        .height('100%')
+        .justifyContent(FlexAlign.End)
+        .alignItems(HorizontalAlign.Center)
+        .hitTestBehavior(HitTestMode.Transparent)
+      }
     }
     .width('100%')
     .height('100%')

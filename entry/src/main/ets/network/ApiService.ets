@@ -5,21 +5,6 @@ import { authInterceptor } from './AuthInterceptor';
 import { retryInterceptor } from './RetryInterceptor';
 import { logInterceptor } from './LogInterceptor';
 
-interface BookmarkBody {
-  illust_id: number
-  restrict: string
-  tags: string[]
-}
-
-interface UserIdBody {
-  illust_id: number
-}
-
-interface FollowBody {
-  user_id: number
-  restrict: string
-}
-
 export class ApiService {
   private static instance: ApiService
   private httpClient: HttpClient
@@ -38,16 +23,59 @@ export class ApiService {
     return ApiService.instance
   }
 
+  private ensureSuccess(response: http.HttpResponse, url: string): void {
+    if (response.responseCode < 200 || response.responseCode >= 300) {
+      throw new Error('HTTP ' + response.responseCode + ': ' + url)
+    }
+  }
+
   private async get(url: string): Promise<Object> {
     let response = await this.httpClient.get(url)
+    this.ensureSuccess(response, url)
     let body = String(response.result)
     return JSON.parse(body)
   }
 
-  private async post(url: string, body: Object): Promise<Object> {
-    let response = await this.httpClient.post(url, body)
+  /**
+   * Pixiv 写接口（收藏/关注等）要求 application/x-www-form-urlencoded 表单编码，
+   * 发送 JSON 会被服务端拒绝（HTTP 400）。字符串数组按 Pixiv 约定编码为 key[]=v1&key[]=v2。
+   */
+  private toFormBody(fields: Record<string, string | number | boolean>, arrayFields?: Record<string, string[]>): string {
+    let parts: string[] = []
+    let keys = Object.keys(fields)
+    for (let i = 0; i < keys.length; i++) {
+      let key = keys[i]
+      parts.push(encodeURIComponent(key) + '=' + encodeURIComponent(String(fields[key])))
+    }
+    if (arrayFields) {
+      let arrKeys = Object.keys(arrayFields)
+      for (let i = 0; i < arrKeys.length; i++) {
+        let key = arrKeys[i]
+        let arr = arrayFields[key]
+        for (let j = 0; j < arr.length; j++) {
+          parts.push(encodeURIComponent(key + '[]') + '=' + encodeURIComponent(arr[j]))
+        }
+      }
+    }
+    return parts.join('&')
+  }
+
+  private async post(url: string, fields: Record<string, string | number | boolean>,
+    arrayFields?: Record<string, string[]>): Promise<Object> {
+    let header: Record<string, string> = { 'Content-Type': 'application/x-www-form-urlencoded' }
+    let response = await this.httpClient.post(url, this.toFormBody(fields, arrayFields), header)
+    this.ensureSuccess(response, url)
     let resBody = String(response.result)
+    if (resBody.length === 0) {
+      // 部分写接口（如取消收藏）成功时返回空响应体
+      let empty: Record<string, string> = {}
+      return empty
+    }
     return JSON.parse(resBody)
+  }
+
+  async fetchNext(nextUrl: string): Promise<Object> {
+    return this.get(nextUrl)
   }
 
   async getRecommendedIllusts(): Promise<Object> {
@@ -75,13 +103,14 @@ export class ApiService {
   }
 
   async addBookmark(illustId: number, restrict: string = 'public', tags: string[] = []): Promise<Object> {
-    let body: BookmarkBody = { illust_id: illustId, restrict: restrict, tags: tags }
-    return this.post(PixivEndpoints.illustBookmarkAdd(), body)
+    let fields: Record<string, string | number | boolean> = { 'illust_id': illustId, 'restrict': restrict }
+    let arrayFields: Record<string, string[]> = { 'tags': tags }
+    return this.post(PixivEndpoints.illustBookmarkAdd(), fields, arrayFields)
   }
 
   async deleteBookmark(illustId: number): Promise<Object> {
-    let body: UserIdBody = { illust_id: illustId }
-    return this.post(PixivEndpoints.illustBookmarkDelete(), body)
+    let fields: Record<string, string | number | boolean> = { 'illust_id': illustId }
+    return this.post(PixivEndpoints.illustBookmarkDelete(), fields)
   }
 
   async getUserDetail(userId: number): Promise<Object> {
@@ -97,13 +126,14 @@ export class ApiService {
   }
 
   async followUser(userId: number, restrict: string = 'public'): Promise<Object> {
-    let body: FollowBody = { user_id: userId, restrict: restrict }
-    return this.post(PixivEndpoints.userFollowAdd(), body)
+    let fields: Record<string, string | number | boolean> = { 'user_id': userId, 'restrict': restrict }
+    return this.post(PixivEndpoints.userFollowAdd(), fields)
   }
 
   async unfollowUser(userId: number): Promise<Object> {
-    let body: UserIdBody = { illust_id: userId }
-    return this.post(PixivEndpoints.userFollowDelete(), body)
+    // Pixiv follow/delete 接口参数为 user_id（此前误写 illust_id 会 400）
+    let fields: Record<string, string | number | boolean> = { 'user_id': userId }
+    return this.post(PixivEndpoints.userFollowDelete(), fields)
   }
 
   async searchIllusts(word: string, sort?: string, target?: string): Promise<Object> {

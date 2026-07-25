@@ -1,5 +1,5 @@
 import { preferenceService } from '../services/PreferenceService';
-import { oauthService } from '../network/OAuthService';
+import { oauthService, CredentialInvalidError } from '../network/OAuthService';
 import { authInterceptor } from '../network/AuthInterceptor';
 
 export interface AccountOptions {
@@ -36,6 +36,7 @@ export class AccountStore {
   private accounts: Account[] = []
   private currentIndex: number = 0
   private isLoggedIn: boolean = false
+  private needsRelogin: boolean = false
 
   private constructor() {
     this.loadAccounts()
@@ -49,6 +50,15 @@ export class AccountStore {
     return AccountStore.instance
   }
 
+  getNeedsRelogin(): boolean {
+    return this.needsRelogin
+  }
+
+  clearNeedsRelogin(): void {
+    this.needsRelogin = false
+    AppStorage.setOrCreate('needsRelogin', false)
+  }
+
   private registerRefreshHandler(): void {
     authInterceptor.setRefreshHandler(async () => {
       let success = await this.refreshToken()
@@ -56,7 +66,9 @@ export class AccountStore {
       return current ? current.accessToken : ''
     })
     authInterceptor.setOnRefreshFailed(() => {
-      this.forceLogout()
+      // refreshToken 内部已按错误类型分类处理（凭证失效才登出），
+      // 此处不再无差别 forceLogout，避免临时网络故障误登出
+      console.error('Refresh handler threw unexpectedly')
     })
   }
 
@@ -169,10 +181,19 @@ export class AccountStore {
       this.accounts[this.currentIndex] = current
       this.saveAccounts()
       authInterceptor.setTokens(tokens.access_token, tokens.refresh_token)
+      this.clearNeedsRelogin()
       return true
     } catch (e) {
-      console.error('Token refresh failed: ' + e)
-      this.forceLogout()
+      if (e instanceof CredentialInvalidError) {
+        // 凭证被服务端明确判定失效：置标记并登出，引导用户重新登录
+        console.error('Credential invalid, relogin required: ' + e)
+        this.needsRelogin = true
+        AppStorage.setOrCreate('needsRelogin', true)
+        this.forceLogout()
+      } else {
+        // 网络等临时错误：保持登录态，后续请求可再次尝试刷新
+        console.error('Token refresh failed (temporary): ' + e)
+      }
       return false
     }
   }

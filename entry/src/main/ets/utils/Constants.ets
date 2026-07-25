@@ -2,8 +2,6 @@ export class Constants {
   static readonly HASH_SALT: string = '28c1fdd170a5204386cb1313c7077b34f83e4aaf4aa829ce78c231e05b0bae2c'
   static readonly CLIENT_ID: string = 'MOBrBDS8blbauoSck0ZfDbtuzpyT'
   static readonly CLIENT_SECRET: string = 'lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj'
-  static readonly REFRESH_CLIENT_ID: string = 'KzEZED7aC0vird8jWyHM38mXjNTY'
-  static readonly REFRESH_CLIENT_SECRET: string = 'W9JZoJe00qPvJsiyCGT3CCtC6ZUtdpKpzMbNlUGP'
   static readonly BASE_API_URL: string = 'https://app-api.pixiv.net'
   static readonly BASE_OAUTH_URL: string = 'https://oauth.secure.pixiv.net'
   static readonly BASE_IMAGE_URL: string = 'https://i.pximg.net'

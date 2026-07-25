@@ -1,1 +1,3 @@
-﻿{ "feature_directory": "spec/exif-comment-template" }
+﻿{
+  "feature_directory": "spec/viewer-profile-download-fixes"
+}

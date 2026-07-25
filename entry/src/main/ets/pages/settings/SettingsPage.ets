@@ -46,6 +46,27 @@ struct SettingItem {
 @Component
 export struct SettingsPage {
   @State settings: AppSettings = userSettingStore.getSettings()
+  @State newMuteTag: string = ''
+
+  addMuteTag() {
+    let tag = this.newMuteTag.trim()
+    if (!tag) {
+      return
+    }
+    userSettingStore.addMuteTag(tag)
+    this.newMuteTag = ''
+    this.settings = userSettingStore.getSettings()
+  }
+
+  removeMuteTag(tag: string) {
+    userSettingStore.removeMuteTag(tag)
+    this.settings = userSettingStore.getSettings()
+  }
+
+  removeMuteUser(userId: number) {
+    userSettingStore.removeMuteUser(userId)
+    this.settings = userSettingStore.getSettings()
+  }
 
   build() {
     List() {
@@ -139,6 +160,14 @@ export struct SettingsPage {
             onItemClick: () => {
               let next = this.settings.crossCount === 2 ? 3 : 2
               userSettingStore.setCrossCount(next)
+              this.settings = userSettingStore.getSettings()
+            }
+          })
+          SettingItem({
+            title: '显示 R18 榜单',
+            value: this.settings.showR18Rank ? '开启' : '关闭',
+            onItemClick: () => {
+              userSettingStore.setShowR18Rank(!this.settings.showR18Rank)
               this.settings = userSettingStore.getSettings()
             }
           })
@@ -268,6 +297,83 @@ export struct SettingsPage {
               this.settings = userSettingStore.getSettings()
             }
           })
+        }
+        .width('100%')
+        .padding({ top: 8, bottom: 8 })
+      }
+      .width('100%')
+
+      ListItem() {
+        Column() {
+          Text('屏蔽与过滤')
+            .fontSize(12)
+            .fontColor('#999999')
+            .width('100%')
+            .padding({ left: 16, bottom: 4 })
+          SettingItem({
+            title: '过滤 AI 作品',
+            value: this.settings.aiFilter ? '开启' : '关闭',
+            onItemClick: () => {
+              userSettingStore.setAiFilter(!this.settings.aiFilter)
+              this.settings = userSettingStore.getSettings()
+            }
+          })
+          Row() {
+            TextInput({ placeholder: '添加屏蔽词（标题/标签）', text: $$this.newMuteTag })
+              .height(40)
+              .layoutWeight(1)
+              .backgroundColor('#FFFFFF')
+              .onSubmit(() => { this.addMuteTag() })
+            Button('添加')
+              .height(40)
+              .backgroundColor('#0096FA')
+              .margin({ left: 8 })
+              .onClick(() => { this.addMuteTag() })
+          }
+          .width('100%')
+          .padding({ left: 16, right: 16, top: 8, bottom: 8 })
+          .backgroundColor('#FFFFFF')
+
+          ForEach(this.settings.muteTags, (tag: string) => {
+            Row() {
+              Text(tag)
+                .fontSize(14)
+                .fontColor('#333333')
+                .layoutWeight(1)
+              Text('删除')
+                .fontSize(12)
+                .fontColor('#FF4444')
+                .onClick(() => { this.removeMuteTag(tag) })
+            }
+            .width('100%')
+            .height(44)
+            .padding({ left: 16, right: 16 })
+            .backgroundColor('#FFFFFF')
+          }, (tag: string) => tag)
+
+          if (this.settings.muteUsers.length > 0) {
+            Text('屏蔽作者')
+              .fontSize(12)
+              .fontColor('#999999')
+              .width('100%')
+              .padding({ left: 16, top: 8, bottom: 4 })
+            ForEach(this.settings.muteUsers, (userId: number) => {
+              Row() {
+                Text('用户 ID: ' + userId)
+                  .fontSize(14)
+                  .fontColor('#333333')
+                  .layoutWeight(1)
+                Text('删除')
+                  .fontSize(12)
+                  .fontColor('#FF4444')
+                  .onClick(() => { this.removeMuteUser(userId) })
+              }
+              .width('100%')
+              .height(44)
+              .padding({ left: 16, right: 16 })
+              .backgroundColor('#FFFFFF')
+            }, (userId: number) => userId.toString())
+          }
         }
         .width('100%')
         .padding({ top: 8, bottom: 8 })

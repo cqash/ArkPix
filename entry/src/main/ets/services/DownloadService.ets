@@ -11,6 +11,11 @@ import { Illust, Tag } from '../models/Illust';
 import { userSettingStore } from '../stores/UserSettingStore';
 import { preferenceService } from './PreferenceService';
 import { hoster } from '../network/Hoster';
+import { apiService } from '../network/ApiService';
+
+interface IllustDetailResponse {
+  illust: Object
+}
 
 export class DownloadService {
   private static instance: DownloadService
@@ -219,6 +224,62 @@ export class DownloadService {
   async getTasks(): Promise<Array<object>> {
     let db = await getDbService()
     return db.getDownloadTasks()
+  }
+
+  /**
+   * 重复下载检测：存在 completed 任务记录且对应文件仍存在才判定已下载。
+   * DB 不可用时降级返回 false（直接下载）。
+   */
+  async isDownloaded(illustId: number, part: number): Promise<boolean> {
+    try {
+      let db = await getDbService()
+      let task = await db.getDownloadTaskById(illustId + '_' + part)
+      if (!task || task.status !== 'completed' || task.local_path.length === 0) {
+        return false
+      }
+      return fileIo.accessSync(task.local_path)
+    } catch (e) {
+      console.error('Check downloaded failed: ' + e)
+      return false
+    }
+  }
+
+  /** 删除指定状态的任务记录（仅删记录不删文件），返回删除数 */
+  async clearTasksByStatus(status: string): Promise<number> {
+    let db = await getDbService()
+    return await db.deleteDownloadTasksByStatus(status)
+  }
+
+  /** 重试全部失败任务：用任务记录的 URL + 接口元信息重建下载；元信息缺失条目跳过。返回成功发起数 */
+  async retryAllFailed(): Promise<number> {
+    let db = await getDbService()
+    let tasks = await db.getDownloadTasks()
+    let started = 0
+    for (let i = 0; i < tasks.length; i++) {
+      let task = tasks[i]
+      if (task.status !== 'failed' || task.image_url.length === 0) {
+        continue
+      }
+      try {
+        let response = await apiService.getIllustDetail(task.illust_id)
+        let raw = (response as IllustDetailResponse).illust
+        if (!raw) {
+          console.error('Retry task ' + task.id + ' skipped: illust metadata missing')
+          continue
+        }
+        let illust = Illust.fromJson(raw)
+        if (illust.id === 0) {
+          continue
+        }
+        let localPath = await this.downloadToCache(task.image_url, illust, task.page_index)
+        if (localPath.length > 0) {
+          started++
+        }
+      } catch (e) {
+        console.error('Retry task ' + task.id + ' failed: ' + e)
+      }
+    }
+    return started
   }
 }
 

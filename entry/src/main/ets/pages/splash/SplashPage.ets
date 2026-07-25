@@ -1,4 +1,4 @@
-import { router } from '@kit.ArkUI';
+import { router, promptAction } from '@kit.ArkUI';
 import { accountStore } from '../../stores/AccountStore';
 
 @Entry
@@ -12,6 +12,12 @@ struct SplashPage {
       if (accountStore.getIsLoggedIn()) {
         router.replaceUrl({ url: 'pages/home/HomePage' })
       } else {
+        // 凭证被服务端明确判定失效后引导重新登录（临时网络故障不会走到这里）
+        let needsRelogin = AppStorage.get<boolean>('needsRelogin') ?? false
+        if (needsRelogin || accountStore.getNeedsRelogin()) {
+          promptAction.showToast({ message: '登录已过期，请重新登录' })
+          accountStore.clearNeedsRelogin()
+        }
         router.replaceUrl({ url: 'pages/login/LoginPage' })
       }
     }, 1500)

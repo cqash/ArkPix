@@ -241,8 +241,39 @@ export class DatabaseService {
       [illustId, data, Date.now()])
   }
 
+  async deleteIllustDetailCache(illustId: number): Promise<void> {
+    await this.db.execute('DELETE FROM illust_detail_cache WHERE illust_id = ?', [illustId])
+  }
+
   async clearCompletedDownloadTasks(): Promise<void> {
     await this.db.execute('DELETE FROM download_tasks WHERE status = ?', ['completed'])
+  }
+
+  async getDownloadTaskById(taskId: string): Promise<DownloadTaskItem | null> {
+    let resultSet = await this.db.querySql('SELECT * FROM download_tasks WHERE id = ?', [taskId])
+    let item: DownloadTaskItem | null = null
+    if (resultSet.goToNextRow()) {
+      let found: DownloadTaskItem = {
+        id: String(resultSet.getValue(resultSet.getColumnIndex('id'))),
+        illust_id: Number(resultSet.getValue(resultSet.getColumnIndex('illust_id'))),
+        page_index: Number(resultSet.getValue(resultSet.getColumnIndex('page_index'))),
+        image_url: String(resultSet.getValue(resultSet.getColumnIndex('image_url'))),
+        local_path: String(resultSet.getValue(resultSet.getColumnIndex('local_path'))),
+        status: String(resultSet.getValue(resultSet.getColumnIndex('status'))),
+        progress: Number(resultSet.getValue(resultSet.getColumnIndex('progress'))),
+        timestamp: Number(resultSet.getValue(resultSet.getColumnIndex('timestamp')))
+      }
+      item = found
+    }
+    resultSet.close()
+    return item
+  }
+
+  /** 删除指定状态的全部下载任务记录（仅删记录不删文件），返回删除行数 */
+  async deleteDownloadTasksByStatus(status: string): Promise<number> {
+    let predicates = new relationalStore.RdbPredicates('download_tasks')
+    predicates.equalTo('status', status)
+    return await this.db.delete(predicates)
   }
 
   async clearImageCache(): Promise<void> {

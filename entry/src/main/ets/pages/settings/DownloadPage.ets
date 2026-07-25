@@ -1,4 +1,4 @@
-import { router, promptAction } from '@kit.ArkUI';
+import { promptAction } from '@kit.ArkUI';
 import { getDbService, DownloadTaskItem } from '../../services/DatabaseService';
 import { downloadService } from '../../services/DownloadService';
 import { apiService } from '../../network/ApiService';
@@ -49,9 +49,37 @@ export struct DownloadPage {
   }
 
   async clearCompleted() {
-    let db = await getDbService()
-    await db.clearCompletedDownloadTasks()
+    let count = await downloadService.clearTasksByStatus('completed')
+    promptAction.showToast({ message: '已清空 ' + count + ' 条完成记录' })
     await this.loadTasks()
+  }
+
+  async doRetryAllFailed() {
+    let count = await downloadService.retryAllFailed()
+    promptAction.showToast({ message: '已重试 ' + count + ' 个失败任务' })
+    await this.loadTasks()
+  }
+
+  async doClearFailed() {
+    let count = await downloadService.clearTasksByStatus('failed')
+    promptAction.showToast({ message: '已清空 ' + count + ' 条失败记录' })
+    await this.loadTasks()
+  }
+
+  private confirmBatchAction(title: string, message: string, onConfirm: () => void): void {
+    this.getUIContext().showAlertDialog({
+      title: title,
+      message: message,
+      autoCancel: true,
+      primaryButton: {
+        value: '取消',
+        action: () => {}
+      },
+      secondaryButton: {
+        value: '确定',
+        action: onConfirm
+      }
+    })
   }
 
   private statusText(status: string): string {
@@ -76,10 +104,26 @@ export struct DownloadPage {
           .fontWeight(FontWeight.Bold)
           .fontColor('#333333')
           .layoutWeight(1)
-        Button('清空已完成')
+        Button('重试失败')
+          .fontSize(12)
+          .backgroundColor('#0096FA')
+          .onClick(() => {
+            this.confirmBatchAction('一键重试', '将重试全部失败任务', () => { this.doRetryAllFailed() })
+          })
+        Button('清空失败')
+          .fontSize(12)
+          .backgroundColor('#FFAA00')
+          .margin({ left: 8 })
+          .onClick(() => {
+            this.confirmBatchAction('清空失败', '将移除全部失败任务记录（不删除文件）', () => { this.doClearFailed() })
+          })
+        Button('清空完成')
           .fontSize(12)
           .backgroundColor('#FF4444')
-          .onClick(() => { this.clearCompleted() })
+          .margin({ left: 8 })
+          .onClick(() => {
+            this.confirmBatchAction('清空已完成', '将移除全部已完成任务记录（不删除文件）', () => { this.clearCompleted() })
+          })
       }
       .width('100%')
       .height(56)

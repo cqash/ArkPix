@@ -19,6 +19,7 @@ export interface AppSettingsOptions {
   embedExifMetadata?: boolean
   exifCommentTemplate?: string
   showTranslatedTags?: boolean
+  showR18Rank?: boolean
 }
 
 export class AppSettings {
@@ -42,6 +43,7 @@ export class AppSettings {
   embedExifMetadata: boolean = true
   exifCommentTemplate: string = 'PID:{illust_id} | {tags}'
   showTranslatedTags: boolean = true
+  showR18Rank: boolean = false
 
   constructor(options?: AppSettingsOptions) {
     if (options) {
@@ -65,6 +67,7 @@ export class AppSettings {
       this.embedExifMetadata = options.embedExifMetadata ?? true
       this.exifCommentTemplate = options.exifCommentTemplate ?? 'PID:{illust_id} | {tags}'
       this.showTranslatedTags = options.showTranslatedTags ?? true
+      this.showR18Rank = options.showR18Rank ?? false
     }
   }
 }

@@ -1,36 +1,19 @@
-import { router } from '@kit.ArkUI';
 import { apiService } from '../../network/ApiService';
-import { Illust, ImageUrls } from '../../models/Illust';
-import { userSettingStore } from '../../stores/UserSettingStore';
-import { CachedImage } from '../../components/common/CachedImage';
-import { ErrorView } from '../../components/common/CommonViews';
-
-function pickPreviewUrl(urls: ImageUrls, quality: number): string {
-  if (quality === 0) {
-    return urls.squareMedium || urls.medium || urls.large
-  }
-  if (quality === 1) {
-    return urls.medium || urls.large || urls.original
-  }
-  return urls.large || urls.medium || urls.original
-}
+import { getDbService, SearchHistoryItem } from '../../services/DatabaseService';
+import { IllustWaterfall, IllustListPage, parseIllustListPage } from '../../components/illust/IllustWaterfall';
 
 interface TrendingTagsResponse {
   trend_tags: string[]
 }
 
-interface SearchResponse {
-  illusts: Object[]
-}
-
 @Component
 export struct SearchPage {
   @State searchKeyword: string = ''
-  @State illustList: Illust[] = []
-  @State isLoading: boolean = false
+  @State searchedKeyword: string = ''
+  @State hasSearched: boolean = false
+  @State reloadToken: number = 0
   @State trendingTags: string[] = []
   @State searchHistory: string[] = []
-  @State searchError: string = ''
 
   aboutToAppear() {
     this.loadTrendingTags()
@@ -50,49 +33,49 @@ export struct SearchPage {
   }
 
   async loadSearchHistory() {
-    // TODO: load from database
-    this.searchHistory = []
-  }
-
-  async search() {
-    if (!this.searchKeyword.trim()) { return }
-    this.isLoading = true
-    this.searchError = ''
     try {
-      let response = await apiService.searchIllusts(this.searchKeyword)
-      let illusts = (response as SearchResponse).illusts
-      if (illusts) {
-        this.illustList = illusts.map((item: Object) => Illust.fromJson(item))
-      }
+      let db = await getDbService()
+      let items = await db.getSearchHistory(30)
+      this.searchHistory = items.map((item: SearchHistoryItem) => item.keyword)
     } catch (e) {
-      this.searchError = '搜索失败: ' + e
-      console.error('Search failed: ' + e)
-    } finally {
-      this.isLoading = false
+      console.error('Load search history failed: ' + e)
     }
   }
 
-  @Builder
-  IllustCard(item: Illust) {
-    Column() {
-      CachedImage({ url: pickPreviewUrl(item.imageUrls, userSettingStore.getSettings().previewQuality) })
-      Text(item.title)
-        .fontSize(12)
-        .fontColor('#333333')
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .margin({ top: 4 })
-      Text(item.user.name)
-        .fontSize(10)
-        .fontColor('#999999')
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
+  async clearSearchHistory() {
+    try {
+      let db = await getDbService()
+      await db.clearSearchHistory()
+      this.searchHistory = []
+    } catch (e) {
+      console.error('Clear search history failed: ' + e)
     }
-    .width('100%')
-    .padding(4)
-    .onClick(() => {
-      router.pushUrl({ url: 'pages/detail/IllustDetailPage', params: { illustId: item.id } })
+  }
+
+  search() {
+    let keyword = this.searchKeyword.trim()
+    if (!keyword) {
+      return
+    }
+    this.searchedKeyword = keyword
+    this.hasSearched = true
+    this.reloadToken++
+    getDbService().then((db) => {
+      return db.addSearchHistory(keyword, 'illust')
+    }).then(() => {
+      this.loadSearchHistory()
+    }).catch((e: Object) => {
+      console.error('Add search history failed: ' + e)
     })
+  }
+
+  private async fetchFirst(): Promise<IllustListPage> {
+    if (!this.searchedKeyword) {
+      let empty: IllustListPage = { illusts: [], nextUrl: '' }
+      return empty
+    }
+    let response = await apiService.searchIllusts(this.searchedKeyword)
+    return parseIllustListPage(response)
   }
 
   build() {
@@ -115,14 +98,40 @@ export struct SearchPage {
       .padding(16)
       .justifyContent(FlexAlign.SpaceBetween)
 
-      if (this.searchError && this.illustList.length === 0) {
+      if (!this.hasSearched) {
         Column() {
-          ErrorView({ message: this.searchError, onRetry: () => { this.search() } })
-        }
-        .width('100%')
-        .layoutWeight(1)
-      } else if (this.illustList.length === 0 && !this.isLoading) {
-        Column() {
+          if (this.searchHistory.length > 0) {
+            Row() {
+              Text('搜索历史')
+                .fontSize(16)
+                .fontWeight(FontWeight.Bold)
+                .fontColor('#333333')
+                .layoutWeight(1)
+              Text('清除')
+                .fontSize(12)
+                .fontColor('#FF4444')
+                .onClick(() => { this.clearSearchHistory() })
+            }
+            .width('100%')
+            .margin({ bottom: 12 })
+            Flex({ wrap: FlexWrap.Wrap }) {
+              ForEach(this.searchHistory, (keyword: string) => {
+                Text(keyword)
+                  .fontSize(12)
+                  .fontColor('#333333')
+                  .backgroundColor('#F0F0F0')
+                  .padding({ left: 12, right: 12, top: 6, bottom: 6 })
+                  .borderRadius(16)
+                  .margin({ right: 8, bottom: 8 })
+                  .onClick(() => {
+                    this.searchKeyword = keyword
+                    this.search()
+                  })
+              }, (keyword: string) => keyword)
+            }
+            .width('100%')
+            .margin({ bottom: 16 })
+          }
           Text('热门标签')
             .fontSize(16)
             .fontWeight(FontWeight.Bold)
@@ -148,26 +157,11 @@ export struct SearchPage {
         .width('100%')
         .padding(16)
         .layoutWeight(1)
-      } else if (this.isLoading) {
-        Column() {
-          LoadingProgress()
-            .width(40)
-            .height(40)
-            .color('#0096FA')
-        }
-        .width('100%')
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
       } else {
-        List({ space: 8 }) {
-          ForEach(this.illustList, (item: Illust) => {
-            ListItem() {
-              this.IllustCard(item)
-            }
-          }, (item: Illust) => item.id.toString())
-        }
-        .lanes(userSettingStore.getSettings().crossCount)
-        .padding(8)
+        IllustWaterfall({
+          fetchFirst: (): Promise<IllustListPage> => this.fetchFirst(),
+          reloadToken: this.reloadToken
+        })
         .layoutWeight(1)
       }
     }
