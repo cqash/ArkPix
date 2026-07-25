@@ -4,7 +4,8 @@ import { imageCacheService } from '../../services/ImageCacheService';
 /**
  * 可缩放图片（官方手势竞争方案，禁止回退条件手势组）：
  * - GestureGroup(Parallel, Pinch + Pan + Tap) 静态常驻挂载，不按 scale 条件切换手势组；
- * - PanGesture distance 动态化：scale=1 时 50vp（让位 Swiper 翻页），scale>1 时 3vp（跟手平移）；
+ * - PanGestureOptions.setDistance() 动态更新 distance：scale=1 时 50vp（让位 Swiper 翻页），scale>1 时 3vp（跟手平移）；
+ * - .priorityGesture() 绑定手势组，优先于 Swiper 内置手势；
  * - 放大后拖到 X 向边界继续外拖时通过 onZoomChange(false) 释放回 Swiper 翻页，松手后恢复；
  * - 双击 1↔2.5 倍切换；缩放限幅 1~maxScale，平移边界钳制。
  */
@@ -19,12 +20,17 @@ export struct ZoomableImage {
   @State scaleValue: number = 1
   @State offsetX: number = 0
   @State offsetY: number = 0
+  private panOptions: PanGestureOptions = new PanGestureOptions({ fingers: 1, distance: 50 })
   private baseScale: number = 1
+  private uiContext: UIContext | undefined = undefined
   private panStartX: number = 0
   private panStartY: number = 0
   private releasedAtEdge: boolean = false
+  private componentWidth: number = 0
+  private componentHeight: number = 0
 
   aboutToAppear() {
+    this.uiContext = this.getUIContext()
     this.load()
   }
 
@@ -92,6 +98,35 @@ export struct ZoomableImage {
       this.clampOffsets()
     }
     this.onZoomChange(this.scaleValue > 1)
+    this.panOptions.setDistance(this.scaleValue > 1 ? 3 : 50)
+  }
+
+  /**
+   * 以 (focusX, focusY) 为焦点缩放到 targetScale（均为相对于组件左上角的 vp 坐标）
+   * .scale() 默认以组件中心 (halfW, halfH) 为缩放原点，
+   * 缩放时：先以中心缩放，再通过 translate 补偿偏移使焦点处的像素保持不动。
+   * 公式：newOffset = (focus - center) * (1 - ratio) + oldOffset * ratio
+   *   其中 ratio = newScale / oldScale
+   */
+  private applyScaleWithFocus(targetScale: number, focusX: number, focusY: number): void {
+    let oldScale = this.scaleValue
+    this.scaleValue = this.clampScale(targetScale)
+    if (this.scaleValue === 1) {
+      this.offsetX = 0
+      this.offsetY = 0
+    } else {
+      let ratio = this.scaleValue / oldScale
+      let halfW = this.componentWidth / 2
+      let halfH = this.componentHeight / 2
+      // 焦点相对于缩放中心的偏移
+      let fx = focusX - halfW
+      let fy = focusY - halfH
+      this.offsetX = fx * (1 - ratio) + this.offsetX * ratio
+      this.offsetY = fy * (1 - ratio) + this.offsetY * ratio
+      this.clampOffsets()
+    }
+    this.onZoomChange(this.scaleValue > 1)
+    this.panOptions.setDistance(this.scaleValue > 1 ? 3 : 50)
   }
 
   build() {
@@ -131,7 +166,11 @@ export struct ZoomableImage {
     }
     .width('100%')
     .height('100%')
-    .gesture(
+    .onAreaChange((_oldArea: Area, newArea: Area) => {
+      this.componentWidth = newArea.width as number
+      this.componentHeight = newArea.height as number
+    })
+    .priorityGesture(
       // 静态常驻手势组：Pinch/Pan/Tap 始终挂载，仅靠 Pan distance 动态值仲裁竞争
       GestureGroup(GestureMode.Parallel,
         PinchGesture({ fingers: 2, distance: 1 })
@@ -147,7 +186,7 @@ export struct ZoomableImage {
             }
           }),
         // distance 动态：scale=1 → 50vp 内不触发（Swiper 赢得竞争翻页）；scale>1 → 3vp 即触即发
-        PanGesture({ fingers: 1, distance: this.scaleValue > 1 ? 3 : 50 })
+        PanGesture(this.panOptions)
           .onActionStart(() => {
             this.panStartX = this.offsetX
             this.panStartY = this.offsetY
@@ -172,11 +211,31 @@ export struct ZoomableImage {
             }
           }),
         TapGesture({ count: 2 })
-          .onAction(() => {
-            if (this.scaleValue > 1) {
-              this.applyScale(1)
+          .onAction((event: GestureEvent) => {
+            // 取双击第二次手指的位置作为焦点
+            let focusX = this.componentWidth / 2
+            let focusY = this.componentHeight / 2
+            if (event.fingerList.length > 0) {
+              let finger = event.fingerList[0]
+              if (finger.localX > 0 && finger.localY > 0) {
+                focusX = finger.localX
+                focusY = finger.localY
+              }
+            }
+            if (this.uiContext) {
+              this.uiContext.animateTo({ duration: 250, curve: Curve.FastOutSlowIn }, () => {
+                if (this.scaleValue > 1) {
+                  this.applyScaleWithFocus(1, focusX, focusY)
+                } else {
+                  this.applyScaleWithFocus(2.5, focusX, focusY)
+                }
+              })
             } else {
-              this.applyScale(2.5)
+              if (this.scaleValue > 1) {
+                this.applyScaleWithFocus(1, focusX, focusY)
+              } else {
+                this.applyScaleWithFocus(2.5, focusX, focusY)
+              }
             }
           })
       )

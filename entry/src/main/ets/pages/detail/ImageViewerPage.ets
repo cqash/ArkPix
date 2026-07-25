@@ -150,6 +150,7 @@ struct ImageViewerPage {
       .width('100%')
       .height('100%')
       .justifyContent(FlexAlign.Start)
+      .hitTestBehavior(HitTestMode.Transparent)
 
       if (this.urls.length > 1) {
         Column() {
