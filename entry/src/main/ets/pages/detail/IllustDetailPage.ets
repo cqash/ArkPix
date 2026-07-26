@@ -815,6 +815,7 @@ struct IllustDetailPage {
       .backgroundColor('#FFFFFF')
       .borderRadius(12)
       .width('85%')
+      .hitTestBehavior(HitTestMode.Block)
     }
     .width('100%')
     .height('100%')
@@ -950,6 +951,7 @@ struct IllustDetailPage {
           .padding(16)
           .backgroundColor('#F5F5F5')
           .borderRadius(12)
+          .hitTestBehavior(HitTestMode.Block)
         }
         .width('100%')
         .height('100%')
