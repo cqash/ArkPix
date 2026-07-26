@@ -206,14 +206,16 @@ export function filterTagsForExif(tags: ExifTag[], settings: AppSettings): ExifT
 
 // 同义 tag 组（用于审查弹窗展示）
 export interface MergeGroup {
-  translatedName: string  // 共享的翻译名
+  translatedName: string  // 共享的翻译名或关联名
   tags: ExifTag[]         // 拥有此翻译名的所有 tag
 }
 
 // 检测未在 exifMergedTags 中定义的同义 tag 组
-// 当 autoMergeTranslatedTags 开启时，找出 tags 中 translatedName 相同且非空的 tag 组，
-// 排除已在 exifMergedTags 规则中覆盖的组（即组内所有 tag 名都已被某条规则的 mainTag 或 fromTags 包含）。
-// 返回需要用户审查的组列表。
+// 检测方式：
+//   A) translatedName 相同且非空的 tag 组（如 女の子/女孩子 都翻译为"女孩子"）
+//   B) tag 的 translatedName 匹配列表中另一个 tag 的 name（如 崩壊3rd 翻译为"崩坏3"而列表中有崩坏3）
+//   C) tag 的 name 匹配列表中另一个 tag 的有效 translatedName（如 崩坏3 被翻译为英文但它是崩壊3rd的中文名）
+// 排除已在 exifMergedTags 规则中覆盖的组。
 export function findUnresolvedMergeGroups(tags: ExifTag[], settings: AppSettings): MergeGroup[] {
   if (!settings.autoMergeTranslatedTags) {
     return []
@@ -229,10 +231,16 @@ export function findUnresolvedMergeGroups(tags: ExifTag[], settings: AppSettings
     }
   }
 
-  // Group tags by translatedName
+  // Build name→tag lookup
+  let nameMap: Map<string, ExifTag> = new Map()
+  for (let i = 0; i < tags.length; i++) {
+    nameMap.set(tags[i].name, tags[i])
+  }
+
+  // Group tags by translatedName (method A)
   let groups: Map<string, ExifTag[]> = new Map()
   for (let i = 0; i < tags.length; i++) {
-    let tn = tags[i].translatedName
+    let tn = Constants.filterTranslatedName(tags[i].name, tags[i].translatedName)
     if (tn.length === 0) {
       continue
     }
@@ -241,6 +249,46 @@ export function findUnresolvedMergeGroups(tags: ExifTag[], settings: AppSettings
       existing.push(tags[i])
     } else {
       groups.set(tn, [tags[i]])
+    }
+  }
+
+  // Method B: tag's filteredTranslation matches another tag's name → merge them
+  // e.g. 崩壊3rd translates to "崩坏3", and 崩坏3 exists as a tag name
+  for (let i = 0; i < tags.length; i++) {
+    let filtered = Constants.filterTranslatedName(tags[i].name, tags[i].translatedName)
+    if (filtered.length === 0) {
+      continue
+    }
+    let matchTag = nameMap.get(filtered)
+    if (matchTag !== undefined && matchTag.name !== tags[i].name) {
+      // tags[i] and matchTag are synonyms
+      let existing = groups.get(filtered)
+      if (existing === undefined) {
+        groups.set(filtered, [tags[i], matchTag])
+      } else {
+        // Check if tags[i] already in group
+        let found = false
+        for (let g = 0; g < existing.length; g++) {
+          if (existing[g].name === tags[i].name) {
+            found = true
+            break
+          }
+        }
+        if (!found) {
+          existing.push(tags[i])
+        }
+        // Check if matchTag already in group
+        let matchFound = false
+        for (let g = 0; g < existing.length; g++) {
+          if (existing[g].name === matchTag.name) {
+            matchFound = true
+            break
+          }
+        }
+        if (!matchFound) {
+          existing.push(matchTag)
+        }
+      }
     }
   }
 
