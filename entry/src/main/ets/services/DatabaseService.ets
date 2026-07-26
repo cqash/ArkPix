@@ -64,6 +64,9 @@ export class DatabaseService {
       await db.execute('CREATE TABLE IF NOT EXISTS ranking_cache (id INTEGER PRIMARY KEY, mode TEXT, date TEXT, data TEXT, timestamp INTEGER)')
       await db.execute('CREATE TABLE IF NOT EXISTS illust_detail_cache (id INTEGER PRIMARY KEY, illust_id INTEGER, data TEXT, timestamp INTEGER)')
       DatabaseService.instance = new DatabaseService(db)
+      // 应用重启后，残留的 downloading/pending 任务不可能继续，重置为 failed
+      await db.execute('UPDATE download_tasks SET status = ?, progress = ? WHERE status = ? OR status = ?',
+        ['failed', 0, 'downloading', 'pending'])
     }
     return DatabaseService.instance
   }
