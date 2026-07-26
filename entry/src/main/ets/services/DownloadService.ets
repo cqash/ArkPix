@@ -273,6 +273,10 @@ export class DownloadService {
         }
         let localPath = await this.downloadToCache(task.image_url, illust, task.page_index)
         if (localPath.length > 0) {
+          let ctx = AppStorage.get<common.Context>('context')
+          if (ctx) {
+            await this.applyToGallery(localPath, ctx)
+          }
           started++
         }
       } catch (e) {
