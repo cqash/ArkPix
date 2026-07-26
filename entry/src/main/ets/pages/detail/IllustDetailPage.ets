@@ -18,7 +18,9 @@ import {
   renderCommentWithTags,
   renderCommentBytes,
   utf8ByteLength,
-  EXIF_FIELD_MAX_BYTES
+  EXIF_FIELD_MAX_BYTES,
+  findUnresolvedMergeGroups,
+  MergeGroup
 } from '../../services/ImageExifService';
 
 interface RouteParams {
@@ -58,6 +60,9 @@ struct IllustDetailPage {
   @State exifPickerMutedItems: ExifPickerItem[] = []
   @State exifPickerPreviewText: string = ''
   @State exifPickerPreviewBytes: number = 0
+  @State mergeReviewShown: boolean = false
+  @State mergeReviewGroups: MergeGroup[] = []
+  @State mergeReviewSelected: string[] = []  // 每组选中的主 tag 名
   @StorageLink('bookmarkStates') bookmarkStates: Map<number, number> = new Map<number, number>()
   @StorageLink('appSettings') appSettings: AppSettings = new AppSettings()
 
@@ -80,6 +85,7 @@ struct IllustDetailPage {
       this.illust = this.store.illust
       this.rebuildRows()
       this.loadAvatar()
+      this.checkMergeReview()
       this.store.loadRelated().then(() => {
         this.rebuildRows()
       }).catch((e: Object) => {
@@ -112,6 +118,49 @@ struct IllustDetailPage {
 
   private isR18(): boolean {
     return this.illust.xRestrict === 1 || this.illust.xRestrict === 2
+  }
+
+  private checkMergeReview(): void {
+    let settings = userSettingStore.getSettings()
+    let exifTags: ExifTag[] = this.illust.tags.map((t: Tag): ExifTag => {
+      return { name: t.name, translatedName: t.translatedName }
+    })
+    let groups = findUnresolvedMergeGroups(exifTags, settings)
+    if (groups.length === 0) {
+      return
+    }
+    this.mergeReviewGroups = groups
+    // Default: select the first tag in each group as main
+    this.mergeReviewSelected = []
+    for (let i = 0; i < groups.length; i++) {
+      if (groups[i].tags.length > 0) {
+        this.mergeReviewSelected.push(groups[i].tags[0].name)
+      }
+    }
+    this.mergeReviewShown = true
+  }
+
+  private confirmMergeReview(): void {
+    for (let i = 0; i < this.mergeReviewGroups.length; i++) {
+      let group = this.mergeReviewGroups[i]
+      let mainTag = this.mergeReviewSelected[i]
+      if (!mainTag || mainTag.length === 0) {
+        continue
+      }
+      let fromTags: string[] = []
+      for (let j = 0; j < group.tags.length; j++) {
+        if (group.tags[j].name !== mainTag) {
+          fromTags.push(group.tags[j].name)
+        }
+      }
+      if (fromTags.length > 0) {
+        userSettingStore.addExifMergeRule(mainTag, fromTags)
+      }
+    }
+    this.mergeReviewShown = false
+    this.mergeReviewGroups = []
+    this.mergeReviewSelected = []
+    promptAction.showToast({ message: '合并规则已保存' })
   }
 
   private needMask(): boolean {
@@ -731,6 +780,101 @@ struct IllustDetailPage {
 
       if (this.mergeDialogShown) {
         this.MergeDialogOverlay()
+      }
+
+      if (this.mergeReviewShown) {
+        Column() {
+          Column() {
+            Text('同义标签审查')
+              .fontSize(18)
+              .fontWeight(FontWeight.Bold)
+              .fontColor('#333333')
+              .width('100%')
+              .textAlign(TextAlign.Center)
+              .margin({ bottom: 12 })
+            Text('检测到以下标签拥有相同翻译，请选择作为备注主标签的标签名：')
+              .fontSize(12)
+              .fontColor('#666666')
+              .width('100%')
+              .margin({ bottom: 12 })
+
+            ForEach(this.mergeReviewGroups, (group: MergeGroup, groupIndex: number) => {
+              Column() {
+                Text('翻译: ' + group.translatedName)
+                  .fontSize(12)
+                  .fontColor('#999999')
+                  .width('100%')
+                  .margin({ bottom: 4 })
+                ForEach(group.tags, (tag: ExifTag, tagIndex: number) => {
+                  Row() {
+                    Radio({ value: tag.name, group: 'merge_group_' + groupIndex })
+                      .checked(this.mergeReviewSelected[groupIndex] === tag.name)
+                      .onChange((isChecked: boolean) => {
+                        if (isChecked) {
+                          let newSelected = this.mergeReviewSelected.slice()
+                          newSelected[groupIndex] = tag.name
+                          this.mergeReviewSelected = newSelected
+                        }
+                      })
+                    Text(tag.name)
+                      .fontSize(14)
+                      .fontColor(this.mergeReviewSelected[groupIndex] === tag.name ? '#0096FA' : '#333333')
+                      .margin({ left: 8 })
+                    if (tag.translatedName.length > 0) {
+                      Text(tag.translatedName)
+                        .fontSize(11)
+                        .fontColor('#999999')
+                        .margin({ left: 4 })
+                    }
+                  }
+                  .width('100%')
+                  .height(40)
+                  .padding({ left: 8, right: 8 })
+                }, (tag: ExifTag) => tag.name)
+              }
+              .width('100%')
+              .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+              .backgroundColor('#FFFFFF')
+              .borderRadius(8)
+              .margin({ bottom: 8 })
+            }, (group: MergeGroup, groupIndex: number) => group.translatedName + '_' + groupIndex)
+
+            Row() {
+              Button('跳过')
+                .fontSize(14)
+                .backgroundColor('#F0F0F0')
+                .fontColor('#666666')
+                .layoutWeight(1)
+                .onClick(() => {
+                  this.mergeReviewShown = false
+                  this.mergeReviewGroups = []
+                  this.mergeReviewSelected = []
+                })
+              Button('确认合并')
+                .fontSize(14)
+                .backgroundColor('#0096FA')
+                .fontColor('#FFFFFF')
+                .layoutWeight(1)
+                .margin({ left: 12 })
+                .onClick(() => { this.confirmMergeReview() })
+            }
+            .width('100%')
+            .margin({ top: 12 })
+          }
+          .width('90%')
+          .padding(16)
+          .backgroundColor('#F5F5F5')
+          .borderRadius(12)
+        }
+        .width('100%')
+        .height('100%')
+        .backgroundColor('rgba(0, 0, 0, 0.5)')
+        .justifyContent(FlexAlign.Center)
+        .onClick(() => {
+          this.mergeReviewShown = false
+          this.mergeReviewGroups = []
+          this.mergeReviewSelected = []
+        })
       }
 
       if (this.exifPickerShown) {

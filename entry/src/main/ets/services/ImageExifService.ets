@@ -152,26 +152,11 @@ export function filterTagsForExif(tags: ExifTag[], settings: AppSettings): ExifT
     }
   }
 
-  // Step 2.5: Auto-merge tags with same translatedName
-  // When autoMergeTranslatedTags is enabled, tags sharing the same non-empty translatedName
-  // are merged: keep the first occurrence, remove the rest.
-  if (settings.autoMergeTranslatedTags) {
-    let seenTranslations: string[] = []
-    let result: ExifTag[] = []
-    for (let i = 0; i < filtered.length; i++) {
-      let tn = filtered[i].translatedName
-      if (tn.length === 0) {
-        // No translation — keep as-is
-        result.push(filtered[i])
-      } else if (!seenTranslations.includes(tn)) {
-        // First time seeing this translation — keep
-        seenTranslations.push(tn)
-        result.push(filtered[i])
-      }
-      // Duplicate translation — skip (auto-merged)
-    }
-    filtered = result
-  }
+  // Step 2.5: Auto-merge tags with same translatedName (via exifMergedTags rules)
+  // When autoMergeTranslatedTags is enabled, the manual exifMergedTags rules already
+  // handle known synonym groups (including user-reviewed ones). No auto-discovery here —
+  // new synonym groups are detected by findUnresolvedMergeGroups and presented to the user
+  // for review, after which they are persisted into exifMergedTags.
 
   // Step 3: Sort by exifTagPriority
   if (settings.exifTagPriority.length > 0) {
@@ -202,6 +187,68 @@ export function filterTagsForExif(tags: ExifTag[], settings: AppSettings): ExifT
   }
 
   return filtered
+}
+
+// 同义 tag 组（用于审查弹窗展示）
+export interface MergeGroup {
+  translatedName: string  // 共享的翻译名
+  tags: ExifTag[]         // 拥有此翻译名的所有 tag
+}
+
+// 检测未在 exifMergedTags 中定义的同义 tag 组
+// 当 autoMergeTranslatedTags 开启时，找出 tags 中 translatedName 相同且非空的 tag 组，
+// 排除已在 exifMergedTags 规则中覆盖的组（即组内所有 tag 名都已被某条规则的 mainTag 或 fromTags 包含）。
+// 返回需要用户审查的组列表。
+export function findUnresolvedMergeGroups(tags: ExifTag[], settings: AppSettings): MergeGroup[] {
+  if (!settings.autoMergeTranslatedTags) {
+    return []
+  }
+
+  // Build a set of all tag names already covered by exifMergedTags rules
+  let coveredTags: string[] = []
+  for (let r = 0; r < settings.exifMergedTags.length; r++) {
+    let rule = settings.exifMergedTags[r]
+    coveredTags.push(rule.mainTag)
+    for (let f = 0; f < rule.fromTags.length; f++) {
+      coveredTags.push(rule.fromTags[f])
+    }
+  }
+
+  // Group tags by translatedName
+  let groups: Map<string, ExifTag[]> = new Map()
+  for (let i = 0; i < tags.length; i++) {
+    let tn = tags[i].translatedName
+    if (tn.length === 0) {
+      continue
+    }
+    let existing = groups.get(tn)
+    if (existing !== undefined) {
+      existing.push(tags[i])
+    } else {
+      groups.set(tn, [tags[i]])
+    }
+  }
+
+  // Find groups with 2+ tags that are not fully covered by existing rules
+  let result: MergeGroup[] = []
+  groups.forEach((groupTags: ExifTag[], tn: string) => {
+    if (groupTags.length < 2) {
+      return
+    }
+    // Check if ALL tags in this group are already covered by some rule
+    let allCovered = true
+    for (let g = 0; g < groupTags.length; g++) {
+      if (!coveredTags.includes(groupTags[g].name)) {
+        allCovered = false
+        break
+      }
+    }
+    if (!allCovered) {
+      result.push({ translatedName: tn, tags: groupTags })
+    }
+  })
+
+  return result
 }
 
 // 用指定的 tags（已过滤合并）渲染备注模板，返回渲染结果字符串
