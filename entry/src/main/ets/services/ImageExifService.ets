@@ -33,7 +33,7 @@ export interface ExifInfo {
 }
 
 // 计算字符串的UTF-8字节长度（EXIF底层限制的是字节数，不是字符数）
-function utf8ByteLength(str: string): number {
+export function utf8ByteLength(str: string): number {
   let len = 0
   for (let i = 0; i < str.length; i++) {
     let code = str.charCodeAt(i)
@@ -202,7 +202,7 @@ export function renderCommentBytes(info: ExifInfo, filteredTags: ExifTag[]): num
 // 设备实证（第六轮修复）：MediaLibrary 入册扫描器对 EXIF 字段值有约 128 字节上限，
 // 超长时整个 EXIF 段被扫描器拒绝（62980123，图库无备注）。故字段值统一限制在
 // 120 UTF-8 字节以内——UserComment 另有 8 字节 "ASCII\0\0\0" 前缀，8+120=正好 128。
-const EXIF_FIELD_MAX_BYTES = 120
+export const EXIF_FIELD_MAX_BYTES = 120
 
 // EXIF 字段值统一截断：超过 120 UTF-8 字节时按 117 字节截断 + '...'（117+3=120，
 // utf8ByteSubstring 保证不切多字节字符），并用 hilog 记录一次截断事件便于排查。

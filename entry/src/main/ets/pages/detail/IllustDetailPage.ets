@@ -1,4 +1,4 @@
-import { router } from '@kit.ArkUI';
+import { router, promptAction } from '@kit.ArkUI';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { imageCacheService } from '../../services/ImageCacheService';
 import { Illust, Tag } from '../../models/Illust';
@@ -31,6 +31,9 @@ struct IllustDetailPage {
   @State tagMenuTarget: string = ''
   @State saveMenuShown: boolean = false
   @State saveMenuPageIndex: number = 0
+  @State mergeDialogShown: boolean = false
+  @State mergeFromTag: string = ''
+  @State mergeInputText: string = ''
   @StorageLink('bookmarkStates') bookmarkStates: Map<number, number> = new Map<number, number>()
   @StorageLink('appSettings') appSettings: AppSettings = new AppSettings()
 
@@ -146,14 +149,6 @@ struct IllustDetailPage {
   @Builder
   TagMenuBuilder() {
     Column() {
-      Text('屏蔽该标签')
-        .fontSize(14)
-        .fontColor('#333333')
-        .width('100%')
-        .padding({ left: 16, right: 16, top: 10, bottom: 10 })
-        .onClick(() => {
-          userSettingStore.addMuteTag(this.tagMenuTarget)
-        })
       Text('复制标签名')
         .fontSize(14)
         .fontColor('#333333')
@@ -162,6 +157,33 @@ struct IllustDetailPage {
         .onClick(() => {
           let data = pasteboard.createPlainTextData(this.tagMenuTarget)
           pasteboard.getSystemPasteboard().setData(data)
+        })
+      Text('屏蔽该标签')
+        .fontSize(14)
+        .fontColor('#333333')
+        .width('100%')
+        .padding({ left: 16, right: 16, top: 10, bottom: 10 })
+        .onClick(() => {
+          userSettingStore.addMuteTag(this.tagMenuTarget)
+        })
+      Text('备注中屏蔽')
+        .fontSize(14)
+        .fontColor('#333333')
+        .width('100%')
+        .padding({ left: 16, right: 16, top: 10, bottom: 10 })
+        .onClick(() => {
+          userSettingStore.addExifMutedTag(this.tagMenuTarget)
+          promptAction.showToast({ message: '已从EXIF备注中屏蔽: ' + this.tagMenuTarget })
+        })
+      Text('备注中合并')
+        .fontSize(14)
+        .fontColor('#333333')
+        .width('100%')
+        .padding({ left: 16, right: 16, top: 10, bottom: 10 })
+        .onClick(() => {
+          this.mergeFromTag = this.tagMenuTarget
+          this.mergeInputText = ''
+          this.mergeDialogShown = true
         })
     }
     .width(140)
@@ -422,38 +444,103 @@ struct IllustDetailPage {
     .width('100%')
   }
 
-  build() {
+  @Builder
+  MergeDialogOverlay() {
     Column() {
-      if (this.errorMessage && this.rows.length === 0) {
-        ErrorView({ message: this.errorMessage, onRetry: () => { this.loadDetail(this.illustId) } })
-      } else if (this.isLoading && this.rows.length === 0) {
-        LoadingView()
-      } else {
-        List() {
-          ForEach(this.rows, (row: DetailRow) => {
-            ListItem() {
-              if (row.kind === 'image') {
-                this.ImageRow(row)
-              } else if (row.kind === 'info') {
-                this.InfoRow()
-              } else if (row.kind === 'related_header') {
-                this.RelatedHeaderRow()
-              } else {
-                this.RelatedRow(row)
+      Column() {
+        Text('合并标签到…')
+          .fontSize(18)
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#333333')
+          .margin({ bottom: 12 })
+        Text('将 [' + this.mergeFromTag + '] 合并到以下主标签：')
+          .fontSize(14)
+          .fontColor('#666666')
+          .margin({ bottom: 16 })
+        TextInput({ placeholder: '输入主标签名', text: this.mergeInputText })
+          .onChange((value: string) => {
+            this.mergeInputText = value
+          })
+          .width('100%')
+          .margin({ bottom: 24 })
+        Row({ space: 12 }) {
+          Button('取消')
+            .fontSize(14)
+            .backgroundColor('#EEEEEE')
+            .fontColor('#333333')
+            .layoutWeight(1)
+            .onClick(() => {
+              this.mergeDialogShown = false
+            })
+          Button('确认合并')
+            .fontSize(14)
+            .backgroundColor('#0096FA')
+            .fontColor('#FFFFFF')
+            .layoutWeight(1)
+            .onClick(() => {
+              if (this.mergeInputText.length > 0) {
+                userSettingStore.addExifMergeRule(this.mergeInputText, [this.mergeFromTag])
+                promptAction.showToast({ message: '已将 [' + this.mergeFromTag + '] 合并到 [' + this.mergeInputText + ']' })
+                this.mergeDialogShown = false
               }
-            }
-          }, (row: DetailRow) => row.kind + '_' + row.pageIndex + '_' +
-            (row.related.length > 0 ? row.related[0].id : 0))
+            })
         }
         .width('100%')
-        .layoutWeight(1)
-        .onReachEnd(() => {
-          this.store.loadMoreRelated().then(() => {
-            this.rebuildRows()
-          }).catch((e: Object) => {
-            console.error('Load more related failed: ' + e)
+      }
+      .padding(20)
+      .backgroundColor('#FFFFFF')
+      .borderRadius(12)
+      .width('85%')
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor('rgba(0, 0, 0, 0.4)')
+    .justifyContent(FlexAlign.Center)
+    .onClick(() => {
+      this.mergeDialogShown = false
+    })
+  }
+
+  build() {
+    Stack() {
+      Column() {
+        if (this.errorMessage && this.rows.length === 0) {
+          ErrorView({ message: this.errorMessage, onRetry: () => { this.loadDetail(this.illustId) } })
+        } else if (this.isLoading && this.rows.length === 0) {
+          LoadingView()
+        } else {
+          List() {
+            ForEach(this.rows, (row: DetailRow) => {
+              ListItem() {
+                if (row.kind === 'image') {
+                  this.ImageRow(row)
+                } else if (row.kind === 'info') {
+                  this.InfoRow()
+                } else if (row.kind === 'related_header') {
+                  this.RelatedHeaderRow()
+                } else {
+                  this.RelatedRow(row)
+                }
+              }
+            }, (row: DetailRow) => row.kind + '_' + row.pageIndex + '_' +
+              (row.related.length > 0 ? row.related[0].id : 0))
+          }
+          .width('100%')
+          .layoutWeight(1)
+          .onReachEnd(() => {
+            this.store.loadMoreRelated().then(() => {
+              this.rebuildRows()
+            }).catch((e: Object) => {
+              console.error('Load more related failed: ' + e)
+            })
           })
-        })
+        }
+      }
+      .width('100%')
+      .height('100%')
+
+      if (this.mergeDialogShown) {
+        this.MergeDialogOverlay()
       }
     }
     .width('100%')
