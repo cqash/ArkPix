@@ -1,4 +1,5 @@
 import { promptAction } from '@kit.ArkUI';
+import { common } from '@kit.AbilityKit';
 import { getDbService, DownloadTaskItem } from '../../services/DatabaseService';
 import { downloadService } from '../../services/DownloadService';
 import { apiService } from '../../network/ApiService';
@@ -40,11 +41,25 @@ export struct DownloadPage {
         return
       }
       let illust = Illust.fromJson(illustObj)
-      await downloadService.downloadToCache(task.image_url, illust, task.page_index)
+      let localPath = await downloadService.downloadToCache(task.image_url, illust, task.page_index, false)
+      if (localPath.length > 0) {
+        let ctx = AppStorage.get<common.Context>('context')
+        if (ctx) {
+          let saved = await downloadService.applyToGallery(localPath, ctx)
+          if (saved) {
+            promptAction.showToast({ message: '已保存到图库' })
+          } else {
+            promptAction.showToast({ message: '下载完成但保存图库失败' })
+          }
+        }
+      } else {
+        promptAction.showToast({ message: '下载失败' })
+      }
       await this.loadTasks()
     } catch (e) {
       console.error('Retry task failed: ' + e)
       promptAction.showToast({ message: '重试失败: ' + e })
+      await this.loadTasks()
     }
   }
 
@@ -55,7 +70,7 @@ export struct DownloadPage {
   }
 
   async doRetryAllFailed() {
-    let count = await downloadService.retryAllFailed()
+    let count = await downloadService.retryAllFailed(() => { this.loadTasks() })
     promptAction.showToast({ message: '已重试 ' + count + ' 个失败任务' })
     await this.loadTasks()
   }

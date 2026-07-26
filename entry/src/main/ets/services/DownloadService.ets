@@ -118,13 +118,15 @@ export class DownloadService {
     return tempPath
   }
 
-  async downloadToCache(url: string, illust: Illust, pageIndex: number): Promise<string> {
+  async downloadToCache(url: string, illust: Illust, pageIndex: number, showStartToast: boolean = true): Promise<string> {
     let taskId = illust.id + '_' + pageIndex
     let proxyUrl = Constants.applyProxy(url)
     let db = await getDbService()
     await db.addDownloadTask(taskId, illust.id, pageIndex, url)
 
-    promptAction.showToast({ message: '开始下载...' })
+    if (showStartToast) {
+      promptAction.showToast({ message: '开始下载...' })
+    }
 
     try {
       await db.updateDownloadStatus(taskId, 'downloading', 0, '')
@@ -250,8 +252,9 @@ export class DownloadService {
     return await db.deleteDownloadTasksByStatus(status)
   }
 
-  /** 重试全部失败任务：用任务记录的 URL + 接口元信息重建下载；元信息缺失条目跳过。返回成功发起数 */
-  async retryAllFailed(): Promise<number> {
+  /** 重试全部失败任务：用任务记录的 URL + 接口元信息重建下载；元信息缺失条目跳过。返回成功发起数。
+   *  onTaskDone 每完成一个任务（无论成功失败）回调，供 UI 刷新列表。 */
+  async retryAllFailed(onTaskDone?: () => void): Promise<number> {
     let db = await getDbService()
     let tasks = await db.getDownloadTasks()
     let started = 0
@@ -265,13 +268,15 @@ export class DownloadService {
         let raw = (response as IllustDetailResponse).illust
         if (!raw) {
           console.error('Retry task ' + task.id + ' skipped: illust metadata missing')
+          if (onTaskDone) { onTaskDone() }
           continue
         }
         let illust = Illust.fromJson(raw)
         if (illust.id === 0) {
+          if (onTaskDone) { onTaskDone() }
           continue
         }
-        let localPath = await this.downloadToCache(task.image_url, illust, task.page_index)
+        let localPath = await this.downloadToCache(task.image_url, illust, task.page_index, false)
         if (localPath.length > 0) {
           let ctx = AppStorage.get<common.Context>('context')
           if (ctx) {
@@ -282,6 +287,7 @@ export class DownloadService {
       } catch (e) {
         console.error('Retry task ' + task.id + ' failed: ' + e)
       }
+      if (onTaskDone) { onTaskDone() }
     }
     return started
   }
