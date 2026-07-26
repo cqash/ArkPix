@@ -27,6 +27,8 @@ struct IllustDetailPage {
   @State userAvatarPath: string = ''
   @State revealedR18: boolean = false
   @State bookmarkMenuShown: boolean = false
+  @State tagMenuShown: boolean = false
+  @State tagMenuTarget: string = ''
   @StorageLink('bookmarkStates') bookmarkStates: Map<number, number> = new Map<number, number>()
   @StorageLink('appSettings') appSettings: AppSettings = new AppSettings()
 
@@ -145,30 +147,29 @@ struct IllustDetailPage {
     }
   }
 
-  showTagSheet(tag: Tag) {
-    ActionSheet.show({
-      title: tag.name,
-      message: '',
-      sheets: [
-        {
-          title: '屏蔽该标签',
-          action: () => {
-            userSettingStore.addMuteTag(tag.name)
-          }
-        },
-        {
-          title: '复制标签名',
-          action: () => {
-            let data = pasteboard.createPlainTextData(tag.name)
-            pasteboard.getSystemPasteboard().setData(data)
-          }
-        }
-      ],
-      confirm: {
-        value: '取消',
-        action: () => {}
-      }
-    })
+  @Builder
+  TagMenuBuilder() {
+    Column() {
+      Text('屏蔽该标签')
+        .fontSize(14)
+        .fontColor('#333333')
+        .width('100%')
+        .padding({ left: 16, right: 16, top: 10, bottom: 10 })
+        .onClick(() => {
+          userSettingStore.addMuteTag(this.tagMenuTarget)
+        })
+      Text('复制标签名')
+        .fontSize(14)
+        .fontColor('#333333')
+        .width('100%')
+        .padding({ left: 16, right: 16, top: 10, bottom: 10 })
+        .onClick(() => {
+          let data = pasteboard.createPlainTextData(this.tagMenuTarget)
+          pasteboard.getSystemPasteboard().setData(data)
+        })
+    }
+    .width(140)
+    .padding({ top: 4, bottom: 4 })
   }
 
   goToUserProfile() {
@@ -198,8 +199,14 @@ struct IllustDetailPage {
       })
       .gesture(
         LongPressGesture({ duration: 500 })
-          .onAction(() => { this.showTagSheet(tag) })
+          .onAction(() => {
+            this.tagMenuTarget = tag.name
+            this.tagMenuShown = true
+          })
       )
+      .bindContextMenu(this.tagMenuShown && this.tagMenuTarget === tag.name, this.TagMenuBuilder, {
+        onDisappear: () => { this.tagMenuShown = false }
+      })
     } else {
       Text(tag.name)
         .fontSize(10)
@@ -213,8 +220,14 @@ struct IllustDetailPage {
         })
         .gesture(
           LongPressGesture({ duration: 500 })
-            .onAction(() => { this.showTagSheet(tag) })
+            .onAction(() => {
+              this.tagMenuTarget = tag.name
+              this.tagMenuShown = true
+            })
         )
+        .bindContextMenu(this.tagMenuShown && this.tagMenuTarget === tag.name, this.TagMenuBuilder, {
+          onDisappear: () => { this.tagMenuShown = false }
+        })
     }
   }
 
