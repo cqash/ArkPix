@@ -1,6 +1,7 @@
 import { router } from '@kit.ArkUI';
 import { userSettingStore } from '../../stores/UserSettingStore';
 import { ExifTag } from '../../services/ImageExifService';
+import { Constants } from '../../utils/Constants';
 
 const DEFAULT_TEMPLATE = 'PID:{illust_id} | {tags}'
 const SAMPLE_ILLUST_ID = 12345678
@@ -16,8 +17,9 @@ const SAMPLE_TAGS: ExifTag[] = [
 function buildPreviewComment(template: string): string {
   let tagsOriginal = SAMPLE_TAGS.map((t: ExifTag) => t.name).join(', ')
   let tagsTranslated = SAMPLE_TAGS.map((t: ExifTag) => {
-    if (t.translatedName && t.translatedName !== t.name) {
-      return `${t.name} (${t.translatedName})`
+    let displayTranslation = Constants.filterTranslatedName(t.name, t.translatedName)
+    if (displayTranslation.length > 0) {
+      return `${t.name} (${displayTranslation})`
     }
     return t.name
   }).join(', ')

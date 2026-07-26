@@ -8,6 +8,7 @@ import {
   EXIF_FIELD_MAX_BYTES
 } from '../../services/ImageExifService'
 import { AppSettings } from '../../models/AppSettings'
+import { Constants } from '../../utils/Constants'
 
 interface TagExifPickerItem {
   name: string
@@ -242,8 +243,8 @@ struct TagExifPicker {
         Text(item.name)
           .fontSize(13)
           .fontColor('#333333')
-        if (item.translatedName && item.translatedName !== item.name) {
-          Text(item.translatedName)
+        if (Constants.filterTranslatedName(item.name, item.translatedName).length > 0) {
+          Text(Constants.filterTranslatedName(item.name, item.translatedName))
             .fontSize(11)
             .fontColor('#666666')
             .margin({ top: 2 })
@@ -275,8 +276,8 @@ struct TagExifPicker {
         .fontSize(13)
         .fontColor('#CC3333')
         .layoutWeight(1)
-      if (item.translatedName && item.translatedName !== item.name) {
-        Text(item.translatedName)
+      if (Constants.filterTranslatedName(item.name, item.translatedName).length > 0) {
+        Text(Constants.filterTranslatedName(item.name, item.translatedName))
           .fontSize(11)
           .fontColor('#999999')
           .margin({ left: 4 })

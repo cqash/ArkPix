@@ -6,6 +6,7 @@ import { AppSettings } from '../../models/AppSettings';
 import { userSettingStore } from '../../stores/UserSettingStore';
 import { BOOKMARK_LOADING, BOOKMARK_DONE } from '../../stores/BookmarkStateStore';
 import { IllustDetailStore, DetailRow } from '../../stores/IllustDetailStore';
+import { Constants } from '../../utils/Constants';
 import { buildPageUrls } from '../../utils/ImageUrlUtils';
 import { CachedImage } from '../../components/common/CachedImage';
 import { IllustCard } from '../../components/illust/IllustCard';
@@ -435,14 +436,19 @@ struct IllustDetailPage {
     }
   }
 
+  private getDisplayTranslation(tagName: string, translatedName: string): string {
+    return Constants.filterTranslatedName(tagName, translatedName)
+  }
+
   @Builder
   TagChip(tag: Tag) {
-    if (userSettingStore.getSettings().showTranslatedTags && tag.translatedName) {
+    if (userSettingStore.getSettings().showTranslatedTags && tag.translatedName &&
+      this.getDisplayTranslation(tag.name, tag.translatedName).length > 0) {
       Column() {
         Text(tag.name)
           .fontSize(10)
           .fontColor('#0096FA')
-        Text(tag.translatedName)
+        Text(this.getDisplayTranslation(tag.name, tag.translatedName))
           .fontSize(8)
           .fontColor('#0096FA')
           .opacity(0.8)
@@ -955,8 +961,8 @@ struct IllustDetailPage {
                       Text(item.name)
                         .fontSize(13)
                         .fontColor('#333333')
-                      if (item.translatedName && item.translatedName !== item.name) {
-                        Text(item.translatedName)
+                      if (this.getDisplayTranslation(item.name, item.translatedName).length > 0) {
+                        Text(this.getDisplayTranslation(item.name, item.translatedName))
                           .fontSize(11)
                           .fontColor('#666666')
                           .margin({ top: 2 })
@@ -993,8 +999,8 @@ struct IllustDetailPage {
                         .fontSize(13)
                         .fontColor('#CC3333')
                         .layoutWeight(1)
-                      if (item.translatedName && item.translatedName !== item.name) {
-                        Text(item.translatedName)
+                      if (this.getDisplayTranslation(item.name, item.translatedName).length > 0) {
+                        Text(this.getDisplayTranslation(item.name, item.translatedName))
                           .fontSize(11)
                           .fontColor('#999999')
                           .margin({ left: 4 })

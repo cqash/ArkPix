@@ -2,6 +2,7 @@ import image from '@ohos.multimedia.image';
 import { fileIo, ReadOptions } from '@kit.CoreFileKit';
 import { util } from '@kit.ArkTS';
 import { hilog } from '@kit.PerformanceAnalysisKit';
+import { Constants } from '../utils/Constants';
 import { userSettingStore } from '../stores/UserSettingStore';
 import { AppSettings } from '../models/AppSettings';
 
@@ -66,8 +67,9 @@ function utf8ByteSubstring(str: string, maxBytes: number): string {
 
 function formatTags(tags: ExifTag[]): string {
   return tags.map((t: ExifTag) => {
-    if (t.translatedName && t.translatedName !== t.name) {
-      return `${t.name} (${t.translatedName})`
+    let displayTranslation = Constants.filterTranslatedName(t.name, t.translatedName)
+    if (displayTranslation.length > 0) {
+      return `${t.name} (${displayTranslation})`
     }
     return t.name
   }).join(', ')
