@@ -963,7 +963,7 @@ export class ImageExifService {
 
   // 返回 true = 嵌入成功并产出 dstPath；false = 失败降级（半成品已清理），调用方应保存原图。
   // 内部捕获全部异常，不向外抛出，保证元数据写入失败不阻断下载主流程。
-  // 分流策略（plan D9/D12）：JPEG → EXIF + XMP 双写；PNG → XMP iTXt 写入；GIF 等其他格式不嵌入。
+  // 分流策略：JPEG → EXIF + XMP 双写；PNG → EXIF 系统API写入（+ XMP iTXt 降级）；GIF 等其他格式不嵌入。
   async embedExif(srcPath: string, dstPath: string, info: ExifInfo): Promise<boolean> {
     let success = false
     try {
@@ -971,7 +971,7 @@ export class ImageExifService {
       if (lowerDst.endsWith('.jpg') || lowerDst.endsWith('.jpeg')) {
         success = await this.embedJpeg(srcPath, dstPath, info)
       } else if (lowerDst.endsWith('.png')) {
-        success = this.embedPng(srcPath, dstPath, info)
+        success = await this.embedPng(srcPath, dstPath, info)
       } else {
         // GIF 等格式：维持不嵌入任何元数据的既有行为
         logInfo(`Skip metadata embed for unsupported format: ${dstPath}`)
@@ -1124,19 +1124,83 @@ export class ImageExifService {
     return true
   }
 
-  // PNG 分支（plan D12）：写入 XMP iTXt chunk（keyword "XML:com.adobe.xmp"），插入 IEND 前，
-  // 不触碰像素数据；失败返回 false 走既有降级（保存原图、下载成功）。
-  private embedPng(srcPath: string, dstPath: string, info: ExifInfo): boolean {
+  // PNG 分支：优先用系统 API 写入 EXIF（华为相册可读 USER_COMMENT 作为备注），
+  // 再对输出注入 XMP iTXt 作为第二载体；系统 API 失败时降级到纯 XMP iTXt。
+  // PNG packToData 是无损的，不会损失画质。
+  private async embedPng(srcPath: string, dstPath: string, info: ExifInfo): Promise<boolean> {
+    let exifOk = false
+    let packedBytes: Uint8Array | undefined = undefined
+    let source: image.ImageSource | undefined = undefined
+    let packer: image.ImagePacker | undefined = undefined
+
+    // Step 1: 尝试系统 API 写入 EXIF + packToData
+    try {
+      source = image.createImageSource(srcPath)
+      await safeWriteExif(source, image.PropertyKey.IMAGE_DESCRIPTION, `${info.title} | PID:${info.illustId}`)
+      await safeWriteExif(source, image.PropertyKey.ARTIST, `${info.userName} (UID:${info.userId})`)
+      await safeWriteExif(source, image.PropertyKey.USER_COMMENT, renderComment(info))
+      await safeWriteExif(source, image.PropertyKey.COPYRIGHT, 'Pixiv')
+      packer = image.createImagePacker()
+      let options: image.PackingOption = { format: 'image/png', quality: 100, needsPackProperties: true }
+      let data: ArrayBuffer = await packer.packToData(source, options)
+      packedBytes = new Uint8Array(data)
+      exifOk = true
+      logInfo('PNG EXIF carrier succeeded (system API + packToData)')
+    } catch (e) {
+      logError('PNG EXIF carrier failed (system API): ' + e)
+    } finally {
+      if (packer) {
+        try {
+          await packer.release()
+        } catch (e) {
+          logError('Release PNG packer failed: ' + e)
+        }
+      }
+      if (source !== undefined) {
+        try {
+          await source.release()
+        } catch (e) {
+          logError('Release PNG image source failed: ' + e)
+        }
+      }
+    }
+
+    // Step 2: 在输出（EXIF 成功则用 packedBytes，否则读原始字节）上注入 XMP iTXt
+    let xmpOk = false
+    let outBytes: Uint8Array | undefined = undefined
     try {
       let itxtChunk = buildPngItxtChunk(buildXmpPacket(info))
-      let srcBytes = readFileBytes(srcPath)
-      let outBytes = injectPngItxt(srcBytes, itxtChunk)
-      writeFileBytes(dstPath, outBytes)
-      return true
+      let baseBytes = packedBytes !== undefined ? packedBytes : readFileBytes(srcPath)
+      outBytes = injectPngItxt(baseBytes, itxtChunk)
+      xmpOk = true
+      logInfo('PNG XMP iTXt carrier succeeded')
     } catch (e) {
-      logError('XMP carrier failed (PNG iTXt inject): ' + e)
+      logError('PNG XMP iTXt carrier failed: ' + e)
+    }
+
+    if (!exifOk && !xmpOk) {
+      logError('Both EXIF and XMP carriers failed for PNG, fallback to original')
       return false
     }
+
+    // EXIF 成功但 XMP 失败 → 直接写出 packedBytes
+    if (outBytes === undefined) {
+      outBytes = packedBytes
+    }
+    if (outBytes === undefined) {
+      return false
+    }
+
+    try {
+      writeFileBytes(dstPath, outBytes)
+    } catch (e) {
+      logError('Write embedded PNG output failed: ' + e)
+      return false
+    }
+
+    // 写出后回读自检
+    await this.verifyWrittenComment(dstPath)
+    return true
   }
 }
 

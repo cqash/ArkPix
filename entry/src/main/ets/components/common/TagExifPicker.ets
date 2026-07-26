@@ -39,7 +39,6 @@ struct TagExifPicker {
   @State mutedItems: TagExifPickerItem[] = []
   @State previewText: string = ''
   @State previewBytes: number = 0
-  @State dragFromIndex: number = -1
   @State muteConfirmTarget: string = ''
 
   aboutToAppear(): void {
@@ -185,32 +184,6 @@ struct TagExifPicker {
     }
   }
 
-  private swapWritableItems(from: number, to: number): void {
-    if (from === to || from < 0 || to < 0 || from >= this.writableItems.length || to >= this.writableItems.length) {
-      return
-    }
-    let item = this.writableItems[from]
-    let newItems: TagExifPickerItem[] = []
-    for (let i = 0; i < this.writableItems.length; i++) {
-      if (i === from) {
-        continue
-      }
-      if (i === to) {
-        if (from < to) {
-          newItems.push(this.writableItems[i])
-          newItems.push(item)
-        } else {
-          newItems.push(item)
-          newItems.push(this.writableItems[i])
-        }
-      } else {
-        newItems.push(this.writableItems[i])
-      }
-    }
-    this.writableItems = newItems
-    this.recalculatePreview()
-  }
-
   /** 长按 → 移入屏蔽区（永久屏蔽） */
   private doMuteTag(tagName: string): void {
     let targetIdx = -1
@@ -254,49 +227,53 @@ struct TagExifPicker {
   @Builder
   WritableItemBuilder(item: TagExifPickerItem, index: number) {
     Row() {
-      Checkbox()
-        .select(item.checked)
-        .onChange((checked: boolean) => {
-          // 取消勾选 = 跳过本次写入（不持久化屏蔽）
-          if (index >= 0 && index < this.writableItems.length) {
-            this.writableItems[index].checked = checked
-            this.recalculatePreview()
+      Row() {
+        Checkbox()
+          .select(item.checked)
+          .onChange((checked: boolean) => {
+            // 取消勾选 = 跳过本次写入（不持久化屏蔽）
+            if (index >= 0 && index < this.writableItems.length) {
+              this.writableItems[index].checked = checked
+              this.recalculatePreview()
+            }
+          })
+        Column() {
+          Text(item.name)
+            .fontSize(13)
+            .fontColor('#333333')
+          if (Constants.filterTranslatedName(item.name, item.translatedName).length > 0) {
+            Text(Constants.filterTranslatedName(item.name, item.translatedName))
+              .fontSize(11)
+              .fontColor('#666666')
+              .margin({ top: 2 })
           }
-        })
-      Column() {
-        Text(item.name)
-          .fontSize(13)
-          .fontColor('#333333')
-        if (Constants.filterTranslatedName(item.name, item.translatedName).length > 0) {
-          Text(Constants.filterTranslatedName(item.name, item.translatedName))
-            .fontSize(11)
-            .fontColor('#666666')
-            .margin({ top: 2 })
+          if (item.isMerged && item.mergedFrom.length > 0) {
+            Text('合并自: ' + item.mergedFrom.join(', '))
+              .fontSize(10)
+              .fontColor('#0096FA')
+              .margin({ top: 2 })
+          }
         }
-        if (item.isMerged && item.mergedFrom.length > 0) {
-          Text('合并自: ' + item.mergedFrom.join(', '))
-            .fontSize(10)
-            .fontColor('#0096FA')
-            .margin({ top: 2 })
-        }
+        .layoutWeight(1)
+        .margin({ left: 8 })
       }
       .layoutWeight(1)
-      .margin({ left: 8 })
+      .gesture(
+        LongPressGesture({ duration: 300 })
+          .onAction(() => {
+            this.muteConfirmTarget = item.name
+          })
+      )
       Text('≡')
         .fontSize(18)
         .fontColor('#999999')
+        .padding({ left: 8, right: 4, top: 4, bottom: 4 })
     }
     .width('100%')
     .padding({ left: 12, right: 12, top: 8, bottom: 8 })
     .backgroundColor(item.withinBudget && item.checked ? '#E6F4FF' : '#F0F0F0')
     .borderRadius(6)
     .margin({ bottom: 4 })
-    .gesture(
-      LongPressGesture({ duration: 300 })
-        .onAction(() => {
-          this.muteConfirmTarget = item.name
-        })
-    )
   }
 
   @Builder
@@ -404,26 +381,18 @@ struct TagExifPicker {
             this.WritableItemBuilder(item, index)
           }
         }, (item: TagExifPickerItem, index: number) => item.name + '_' + index)
+        .onMove((from: number, to: number) => {
+          let items = this.writableItems.slice()
+          let moved = items[from]
+          items.splice(from, 1)
+          items.splice(to, 0, moved)
+          this.writableItems = items
+          this.recalculatePreview()
+        })
       }
       .width('100%')
       .layoutWeight(1)
       .divider({ strokeWidth: 0 })
-      .onItemDragStart((event: ItemDragInfo, itemIndex: number) => {
-        this.dragFromIndex = itemIndex
-        return null
-      })
-      .onItemDrop((event: ItemDragInfo, itemIndex: number, insertIndex: number) => {
-        if (itemIndex >= 0 && insertIndex >= 0 && itemIndex !== insertIndex &&
-          itemIndex < this.writableItems.length && insertIndex < this.writableItems.length) {
-          let items = this.writableItems.slice()
-          let moved = items[itemIndex]
-          items.splice(itemIndex, 1)
-          items.splice(insertIndex, 0, moved)
-          this.writableItems = items
-          this.recalculatePreview()
-        }
-        this.dragFromIndex = -1
-      })
 
       // Muted tags section
       if (this.mutedItems.length > 0) {

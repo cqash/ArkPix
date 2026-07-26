@@ -109,12 +109,12 @@ Pixiv API 在 `Accept-Language: zh-CN` 时会将 CJK tag "翻译"成英文（爱
 2. `hasUnresolvedMergeGroups()` 预检 → `checkMergeReview()` 弹窗
 3. 用户每组选一个主 tag → 确认 → 写入 `exifMergedTags` 规则 → toast 提示"请再次点击保存"
 4. 跳过则不持久化，下次保存仍会弹出
-5. 弹窗内层内容区用 `.hitTestBehavior(HitTestMode.Block)` 防止点击冒泡到外层遮罩关闭弹窗
+5. 弹窗内层内容区用 `.onClick(() => {})` 消费点击事件防止冒泡到外层遮罩关闭弹窗；**禁止**对含可交互子组件（Radio/Checkbox/Button 等）的容器使用 `.hitTestBehavior(HitTestMode.Block)`，否则会阻止子组件响应点击
 
 ### EXIF Picker（TagExifPicker @CustomDialog）
 
 - EXIF 字段超 65535 字节时弹出
-- 可写入区：勾选/取消勾选（取消=跳过本次，不持久化）；拖拽排序（`onItemDragStart`/`onItemDrop`，确认后写入 `exifTagPriority`）
+- 可写入区：勾选/取消勾选（取消=跳过本次，不持久化）；拖拽排序（`onMove`，确认后写入 `exifTagPriority`）；长按屏蔽手势仅绑在左侧 Checkbox+文字区域，右侧把手 `≡` 不绑长按以避免与拖拽排序冲突
 - 长按 tag → 二次确认 → 移入屏蔽区（永久屏蔽，写入 `exifMutedTags`）
 - 屏蔽区"恢复"按钮移回可写入区
 - 预览区实时显示渲染结果和字节数
@@ -138,7 +138,7 @@ Pixiv API 在 `Accept-Language: zh-CN` 时会将 CJK tag "翻译"成英文（爱
 - 二选一确认：`AlertDialog`（通过 `getUIContext().showAlertDialog`）
 - 多值选择：`TextPickerDialog`
 - 不使用 `ActionSheet`（底部大弹窗）
-- 弹窗覆盖层内层内容区必须加 `.hitTestBehavior(HitTestMode.Block)` 防点击冒泡关闭
+- 弹窗覆盖层内层内容区用 `.onClick(() => {})` 消费点击事件防冒泡关闭；**禁止**对含可交互子组件的容器使用 `.hitTestBehavior(HitTestMode.Block)`（会阻止子组件响应点击）
 
 ## 防社死模式
 
@@ -158,7 +158,7 @@ Pixiv API 在 `Accept-Language: zh-CN` 时会将 CJK tag "翻译"成英文（爱
 - `@Builder` 内不能用 `let` 声明局部变量，用成员方法代替
 - `build-profile.json5`：`strictMode: { caseSensitiveCheck, useNormalizedOHMUrl }`
 - 构建 type-error 时检查：缺少显式类型、不安全转换、动态访问
-- ArkUI List 拖拽排序用 `onItemDragStart`/`onItemDrop`（非 onDragStart/onDrop），回调签名 `(event: ItemDragInfo, index: number)`
+- ArkUI List 拖拽排序优先用 `onMove`（官方推荐，API 12+，天然兼容 List 滚动，无需长按触发）；旧方案 `onItemDragStart`/`onItemDrop` 需长按触发，与 LongPressGesture 冲突
 
 ## 代码质量
 

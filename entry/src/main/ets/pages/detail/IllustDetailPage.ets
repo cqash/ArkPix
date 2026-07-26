@@ -61,7 +61,6 @@ struct IllustDetailPage {
   @State exifPickerMutedItems: ExifPickerItem[] = []
   @State exifPickerPreviewText: string = ''
   @State exifPickerPreviewBytes: number = 0
-  @State exifPickerDragFromIndex: number = -1
   @State exifPickerMuteConfirmTarget: string = ''
   @State mergeReviewShown: boolean = false
   @State mergeReviewGroups: MergeGroup[] = []
@@ -895,13 +894,7 @@ struct IllustDetailPage {
                   Row() {
                     Radio({ value: tag.name, group: 'merge_group_' + groupIndex })
                       .checked(this.mergeReviewSelected[groupIndex] === tag.name)
-                      .onChange((isChecked: boolean) => {
-                        if (isChecked) {
-                          let newSelected = this.mergeReviewSelected.slice()
-                          newSelected[groupIndex] = tag.name
-                          this.mergeReviewSelected = newSelected
-                        }
-                      })
+                      .hitTestBehavior(HitTestMode.Transparent)
                     Text(tag.name)
                       .fontSize(14)
                       .fontColor(this.mergeReviewSelected[groupIndex] === tag.name ? '#0096FA' : '#333333')
@@ -916,6 +909,11 @@ struct IllustDetailPage {
                   .width('100%')
                   .height(40)
                   .padding({ left: 8, right: 8 })
+                  .onClick(() => {
+                    let newSelected = this.mergeReviewSelected.slice()
+                    newSelected[groupIndex] = tag.name
+                    this.mergeReviewSelected = newSelected
+                  })
                 }, (tag: ExifTag) => tag.name)
               }
               .width('100%')
@@ -951,7 +949,7 @@ struct IllustDetailPage {
           .padding(16)
           .backgroundColor('#F5F5F5')
           .borderRadius(12)
-          .hitTestBehavior(HitTestMode.Block)
+          .onClick(() => {})
         }
         .width('100%')
         .height('100%')
@@ -1016,31 +1014,41 @@ struct IllustDetailPage {
               ForEach(this.exifPickerWritableItems, (item: ExifPickerItem, index: number) => {
                 ListItem() {
                   Row() {
-                    Checkbox()
-                      .select(item.checked)
-                      .onChange((checked: boolean) => {
-                        if (index >= 0 && index < this.exifPickerWritableItems.length) {
-                          // 取消勾选 = 跳过本次写入（不持久化屏蔽）
-                          this.exifPickerWritableItems[index].checked = checked
-                          this.recalculateExifPickerPreview()
+                    Row() {
+                      Checkbox()
+                        .select(item.checked)
+                        .onChange((checked: boolean) => {
+                          if (index >= 0 && index < this.exifPickerWritableItems.length) {
+                            // 取消勾选 = 跳过本次写入（不持久化屏蔽）
+                            this.exifPickerWritableItems[index].checked = checked
+                            this.recalculateExifPickerPreview()
+                          }
+                        })
+                      Column() {
+                        Text(item.name)
+                          .fontSize(13)
+                          .fontColor('#333333')
+                        if (this.getDisplayTranslation(item.name, item.translatedName).length > 0) {
+                          Text(this.getDisplayTranslation(item.name, item.translatedName))
+                            .fontSize(11)
+                            .fontColor('#666666')
+                            .margin({ top: 2 })
                         }
-                      })
-                    Column() {
-                      Text(item.name)
-                        .fontSize(13)
-                        .fontColor('#333333')
-                      if (this.getDisplayTranslation(item.name, item.translatedName).length > 0) {
-                        Text(this.getDisplayTranslation(item.name, item.translatedName))
-                          .fontSize(11)
-                          .fontColor('#666666')
-                          .margin({ top: 2 })
                       }
+                      .layoutWeight(1)
+                      .margin({ left: 8 })
                     }
                     .layoutWeight(1)
-                    .margin({ left: 8 })
+                    .gesture(
+                      LongPressGesture({ duration: 300 })
+                        .onAction(() => {
+                          this.exifPickerMuteConfirmTarget = item.name
+                        })
+                    )
                     Text('≡')
                       .fontSize(18)
                       .fontColor('#999999')
+                      .padding({ left: 8, right: 4, top: 4, bottom: 4 })
                   }
                   .width('100%')
                   .padding({ left: 12, right: 12, top: 8, bottom: 8 })
@@ -1048,33 +1056,19 @@ struct IllustDetailPage {
                   .borderRadius(6)
                   .margin({ bottom: 4 })
                 }
-                .gesture(
-                  LongPressGesture({ duration: 300 })
-                    .onAction(() => {
-                      this.exifPickerMuteConfirmTarget = item.name
-                    })
-                )
               }, (item: ExifPickerItem, index: number) => item.name + '_' + index)
+              .onMove((from: number, to: number) => {
+                let items = this.exifPickerWritableItems.slice()
+                let moved = items[from]
+                items.splice(from, 1)
+                items.splice(to, 0, moved)
+                this.exifPickerWritableItems = items
+                this.recalculateExifPickerPreview()
+              })
             }
             .width('100%')
             .layoutWeight(1)
             .divider({ strokeWidth: 0 })
-            .onItemDragStart((event: ItemDragInfo, itemIndex: number) => {
-              this.exifPickerDragFromIndex = itemIndex
-              return null
-            })
-            .onItemDrop((event: ItemDragInfo, itemIndex: number, insertIndex: number) => {
-              if (itemIndex >= 0 && insertIndex >= 0 && itemIndex !== insertIndex &&
-                itemIndex < this.exifPickerWritableItems.length && insertIndex < this.exifPickerWritableItems.length) {
-                let items = this.exifPickerWritableItems.slice()
-                let moved = items[itemIndex]
-                items.splice(itemIndex, 1)
-                items.splice(insertIndex, 0, moved)
-                this.exifPickerWritableItems = items
-                this.recalculateExifPickerPreview()
-              }
-              this.exifPickerDragFromIndex = -1
-            })
 
             // Muted tags section
             if (this.exifPickerMutedItems.length > 0) {
