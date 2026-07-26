@@ -44,6 +44,8 @@ export class AuthInterceptor implements HttpInterceptor {
     if (this.accessToken) {
       options.header['Authorization'] = 'Bearer ' + this.accessToken
     }
+    // Accept-Language: 让 Pixiv API 返回 tag 的 translated_name 翻译
+    options.header['Accept-Language'] = 'zh-CN'
     try {
       let response = await next(options)
       if (AuthInterceptor.isAuthErrorResponse(response)) {
