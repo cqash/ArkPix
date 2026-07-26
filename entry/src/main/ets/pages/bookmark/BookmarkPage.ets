@@ -20,6 +20,7 @@ struct BookmarkPage {
   @State loginError: string = ''
   @State sortMode: BookmarkSortMode = 'bookmarkDesc'
   @State compareToken: number = 0
+  @State sortMenuShown: boolean = false
 
   aboutToAppear() {
     if (accountStore.getCurrentUserId() === 0) {
@@ -65,33 +66,26 @@ struct BookmarkPage {
     this.compareToken++
   }
 
-  showSortSheet() {
-    ActionSheet.show({
-      title: '排序方式',
-      message: '排序仅作用于本地已加载数据',
-      sheets: [
-        {
-          title: '收藏时间 新→旧（默认）',
-          action: () => { this.applySort('bookmarkDesc') }
-        },
-        {
-          title: '收藏时间 旧→新',
-          action: () => { this.applySort('bookmarkAsc') }
-        },
-        {
-          title: '上传时间 新→旧',
-          action: () => { this.applySort('uploadDesc') }
-        },
-        {
-          title: '收藏数 高→低',
-          action: () => { this.applySort('totalBookmarksDesc') }
-        }
-      ],
-      confirm: {
-        value: '取消',
-        action: () => {}
-      }
-    })
+  @Builder
+  SortMenuItem(label: string, action: () => void) {
+    Text(label)
+      .fontSize(14)
+      .fontColor('#333333')
+      .width('100%')
+      .padding({ left: 16, right: 16, top: 10, bottom: 10 })
+      .onClick(action)
+  }
+
+  @Builder
+  SortMenuBuilder() {
+    Column() {
+      this.SortMenuItem('收藏时间 新→旧（默认）', () => { this.applySort('bookmarkDesc') })
+      this.SortMenuItem('收藏时间 旧→新', () => { this.applySort('bookmarkAsc') })
+      this.SortMenuItem('上传时间 新→旧', () => { this.applySort('uploadDesc') })
+      this.SortMenuItem('收藏数 高→低', () => { this.applySort('totalBookmarksDesc') })
+    }
+    .width(180)
+    .padding({ top: 4, bottom: 4 })
   }
 
   build() {
@@ -113,12 +107,15 @@ struct BookmarkPage {
           .fontColor('#0096FA')
           .width(60)
           .textAlign(TextAlign.End)
-          .onClick(() => { this.showSortSheet() })
+          .onClick(() => { this.sortMenuShown = true })
       }
       .width('100%')
       .height(48)
       .padding({ left: 8, right: 8 })
       .backgroundColor('#FFFFFF')
+      .bindContextMenu(this.sortMenuShown, this.SortMenuBuilder, {
+        onDisappear: () => { this.sortMenuShown = false }
+      })
 
       Row() {
         Text('公开')
