@@ -226,19 +226,18 @@ struct IllustDetailPage {
     Stack({ alignContent: Alignment.TopEnd }) {
       if (this.needMask()) {
         Column() {
-          Text(this.illust.xRestrict === 2 ? 'R-18G' : 'R-18')
+          Text('🔒')
             .fontSize(28)
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#FFFFFF')
+            .opacity(0.4)
           Text('点击显示')
-            .fontSize(14)
-            .fontColor('rgba(255, 255, 255, 0.7)')
+            .fontSize(12)
+            .fontColor('rgba(255, 255, 255, 0.35)')
             .margin({ top: 8 })
         }
         .width('100%')
         .aspectRatio(row.ratio)
         .justifyContent(FlexAlign.Center)
-        .backgroundColor('#1A1A1A')
+        .backgroundColor('#2A2A2A')
         .borderRadius(8)
         .onClick(() => { this.revealedR18 = true })
       } else {

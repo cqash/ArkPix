@@ -158,19 +158,14 @@ export struct IllustCard {
   @Builder
   R18Mask() {
     Column() {
-      Text('R-18')
-        .fontSize(24)
-        .fontWeight(FontWeight.Bold)
-        .fontColor('#FFFFFF')
-      Text(this.illust.xRestrict === 2 ? 'R-18G' : 'R-18')
-        .fontSize(12)
-        .fontColor('rgba(255, 255, 255, 0.7)')
-        .margin({ top: 4 })
+      Text('🔒')
+        .fontSize(20)
+        .opacity(0.4)
     }
     .width('100%')
     .aspectRatio(this.imageRatio())
     .justifyContent(FlexAlign.Center)
-    .backgroundColor('#1A1A1A')
+    .backgroundColor('#2A2A2A')
     .borderRadius(8)
   }
 

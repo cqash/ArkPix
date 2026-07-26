@@ -126,13 +126,12 @@ struct ImageViewerPage {
     Stack({ alignContent: Alignment.Center }) {
       if (this.needMask()) {
         Column() {
-          Text(this.illust.xRestrict === 2 ? 'R-18G' : 'R-18')
-            .fontSize(36)
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#FFFFFF')
+          Text('🔒')
+            .fontSize(32)
+            .opacity(0.4)
           Text('点击显示')
-            .fontSize(16)
-            .fontColor('rgba(255, 255, 255, 0.7)')
+            .fontSize(13)
+            .fontColor('rgba(255, 255, 255, 0.35)')
             .margin({ top: 12 })
         }
         .width('100%')
