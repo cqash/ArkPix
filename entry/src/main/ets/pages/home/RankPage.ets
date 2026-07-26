@@ -13,13 +13,15 @@ const RANK_MODES: RankModeItem[] = [
   { label: '日榜', mode: 'day', r18: false },
   { label: '周榜', mode: 'week', r18: false },
   { label: '月榜', mode: 'month', r18: false },
-  { label: '新人', mode: 'rookie', r18: false },
-  { label: '原创', mode: 'original', r18: false },
-  { label: '男性向', mode: 'male', r18: false },
-  { label: '女性向', mode: 'female', r18: false },
+  { label: '新人', mode: 'week_rookie', r18: false },
+  { label: '原创', mode: 'week_original', r18: false },
+  { label: '男性向', mode: 'day_male', r18: false },
+  { label: '女性向', mode: 'day_female', r18: false },
   { label: 'R18日', mode: 'day_r18', r18: true },
+  { label: 'R18男性', mode: 'day_male_r18', r18: true },
+  { label: 'R18女性', mode: 'day_female_r18', r18: true },
   { label: 'R18周', mode: 'week_r18', r18: true },
-  { label: 'R18G', mode: 'day_r18g', r18: true }
+  { label: 'R18G', mode: 'week_r18g', r18: true }
 ]
 
 @Component
