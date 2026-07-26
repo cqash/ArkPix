@@ -26,6 +26,7 @@ struct IllustDetailPage {
   @State illustId: number = 0
   @State userAvatarPath: string = ''
   @State revealedR18: boolean = false
+  @State bookmarkMenuShown: boolean = false
   @StorageLink('bookmarkStates') bookmarkStates: Map<number, number> = new Map<number, number>()
   @StorageLink('appSettings') appSettings: AppSettings = new AppSettings()
 
@@ -96,23 +97,24 @@ struct IllustDetailPage {
     })
   }
 
-  showBookmarkRestrictDialog() {
-    if (this.bookmarkState() !== 0) {
-      return
+  @Builder
+  BookmarkMenuBuilder() {
+    Column() {
+      Text('公开收藏')
+        .fontSize(14)
+        .fontColor('#333333')
+        .width('100%')
+        .padding({ left: 16, right: 16, top: 10, bottom: 10 })
+        .onClick(() => { this.store.starWithRestrict('public') })
+      Text('私密收藏')
+        .fontSize(14)
+        .fontColor('#333333')
+        .width('100%')
+        .padding({ left: 16, right: 16, top: 10, bottom: 10 })
+        .onClick(() => { this.store.starWithRestrict('private') })
     }
-    this.getUIContext().showAlertDialog({
-      title: '收藏可见性',
-      message: '选择公开收藏还是私密收藏',
-      autoCancel: true,
-      primaryButton: {
-        value: '私密收藏',
-        action: () => { this.store.starWithRestrict('private') }
-      },
-      secondaryButton: {
-        value: '公开收藏',
-        action: () => { this.store.starWithRestrict('public') }
-      }
-    })
+    .width(140)
+    .padding({ top: 4, bottom: 4 })
   }
 
   showSaveSheet(pageIndex: number) {
@@ -332,8 +334,15 @@ struct IllustDetailPage {
           .onClick(() => { this.store.toggleBookmark() })
           .gesture(
             LongPressGesture({ duration: 500 })
-              .onAction(() => { this.showBookmarkRestrictDialog() })
+              .onAction(() => {
+                if (this.bookmarkState() === 0) {
+                  this.bookmarkMenuShown = true
+                }
+              })
           )
+          .bindContextMenu(this.bookmarkMenuShown, this.BookmarkMenuBuilder, {
+            onDisappear: () => { this.bookmarkMenuShown = false }
+          })
 
         Button('保存图片')
           .width('28%')

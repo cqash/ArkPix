@@ -108,14 +108,14 @@ struct BookmarkPage {
           .width(60)
           .textAlign(TextAlign.End)
           .onClick(() => { this.sortMenuShown = true })
+          .bindContextMenu(this.sortMenuShown, this.SortMenuBuilder, {
+            onDisappear: () => { this.sortMenuShown = false }
+          })
       }
       .width('100%')
       .height(48)
       .padding({ left: 8, right: 8 })
       .backgroundColor('#FFFFFF')
-      .bindContextMenu(this.sortMenuShown, this.SortMenuBuilder, {
-        onDisappear: () => { this.sortMenuShown = false }
-      })
 
       Row() {
         Text('公开')
