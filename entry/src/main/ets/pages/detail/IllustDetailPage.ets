@@ -29,6 +29,8 @@ struct IllustDetailPage {
   @State bookmarkMenuShown: boolean = false
   @State tagMenuShown: boolean = false
   @State tagMenuTarget: string = ''
+  @State saveMenuShown: boolean = false
+  @State saveMenuPageIndex: number = 0
   @StorageLink('bookmarkStates') bookmarkStates: Map<number, number> = new Map<number, number>()
   @StorageLink('appSettings') appSettings: AppSettings = new AppSettings()
 
@@ -119,32 +121,26 @@ struct IllustDetailPage {
     .padding({ top: 4, bottom: 4 })
   }
 
-  showSaveSheet(pageIndex: number) {
-    if (this.illust.id === 0) {
-      return
+  @Builder
+  SaveMenuBuilder() {
+    Column() {
+      Text('保存当前页')
+        .fontSize(14)
+        .fontColor('#333333')
+        .width('100%')
+        .padding({ left: 16, right: 16, top: 10, bottom: 10 })
+        .onClick(() => { this.store.savePage(this.saveMenuPageIndex) })
+      if (this.illust.pageCount > 1) {
+        Text('保存全部页')
+          .fontSize(14)
+          .fontColor('#333333')
+          .width('100%')
+          .padding({ left: 16, right: 16, top: 10, bottom: 10 })
+          .onClick(() => { this.store.saveAll() })
+      }
     }
-    if (this.illust.pageCount > 1) {
-      ActionSheet.show({
-        title: '保存图片',
-        message: '第 ' + (pageIndex + 1) + '/' + this.illust.pageCount + ' 页',
-        sheets: [
-          {
-            title: '保存当前页',
-            action: () => { this.store.savePage(pageIndex) }
-          },
-          {
-            title: '保存全部页',
-            action: () => { this.store.saveAll() }
-          }
-        ],
-        confirm: {
-          value: '取消',
-          action: () => {}
-        }
-      })
-    } else {
-      this.store.savePage(pageIndex)
-    }
+    .width(140)
+    .padding({ top: 4, bottom: 4 })
   }
 
   @Builder
@@ -275,10 +271,18 @@ struct IllustDetailPage {
       LongPressGesture({ duration: 500 })
         .onAction(() => {
           if (!this.needMask()) {
-            this.showSaveSheet(row.pageIndex)
+            if (this.illust.pageCount > 1) {
+              this.saveMenuPageIndex = row.pageIndex
+              this.saveMenuShown = true
+            } else {
+              this.store.savePage(row.pageIndex)
+            }
           }
         })
     )
+    .bindContextMenu(this.saveMenuShown && this.saveMenuPageIndex === row.pageIndex, this.SaveMenuBuilder, {
+      onDisappear: () => { this.saveMenuShown = false }
+    })
   }
 
   @Builder
@@ -361,7 +365,17 @@ struct IllustDetailPage {
           .width('28%')
           .fontSize(13)
           .backgroundColor('#0096FA')
-          .onClick(() => { this.showSaveSheet(0) })
+          .onClick(() => {
+            if (this.illust.pageCount > 1) {
+              this.saveMenuPageIndex = 0
+              this.saveMenuShown = true
+            } else {
+              this.store.savePage(0)
+            }
+          })
+          .bindContextMenu(this.saveMenuShown && this.saveMenuPageIndex === 0, this.SaveMenuBuilder, {
+            onDisappear: () => { this.saveMenuShown = false }
+          })
 
         if (this.illust.pageCount > 1) {
           Button('下载全部')
