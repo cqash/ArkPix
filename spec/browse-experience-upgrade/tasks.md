@@ -39,10 +39,10 @@
 
 **Independent Test**: 模拟刷新接口返回无 token 字段的错误 JSON，登录态保持不坏；模拟网络超时，不触发登出
 
-- [ ] T007 [US11] 修改 `entry/src/main/ets/network/OAuthService.ets`：`refreshToken()` 增加响应有效性校验（responseCode===200 且 access_token 非空），失败时抛类型化错误（凭证失效 CredentialInvalidError / 网络错误 NetworkError），校验通过前不写回任何 token
-- [ ] T008 [US11] 修改 `entry/src/main/ets/stores/AccountStore.ets`：`refreshToken()` 按错误类型分类处理——CredentialInvalidError 才置 needsRelogin 并提示重新登录；NetworkError 保持登录态仅返回 false；移除无差别 forceLogout
-- [ ] T009 [US11] 修改 `entry/src/main/ets/network/AuthInterceptor.ets`：增加刷新节流（距上次成功刷新 <120s 直接复用当前 token）；401 重放后仍失败时按分类处理；刷新返回空 token 时不重放请求
-- [ ] T010 [US11] 在登录失效路径增加用户提示：needsRelogin 时 toast/弹窗引导重新登录（ SplashPage 或 HomePage 入口检测 `AppStorage.isLoggedIn` 变化），文件 `entry/src/main/ets/pages/splash/SplashPage.ets`
+- [X] T007 [US11] 修改 `entry/src/main/ets/network/OAuthService.ets`：`refreshToken()` 增加响应有效性校验（responseCode===200 且 access_token 非空），失败时抛类型化错误（凭证失效 CredentialInvalidError / 网络错误 NetworkError），校验通过前不写回任何 token
+- [X] T008 [US11] 修改 `entry/src/main/ets/stores/AccountStore.ets`：`refreshToken()` 按错误类型分类处理——CredentialInvalidError 才置 needsRelogin 并提示重新登录；NetworkError 保持登录态仅返回 false；移除无差别 forceLogout
+- [X] T009 [US11] 修改 `entry/src/main/ets/network/AuthInterceptor.ets`：增加刷新节流（距上次成功刷新 <120s 直接复用当前 token）；401 重放后仍失败时按分类处理；刷新返回空 token 时不重放请求
+- [X] T010 [US11] 在登录失效路径增加用户提示：needsRelogin 时 toast/弹窗引导重新登录（ SplashPage 或 HomePage 入口检测 `AppStorage.isLoggedIn` 变化），文件 `entry/src/main/ets/pages/splash/SplashPage.ets`
 
 **Checkpoint**: token 过期可静默续期；临时网络故障零误登出
 

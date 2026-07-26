@@ -274,6 +274,13 @@ export struct SettingsPage {
               router.pushUrl({ url: 'pages/settings/ExifTemplatePage' })
             }
           })
+          SettingItem({
+            title: 'EXIF 标签管理',
+            value: '',
+            onItemClick: () => {
+              router.pushUrl({ url: 'pages/settings/ExifTagConfigPage' })
+            }
+          })
           SwitchItem({
             title: '下载时自动收藏',
             isOn: this.settings.autoBookmarkOnDownload,

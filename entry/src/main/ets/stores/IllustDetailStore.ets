@@ -3,12 +3,18 @@ import { common } from '@kit.AbilityKit';
 import { apiService } from '../network/ApiService';
 import { getDbService } from '../services/DatabaseService';
 import { downloadService } from '../services/DownloadService';
-import { Illust } from '../models/Illust';
+import { Illust, Tag } from '../models/Illust';
 import { userSettingStore } from './UserSettingStore';
 import { bookmarkStateStore, BOOKMARK_LOADING, BOOKMARK_DONE } from './BookmarkStateStore';
 import { MuteFilter } from '../utils/MuteFilter';
 import { pickDetailUrl } from '../utils/ImageUrlUtils';
 import { parseIllustListPage } from '../components/illust/IllustWaterfall';
+import {
+  ExifTag,
+  ExifInfo,
+  filterTagsForExif,
+  isCommentOverLimit
+} from '../services/ImageExifService';
 
 /** 详情页行模型：image 行×pageCount + info 行 + related_header/related 行 */
 export interface DetailRow {
@@ -167,6 +173,35 @@ export class IllustDetailStore {
     } finally {
       this.relatedLoading = false
     }
+  }
+
+  /** 构建 ExifInfo（供 isExifOverLimit 使用） */
+  buildExifInfo(): ExifInfo {
+    let tags: ExifTag[] = this.illust.tags.map((t: Tag): ExifTag => {
+      return { name: t.name, translatedName: t.translatedName }
+    })
+    return {
+      illustId: this.illust.id,
+      userId: this.illust.user.id,
+      title: this.illust.title,
+      userName: this.illust.user.name,
+      tags: tags,
+      createDate: this.illust.createDate,
+      pageIndex: 0
+    }
+  }
+
+  /** 检测当前 illust 的 EXIF 备注是否超限（120 UTF-8 字节） */
+  isExifOverLimit(): boolean {
+    let settings = userSettingStore.getSettings()
+    if (!settings.embedExifMetadata) {
+      return false
+    }
+    let filteredTags = filterTagsForExif(this.illust.tags.map((t: Tag): ExifTag => {
+      return { name: t.name, translatedName: t.translatedName }
+    }), settings)
+    let info = this.buildExifInfo()
+    return isCommentOverLimit(info, filteredTags)
   }
 
   async toggleBookmark(): Promise<void> {

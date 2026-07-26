@@ -10,9 +10,26 @@ import { buildPageUrls } from '../../utils/ImageUrlUtils';
 import { CachedImage } from '../../components/common/CachedImage';
 import { IllustCard } from '../../components/illust/IllustCard';
 import { ErrorView, LoadingView } from '../../components/common/CommonViews';
+import {
+  ExifTag,
+  ExifInfo,
+  filterTagsForExif,
+  isCommentOverLimit,
+  renderCommentWithTags,
+  renderCommentBytes,
+  utf8ByteLength,
+  EXIF_FIELD_MAX_BYTES
+} from '../../services/ImageExifService';
 
 interface RouteParams {
   illustId: number
+}
+
+interface ExifPickerItem {
+  name: string
+  translatedName: string
+  checked: boolean
+  withinBudget: boolean
 }
 
 @Entry
@@ -34,6 +51,13 @@ struct IllustDetailPage {
   @State mergeDialogShown: boolean = false
   @State mergeFromTag: string = ''
   @State mergeInputText: string = ''
+  @State exifPickerShown: boolean = false
+  @State exifPickerPageIndex: number = 0
+  @State exifPickerIsSaveAll: boolean = false
+  @State exifPickerWritableItems: ExifPickerItem[] = []
+  @State exifPickerMutedItems: ExifPickerItem[] = []
+  @State exifPickerPreviewText: string = ''
+  @State exifPickerPreviewBytes: number = 0
   @StorageLink('bookmarkStates') bookmarkStates: Map<number, number> = new Map<number, number>()
   @StorageLink('appSettings') appSettings: AppSettings = new AppSettings()
 
@@ -132,14 +156,14 @@ struct IllustDetailPage {
         .fontColor('#333333')
         .width('100%')
         .padding({ left: 16, right: 16, top: 10, bottom: 10 })
-        .onClick(() => { this.store.savePage(this.saveMenuPageIndex) })
+        .onClick(() => { this.handleSavePage(this.saveMenuPageIndex) })
       if (this.illust.pageCount > 1) {
         Text('保存全部页')
           .fontSize(14)
           .fontColor('#333333')
           .width('100%')
           .padding({ left: 16, right: 16, top: 10, bottom: 10 })
-          .onClick(() => { this.store.saveAll() })
+          .onClick(() => { this.handleSaveAll() })
       }
     }
     .width(140)
@@ -193,6 +217,172 @@ struct IllustDetailPage {
   goToUserProfile() {
     if (this.illust.user.id > 0) {
       router.pushUrl({ url: 'pages/user/UserProfilePage', params: { userId: this.illust.user.id } })
+    }
+  }
+
+  /** 保存单页：先检测 EXIF 超限，超限则弹出 TagExifPicker */
+  private handleSavePage(pageIndex: number): void {
+    if (this.store.isExifOverLimit()) {
+      this.exifPickerPageIndex = pageIndex
+      this.exifPickerIsSaveAll = false
+      this.initExifPickerItems()
+      this.exifPickerShown = true
+    } else {
+      this.store.savePage(pageIndex)
+    }
+  }
+
+  /** 保存全部页：先检测 EXIF 超限，超限则弹出 TagExifPicker */
+  private handleSaveAll(): void {
+    if (this.store.isExifOverLimit()) {
+      this.exifPickerPageIndex = 0
+      this.exifPickerIsSaveAll = true
+      this.initExifPickerItems()
+      this.exifPickerShown = true
+    } else {
+      this.store.saveAll()
+    }
+  }
+
+  /** 初始化 EXIF 标签选择器的数据 */
+  private initExifPickerItems(): void {
+    let settings = userSettingStore.getSettings()
+    let filteredTags = filterTagsForExif(this.illust.tags.map((t: Tag): ExifTag => {
+      return { name: t.name, translatedName: t.translatedName }
+    }), settings)
+
+    let writable: ExifPickerItem[] = []
+    let muted: ExifPickerItem[] = []
+
+    for (let i = 0; i < filteredTags.length; i++) {
+      let tag = filteredTags[i]
+      let isMuted = settings.exifMutedTags.includes(tag.name)
+      let item: ExifPickerItem = {
+        name: tag.name,
+        translatedName: tag.translatedName,
+        checked: !isMuted,
+        withinBudget: true
+      }
+      if (isMuted) {
+        muted.push(item)
+      } else {
+        writable.push(item)
+      }
+    }
+
+    // Also add muted tags not in filteredTags
+    let filteredNames: string[] = []
+    for (let i = 0; i < filteredTags.length; i++) {
+      filteredNames.push(filteredTags[i].name)
+    }
+    for (let i = 0; i < this.illust.tags.length; i++) {
+      let tag = this.illust.tags[i]
+      if (settings.exifMutedTags.includes(tag.name) && !filteredNames.includes(tag.name)) {
+        let item: ExifPickerItem = {
+          name: tag.name,
+          translatedName: tag.translatedName,
+          checked: false,
+          withinBudget: false
+        }
+        let alreadyInMuted = false
+        for (let m = 0; m < muted.length; m++) {
+          if (muted[m].name === tag.name) {
+            alreadyInMuted = true
+            break
+          }
+        }
+        if (!alreadyInMuted) {
+          muted.push(item)
+        }
+      }
+    }
+
+    this.exifPickerWritableItems = writable
+    this.exifPickerMutedItems = muted
+    this.recalculateExifPickerPreview()
+  }
+
+  /** 重新计算 EXIF 选择器预览 */
+  private recalculateExifPickerPreview(): void {
+    let info = this.store.buildExifInfo()
+    let checkedTags: ExifTag[] = []
+    for (let i = 0; i < this.exifPickerWritableItems.length; i++) {
+      if (this.exifPickerWritableItems[i].checked) {
+        let t: ExifTag = {
+          name: this.exifPickerWritableItems[i].name,
+          translatedName: this.exifPickerWritableItems[i].translatedName
+        }
+        checkedTags.push(t)
+      }
+    }
+
+    let rendered = renderCommentWithTags(info, checkedTags)
+    let totalBytes = utf8ByteLength(rendered)
+    this.exifPickerPreviewText = rendered
+    this.exifPickerPreviewBytes = totalBytes
+
+    // Calculate withinBudget for each writable item
+    let budgetTags: ExifTag[] = []
+    for (let i = 0; i < this.exifPickerWritableItems.length; i++) {
+      if (this.exifPickerWritableItems[i].checked) {
+        let t: ExifTag = {
+          name: this.exifPickerWritableItems[i].name,
+          translatedName: this.exifPickerWritableItems[i].translatedName
+        }
+        budgetTags.push(t)
+        let partialBytes = renderCommentBytes(info, budgetTags)
+        this.exifPickerWritableItems[i].withinBudget = partialBytes <= EXIF_FIELD_MAX_BYTES
+      } else {
+        this.exifPickerWritableItems[i].withinBudget = false
+      }
+    }
+  }
+
+  /** TagExifPicker 确认回调：更新 exifMutedTags 和 exifTagPriority 后继续保存 */
+  private onExifPickerConfirm(): void {
+    let selectedTags: string[] = []
+    let allTagsOrdered: string[] = []
+    for (let i = 0; i < this.exifPickerWritableItems.length; i++) {
+      allTagsOrdered.push(this.exifPickerWritableItems[i].name)
+      if (this.exifPickerWritableItems[i].checked) {
+        selectedTags.push(this.exifPickerWritableItems[i].name)
+      }
+    }
+
+    // 未选中的标签加入 exifMutedTags
+    let settings = userSettingStore.getSettings()
+    let currentMuted: string[] = settings.exifMutedTags.slice()
+    let allTagNames: string[] = []
+    for (let i = 0; i < this.illust.tags.length; i++) {
+      allTagNames.push(this.illust.tags[i].name)
+    }
+    for (let i = 0; i < allTagNames.length; i++) {
+      if (!selectedTags.includes(allTagNames[i]) && !currentMuted.includes(allTagNames[i])) {
+        currentMuted.push(allTagNames[i])
+      }
+    }
+    userSettingStore.setExifMutedTags(currentMuted)
+
+    // 更新优先级排序
+    userSettingStore.updateExifTagPriority(allTagsOrdered)
+
+    this.exifPickerShown = false
+
+    // 继续保存流程
+    if (this.exifPickerIsSaveAll) {
+      this.store.saveAll()
+    } else {
+      this.store.savePage(this.exifPickerPageIndex)
+    }
+  }
+
+  /** TagExifPicker 跳过回调：直接保存不做过滤 */
+  private onExifPickerSkip(): void {
+    this.exifPickerShown = false
+    if (this.exifPickerIsSaveAll) {
+      this.store.saveAll()
+    } else {
+      this.store.savePage(this.exifPickerPageIndex)
     }
   }
 
@@ -297,7 +487,7 @@ struct IllustDetailPage {
               this.saveMenuPageIndex = row.pageIndex
               this.saveMenuShown = true
             } else {
-              this.store.savePage(row.pageIndex)
+              this.handleSavePage(row.pageIndex)
             }
           }
         })
@@ -392,7 +582,7 @@ struct IllustDetailPage {
               this.saveMenuPageIndex = 0
               this.saveMenuShown = true
             } else {
-              this.store.savePage(0)
+              this.handleSavePage(0)
             }
           })
           .bindContextMenu(this.saveMenuShown && this.saveMenuPageIndex === 0, this.SaveMenuBuilder, {
@@ -404,7 +594,7 @@ struct IllustDetailPage {
             .width('28%')
             .fontSize(13)
             .backgroundColor('#FF8800')
-            .onClick(() => { this.store.saveAll() })
+            .onClick(() => { this.handleSaveAll() })
         }
       }
       .width('100%')
@@ -541,6 +731,205 @@ struct IllustDetailPage {
 
       if (this.mergeDialogShown) {
         this.MergeDialogOverlay()
+      }
+
+      if (this.exifPickerShown) {
+        Column() {
+          Column() {
+            Text('EXIF 备注标签选择')
+              .fontSize(18)
+              .fontWeight(FontWeight.Bold)
+              .fontColor('#333333')
+              .width('100%')
+              .textAlign(TextAlign.Center)
+              .margin({ bottom: 12 })
+
+            // Preview area
+            Column() {
+              Text('预览')
+                .fontSize(12)
+                .fontColor('#999999')
+                .margin({ bottom: 4 })
+              Text(this.exifPickerPreviewText)
+                .fontSize(12)
+                .fontColor('#333333')
+                .maxLines(3)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+                .width('100%')
+              Text(this.exifPickerPreviewBytes + ' / ' + EXIF_FIELD_MAX_BYTES + ' 字节')
+                .fontSize(12)
+                .fontColor(this.exifPickerPreviewBytes > EXIF_FIELD_MAX_BYTES ? '#CC3333' : '#0096FA')
+                .margin({ top: 4 })
+            }
+            .width('100%')
+            .padding(8)
+            .backgroundColor('#F8F8F8')
+            .borderRadius(8)
+            .margin({ bottom: 12 })
+
+            // Writable tags section
+            Text('可写入标签')
+              .fontSize(14)
+              .fontColor('#333333')
+              .fontWeight(FontWeight.Medium)
+              .margin({ bottom: 6 })
+
+            List() {
+              ForEach(this.exifPickerWritableItems, (item: ExifPickerItem, index: number) => {
+                ListItem() {
+                  Row() {
+                    Checkbox()
+                      .select(item.checked)
+                      .onChange((checked: boolean) => {
+                        if (index >= 0 && index < this.exifPickerWritableItems.length) {
+                          this.exifPickerWritableItems[index].checked = checked
+                          if (!checked) {
+                            let movedItem: ExifPickerItem = {
+                              name: this.exifPickerWritableItems[index].name,
+                              translatedName: this.exifPickerWritableItems[index].translatedName,
+                              checked: false,
+                              withinBudget: false
+                            }
+                            let newWritable: ExifPickerItem[] = []
+                            for (let i = 0; i < this.exifPickerWritableItems.length; i++) {
+                              if (i !== index) {
+                                newWritable.push(this.exifPickerWritableItems[i])
+                              }
+                            }
+                            this.exifPickerWritableItems = newWritable
+                            let newMuted: ExifPickerItem[] = []
+                            for (let i = 0; i < this.exifPickerMutedItems.length; i++) {
+                              newMuted.push(this.exifPickerMutedItems[i])
+                            }
+                            newMuted.push(movedItem)
+                            this.exifPickerMutedItems = newMuted
+                          }
+                          this.recalculateExifPickerPreview()
+                        }
+                      })
+                    Column() {
+                      Text(item.name)
+                        .fontSize(13)
+                        .fontColor('#333333')
+                      if (item.translatedName && item.translatedName !== item.name) {
+                        Text(item.translatedName)
+                          .fontSize(11)
+                          .fontColor('#666666')
+                          .margin({ top: 2 })
+                      }
+                    }
+                    .layoutWeight(1)
+                    .margin({ left: 8 })
+                  }
+                  .width('100%')
+                  .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+                  .backgroundColor(item.withinBudget && item.checked ? '#E6F4FF' : '#F0F0F0')
+                  .borderRadius(6)
+                  .margin({ bottom: 4 })
+                }
+              }, (item: ExifPickerItem, index: number) => item.name + '_' + index)
+            }
+            .width('100%')
+            .layoutWeight(1)
+            .divider({ strokeWidth: 0 })
+
+            // Muted tags section
+            if (this.exifPickerMutedItems.length > 0) {
+              Text('已屏蔽标签')
+                .fontSize(14)
+                .fontColor('#CC3333')
+                .fontWeight(FontWeight.Medium)
+                .margin({ top: 8, bottom: 6 })
+
+              List() {
+                ForEach(this.exifPickerMutedItems, (item: ExifPickerItem, index: number) => {
+                  ListItem() {
+                    Row() {
+                      Text(item.name)
+                        .fontSize(13)
+                        .fontColor('#CC3333')
+                        .layoutWeight(1)
+                      if (item.translatedName && item.translatedName !== item.name) {
+                        Text(item.translatedName)
+                          .fontSize(11)
+                          .fontColor('#999999')
+                          .margin({ left: 4 })
+                      }
+                      Text('恢复')
+                        .fontSize(12)
+                        .fontColor('#0096FA')
+                        .margin({ left: 8 })
+                        .onClick(() => {
+                          let restoredItem: ExifPickerItem = {
+                            name: item.name,
+                            translatedName: item.translatedName,
+                            checked: true,
+                            withinBudget: false
+                          }
+                          let newMuted: ExifPickerItem[] = []
+                          for (let i = 0; i < this.exifPickerMutedItems.length; i++) {
+                            if (i !== index) {
+                              newMuted.push(this.exifPickerMutedItems[i])
+                            }
+                          }
+                          this.exifPickerMutedItems = newMuted
+                          let newWritable: ExifPickerItem[] = []
+                          for (let i = 0; i < this.exifPickerWritableItems.length; i++) {
+                            newWritable.push(this.exifPickerWritableItems[i])
+                          }
+                          newWritable.push(restoredItem)
+                          this.exifPickerWritableItems = newWritable
+                          this.recalculateExifPickerPreview()
+                        })
+                    }
+                    .width('100%')
+                    .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+                    .backgroundColor('#FFEAEA')
+                    .borderRadius(6)
+                    .margin({ bottom: 4 })
+                  }
+                }, (item: ExifPickerItem, index: number) => 'muted_' + item.name + '_' + index)
+              }
+              .width('100%')
+              .height(Math.min(this.exifPickerMutedItems.length * 50, 150))
+              .divider({ strokeWidth: 0 })
+            }
+
+            // Action buttons
+            Row({ space: 12 }) {
+              Button('跳过')
+                .fontSize(14)
+                .backgroundColor('#EEEEEE')
+                .fontColor('#333333')
+                .layoutWeight(1)
+                .onClick(() => {
+                  this.onExifPickerSkip()
+                })
+              Button('确认')
+                .fontSize(14)
+                .backgroundColor('#0096FA')
+                .fontColor('#FFFFFF')
+                .layoutWeight(1)
+                .onClick(() => {
+                  this.onExifPickerConfirm()
+                })
+            }
+            .width('100%')
+            .margin({ top: 12 })
+          }
+          .padding(16)
+          .width('100%')
+          .height('80%')
+          .backgroundColor('#FFFFFF')
+          .borderRadius({ topLeft: 16, topRight: 16 })
+        }
+        .width('100%')
+        .height('100%')
+        .backgroundColor('rgba(0, 0, 0, 0.4)')
+        .justifyContent(FlexAlign.End)
+        .onClick(() => {
+          // 点击遮罩层不关闭，需要用户明确选择
+        })
       }
     }
     .width('100%')

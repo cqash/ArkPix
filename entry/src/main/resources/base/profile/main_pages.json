@@ -13,6 +13,7 @@
     "pages/settings/DownloadPage",
     "pages/settings/FilenameTemplatePage",
     "pages/settings/ExifTemplatePage",
+    "pages/settings/ExifTagConfigPage",
     "pages/settings/AboutPage",
     "pages/settings/MutePage",
     "pages/user/UserProfilePage"
