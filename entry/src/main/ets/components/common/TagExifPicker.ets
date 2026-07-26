@@ -17,6 +17,7 @@ interface TagExifPickerItem {
   isMerged: boolean
   mergedFrom: string[]
   withinBudget: boolean
+  isMuted: boolean
 }
 
 @CustomDialog
@@ -39,6 +40,7 @@ struct TagExifPicker {
   @State previewText: string = ''
   @State previewBytes: number = 0
   @State dragFromIndex: number = -1
+  @State muteConfirmTarget: string = ''
 
   aboutToAppear(): void {
     if (this.settings === null || this.exifInfo === null) {
@@ -74,7 +76,8 @@ struct TagExifPicker {
         checked: true,
         isMerged: mergedFrom !== undefined && mergedFrom.length > 0,
         mergedFrom: mergedFrom !== undefined ? mergedFrom : [],
-        withinBudget: true
+        withinBudget: true,
+        isMuted: isMuted
       }
       if (isMuted) {
         item.checked = false
@@ -100,7 +103,8 @@ struct TagExifPicker {
           checked: false,
           isMerged: mergedFrom !== undefined && mergedFrom.length > 0,
           mergedFrom: mergedFrom !== undefined ? mergedFrom : [],
-          withinBudget: false
+          withinBudget: false,
+          isMuted: true
         }
         let alreadyInMuted = false
         for (let m = 0; m < muted.length; m++) {
@@ -207,35 +211,55 @@ struct TagExifPicker {
     this.recalculatePreview()
   }
 
+  /** 长按 → 移入屏蔽区（永久屏蔽） */
+  private doMuteTag(tagName: string): void {
+    let targetIdx = -1
+    for (let i = 0; i < this.writableItems.length; i++) {
+      if (this.writableItems[i].name === tagName) {
+        targetIdx = i
+        break
+      }
+    }
+    if (targetIdx < 0) {
+      this.muteConfirmTarget = ''
+      return
+    }
+    let movedItem = this.writableItems[targetIdx]
+    let newWritable: TagExifPickerItem[] = []
+    for (let i = 0; i < this.writableItems.length; i++) {
+      if (i !== targetIdx) {
+        newWritable.push(this.writableItems[i])
+      }
+    }
+    this.writableItems = newWritable
+    let mutedItem: TagExifPickerItem = {
+      name: movedItem.name,
+      translatedName: movedItem.translatedName,
+      checked: false,
+      isMerged: movedItem.isMerged,
+      mergedFrom: movedItem.mergedFrom,
+      withinBudget: false,
+      isMuted: true
+    }
+    let newMuted: TagExifPickerItem[] = []
+    for (let i = 0; i < this.mutedItems.length; i++) {
+      newMuted.push(this.mutedItems[i])
+    }
+    newMuted.push(mutedItem)
+    this.mutedItems = newMuted
+    this.muteConfirmTarget = ''
+    this.recalculatePreview()
+  }
+
   @Builder
   WritableItemBuilder(item: TagExifPickerItem, index: number) {
     Row() {
       Checkbox()
         .select(item.checked)
         .onChange((checked: boolean) => {
-          if (!checked) {
-            // Move to muted items
-            let newWritable: TagExifPickerItem[] = []
-            let movedItem: TagExifPickerItem | null = null
-            for (let i = 0; i < this.writableItems.length; i++) {
-              if (i === index) {
-                movedItem = this.writableItems[i]
-              } else {
-                newWritable.push(this.writableItems[i])
-              }
-            }
-            if (movedItem !== null) {
-              let mutedItem: TagExifPickerItem = {
-                name: movedItem.name,
-                translatedName: movedItem.translatedName,
-                checked: false,
-                isMerged: movedItem.isMerged,
-                mergedFrom: movedItem.mergedFrom,
-                withinBudget: false
-              }
-              this.mutedItems = [...this.mutedItems, mutedItem]
-            }
-            this.writableItems = newWritable
+          // 取消勾选 = 跳过本次写入（不持久化屏蔽）
+          if (index >= 0 && index < this.writableItems.length) {
+            this.writableItems[index].checked = checked
             this.recalculatePreview()
           }
         })
@@ -267,6 +291,12 @@ struct TagExifPicker {
     .backgroundColor(item.withinBudget && item.checked ? '#E6F4FF' : '#F0F0F0')
     .borderRadius(6)
     .margin({ bottom: 4 })
+    .gesture(
+      LongPressGesture({ duration: 300 })
+        .onAction(() => {
+          this.muteConfirmTarget = item.name
+        })
+    )
   }
 
   @Builder
@@ -304,7 +334,8 @@ struct TagExifPicker {
               checked: true,
               isMerged: restoredItem.isMerged,
               mergedFrom: restoredItem.mergedFrom,
-              withinBudget: false
+              withinBudget: false,
+              isMuted: false
             }
             this.writableItems = [...this.writableItems, writableItem]
           }
@@ -354,11 +385,18 @@ struct TagExifPicker {
       .margin({ bottom: 12 })
 
       // Writable tags section
-      Text('可写入标签')
-        .fontSize(14)
-        .fontColor('#333333')
-        .fontWeight(FontWeight.Medium)
-        .margin({ bottom: 6 })
+      Row() {
+        Text('可写入标签')
+          .fontSize(14)
+          .fontColor('#333333')
+          .fontWeight(FontWeight.Medium)
+        Text('取消勾选=跳过本次 | 长按=永久屏蔽')
+          .fontSize(10)
+          .fontColor('#999999')
+          .margin({ left: 8 })
+      }
+      .width('100%')
+      .margin({ bottom: 6 })
 
       List() {
         ForEach(this.writableItems, (item: TagExifPickerItem, index: number) => {
@@ -370,6 +408,22 @@ struct TagExifPicker {
       .width('100%')
       .layoutWeight(1)
       .divider({ strokeWidth: 0 })
+      .onItemDragStart((event: ItemDragInfo, itemIndex: number) => {
+        this.dragFromIndex = itemIndex
+        return null
+      })
+      .onItemDrop((event: ItemDragInfo, itemIndex: number, insertIndex: number) => {
+        if (itemIndex >= 0 && insertIndex >= 0 && itemIndex !== insertIndex &&
+          itemIndex < this.writableItems.length && insertIndex < this.writableItems.length) {
+          let items = this.writableItems.slice()
+          let moved = items[itemIndex]
+          items.splice(itemIndex, 1)
+          items.splice(insertIndex, 0, moved)
+          this.writableItems = items
+          this.recalculatePreview()
+        }
+        this.dragFromIndex = -1
+      })
 
       // Muted tags section
       if (this.mutedItems.length > 0) {
@@ -389,6 +443,44 @@ struct TagExifPicker {
         .width('100%')
         .height(Math.min(this.mutedItems.length * 50, 150))
         .divider({ strokeWidth: 0 })
+      }
+
+      // 长按屏蔽二次确认
+      if (this.muteConfirmTarget.length > 0) {
+        Column() {
+          Text('确认屏蔽标签「' + this.muteConfirmTarget + '」？')
+            .fontSize(14)
+            .fontColor('#333333')
+            .margin({ bottom: 12 })
+          Text('屏蔽后该标签在所有作品的 EXIF 中都不会写入，可在设置中恢复。')
+            .fontSize(12)
+            .fontColor('#666666')
+            .margin({ bottom: 16 })
+          Row({ space: 12 }) {
+            Button('取消')
+              .fontSize(13)
+              .backgroundColor('#EEEEEE')
+              .fontColor('#333333')
+              .layoutWeight(1)
+              .onClick(() => {
+                this.muteConfirmTarget = ''
+              })
+            Button('确认屏蔽')
+              .fontSize(13)
+              .backgroundColor('#CC3333')
+              .fontColor('#FFFFFF')
+              .layoutWeight(1)
+              .onClick(() => {
+                this.doMuteTag(this.muteConfirmTarget)
+              })
+          }
+          .width('100%')
+        }
+        .width('100%')
+        .padding(16)
+        .backgroundColor('#FFF5F5')
+        .borderRadius(8)
+        .margin({ top: 8 })
       }
 
       // Action buttons

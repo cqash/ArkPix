@@ -61,6 +61,8 @@ struct IllustDetailPage {
   @State exifPickerMutedItems: ExifPickerItem[] = []
   @State exifPickerPreviewText: string = ''
   @State exifPickerPreviewBytes: number = 0
+  @State exifPickerDragFromIndex: number = -1
+  @State exifPickerMuteConfirmTarget: string = ''
   @State mergeReviewShown: boolean = false
   @State mergeReviewGroups: MergeGroup[] = []
   @State mergeReviewSelected: string[] = []  // 每组选中的主 tag 名
@@ -399,21 +401,17 @@ struct IllustDetailPage {
       }
     }
 
-    // 未选中的标签加入 exifMutedTags
+    // 只有在屏蔽区中的标签才持久化屏蔽（取消勾选只是跳过本次）
     let settings = userSettingStore.getSettings()
     let currentMuted: string[] = settings.exifMutedTags.slice()
-    let allTagNames: string[] = []
-    for (let i = 0; i < this.illust.tags.length; i++) {
-      allTagNames.push(this.illust.tags[i].name)
-    }
-    for (let i = 0; i < allTagNames.length; i++) {
-      if (!selectedTags.includes(allTagNames[i]) && !currentMuted.includes(allTagNames[i])) {
-        currentMuted.push(allTagNames[i])
+    for (let i = 0; i < this.exifPickerMutedItems.length; i++) {
+      if (!currentMuted.includes(this.exifPickerMutedItems[i].name)) {
+        currentMuted.push(this.exifPickerMutedItems[i].name)
       }
     }
     userSettingStore.setExifMutedTags(currentMuted)
 
-    // 更新优先级排序
+    // 更新优先级排序（拖拽后的顺序持久化）
     userSettingStore.updateExifTagPriority(allTagsOrdered)
 
     this.exifPickerShown = false
@@ -433,11 +431,76 @@ struct IllustDetailPage {
       this.store.saveAll()
     } else {
       this.store.savePage(this.exifPickerPageIndex)
+     }
+   }
+
+  /** 长按可写入标签 → 移入屏蔽区（永久屏蔽） */
+  private muteExifPickerTag(tagName: string): void {
+    let targetIdx = -1
+    for (let i = 0; i < this.exifPickerWritableItems.length; i++) {
+      if (this.exifPickerWritableItems[i].name === tagName) {
+        targetIdx = i
+        break
+      }
     }
+    if (targetIdx < 0) {
+      this.exifPickerMuteConfirmTarget = ''
+      return
+    }
+    let movedItem = this.exifPickerWritableItems[targetIdx]
+    let newWritable: ExifPickerItem[] = []
+    for (let i = 0; i < this.exifPickerWritableItems.length; i++) {
+      if (i !== targetIdx) {
+        newWritable.push(this.exifPickerWritableItems[i])
+      }
+    }
+    this.exifPickerWritableItems = newWritable
+    let mutedItem: ExifPickerItem = {
+      name: movedItem.name,
+      translatedName: movedItem.translatedName,
+      checked: false,
+      withinBudget: false
+    }
+    let newMuted: ExifPickerItem[] = []
+    for (let i = 0; i < this.exifPickerMutedItems.length; i++) {
+      newMuted.push(this.exifPickerMutedItems[i])
+    }
+    newMuted.push(mutedItem)
+    this.exifPickerMutedItems = newMuted
+    this.exifPickerMuteConfirmTarget = ''
+    this.recalculateExifPickerPreview()
   }
 
-  private getDisplayTranslation(tagName: string, translatedName: string): string {
-    return Constants.filterTranslatedName(tagName, translatedName)
+  /** 从屏蔽区恢复标签到可写入区 */
+  private restoreExifPickerMutedTag(index: number): void {
+    if (index < 0 || index >= this.exifPickerMutedItems.length) {
+      return
+    }
+    let item = this.exifPickerMutedItems[index]
+    let newMuted: ExifPickerItem[] = []
+    for (let i = 0; i < this.exifPickerMutedItems.length; i++) {
+      if (i !== index) {
+        newMuted.push(this.exifPickerMutedItems[i])
+      }
+    }
+    this.exifPickerMutedItems = newMuted
+    let restoredItem: ExifPickerItem = {
+      name: item.name,
+      translatedName: item.translatedName,
+      checked: true,
+      withinBudget: false
+    }
+    let newWritable: ExifPickerItem[] = []
+    for (let i = 0; i < this.exifPickerWritableItems.length; i++) {
+      newWritable.push(this.exifPickerWritableItems[i])
+    }
+    newWritable.push(restoredItem)
+    this.exifPickerWritableItems = newWritable
+    this.recalculateExifPickerPreview()
+  }
+
+   private getDisplayTranslation(tagName: string, translatedName: string): string {
+     return Constants.filterTranslatedName(tagName, translatedName)
   }
 
   @Builder
@@ -918,11 +981,18 @@ struct IllustDetailPage {
             .margin({ bottom: 12 })
 
             // Writable tags section
-            Text('可写入标签')
-              .fontSize(14)
-              .fontColor('#333333')
-              .fontWeight(FontWeight.Medium)
-              .margin({ bottom: 6 })
+            Row() {
+              Text('可写入标签')
+                .fontSize(14)
+                .fontColor('#333333')
+                .fontWeight(FontWeight.Medium)
+              Text('取消勾选=跳过本次 | 长按=永久屏蔽')
+                .fontSize(10)
+                .fontColor('#999999')
+                .margin({ left: 8 })
+            }
+            .width('100%')
+            .margin({ bottom: 6 })
 
             List() {
               ForEach(this.exifPickerWritableItems, (item: ExifPickerItem, index: number) => {
@@ -932,28 +1002,8 @@ struct IllustDetailPage {
                       .select(item.checked)
                       .onChange((checked: boolean) => {
                         if (index >= 0 && index < this.exifPickerWritableItems.length) {
+                          // 取消勾选 = 跳过本次写入（不持久化屏蔽）
                           this.exifPickerWritableItems[index].checked = checked
-                          if (!checked) {
-                            let movedItem: ExifPickerItem = {
-                              name: this.exifPickerWritableItems[index].name,
-                              translatedName: this.exifPickerWritableItems[index].translatedName,
-                              checked: false,
-                              withinBudget: false
-                            }
-                            let newWritable: ExifPickerItem[] = []
-                            for (let i = 0; i < this.exifPickerWritableItems.length; i++) {
-                              if (i !== index) {
-                                newWritable.push(this.exifPickerWritableItems[i])
-                              }
-                            }
-                            this.exifPickerWritableItems = newWritable
-                            let newMuted: ExifPickerItem[] = []
-                            for (let i = 0; i < this.exifPickerMutedItems.length; i++) {
-                              newMuted.push(this.exifPickerMutedItems[i])
-                            }
-                            newMuted.push(movedItem)
-                            this.exifPickerMutedItems = newMuted
-                          }
                           this.recalculateExifPickerPreview()
                         }
                       })
@@ -970,6 +1020,9 @@ struct IllustDetailPage {
                     }
                     .layoutWeight(1)
                     .margin({ left: 8 })
+                    Text('≡')
+                      .fontSize(18)
+                      .fontColor('#999999')
                   }
                   .width('100%')
                   .padding({ left: 12, right: 12, top: 8, bottom: 8 })
@@ -977,11 +1030,33 @@ struct IllustDetailPage {
                   .borderRadius(6)
                   .margin({ bottom: 4 })
                 }
+                .gesture(
+                  LongPressGesture({ duration: 300 })
+                    .onAction(() => {
+                      this.exifPickerMuteConfirmTarget = item.name
+                    })
+                )
               }, (item: ExifPickerItem, index: number) => item.name + '_' + index)
             }
             .width('100%')
             .layoutWeight(1)
             .divider({ strokeWidth: 0 })
+            .onItemDragStart((event: ItemDragInfo, itemIndex: number) => {
+              this.exifPickerDragFromIndex = itemIndex
+              return null
+            })
+            .onItemDrop((event: ItemDragInfo, itemIndex: number, insertIndex: number) => {
+              if (itemIndex >= 0 && insertIndex >= 0 && itemIndex !== insertIndex &&
+                itemIndex < this.exifPickerWritableItems.length && insertIndex < this.exifPickerWritableItems.length) {
+                let items = this.exifPickerWritableItems.slice()
+                let moved = items[itemIndex]
+                items.splice(itemIndex, 1)
+                items.splice(insertIndex, 0, moved)
+                this.exifPickerWritableItems = items
+                this.recalculateExifPickerPreview()
+              }
+              this.exifPickerDragFromIndex = -1
+            })
 
             // Muted tags section
             if (this.exifPickerMutedItems.length > 0) {
@@ -1010,26 +1085,7 @@ struct IllustDetailPage {
                         .fontColor('#0096FA')
                         .margin({ left: 8 })
                         .onClick(() => {
-                          let restoredItem: ExifPickerItem = {
-                            name: item.name,
-                            translatedName: item.translatedName,
-                            checked: true,
-                            withinBudget: false
-                          }
-                          let newMuted: ExifPickerItem[] = []
-                          for (let i = 0; i < this.exifPickerMutedItems.length; i++) {
-                            if (i !== index) {
-                              newMuted.push(this.exifPickerMutedItems[i])
-                            }
-                          }
-                          this.exifPickerMutedItems = newMuted
-                          let newWritable: ExifPickerItem[] = []
-                          for (let i = 0; i < this.exifPickerWritableItems.length; i++) {
-                            newWritable.push(this.exifPickerWritableItems[i])
-                          }
-                          newWritable.push(restoredItem)
-                          this.exifPickerWritableItems = newWritable
-                          this.recalculateExifPickerPreview()
+                          this.restoreExifPickerMutedTag(index)
                         })
                     }
                     .width('100%')
@@ -1066,6 +1122,44 @@ struct IllustDetailPage {
             }
             .width('100%')
             .margin({ top: 12 })
+
+            // 长按屏蔽二次确认弹窗
+            if (this.exifPickerMuteConfirmTarget.length > 0) {
+              Column() {
+                Text('确认屏蔽标签「' + this.exifPickerMuteConfirmTarget + '」？')
+                  .fontSize(14)
+                  .fontColor('#333333')
+                  .margin({ bottom: 12 })
+                Text('屏蔽后该标签在所有作品的 EXIF 中都不会写入，可在设置中恢复。')
+                  .fontSize(12)
+                  .fontColor('#666666')
+                  .margin({ bottom: 16 })
+                Row({ space: 12 }) {
+                  Button('取消')
+                    .fontSize(13)
+                    .backgroundColor('#EEEEEE')
+                    .fontColor('#333333')
+                    .layoutWeight(1)
+                    .onClick(() => {
+                      this.exifPickerMuteConfirmTarget = ''
+                    })
+                  Button('确认屏蔽')
+                    .fontSize(13)
+                    .backgroundColor('#CC3333')
+                    .fontColor('#FFFFFF')
+                    .layoutWeight(1)
+                    .onClick(() => {
+                      this.muteExifPickerTag(this.exifPickerMuteConfirmTarget)
+                    })
+                }
+                .width('100%')
+              }
+              .width('100%')
+              .padding(16)
+              .backgroundColor('#FFF5F5')
+              .borderRadius(8)
+              .margin({ top: 8 })
+            }
           }
           .padding(16)
           .width('100%')

@@ -16,6 +16,13 @@ const SAMPLE_TAGS: ExifTag[] = [
 
 function buildPreviewComment(template: string): string {
   let tagsOriginal = SAMPLE_TAGS.map((t: ExifTag) => t.name).join(', ')
+  let tagsLocalized = SAMPLE_TAGS.map((t: ExifTag) => {
+    let displayTranslation = Constants.filterTranslatedName(t.name, t.translatedName)
+    if (displayTranslation.length > 0) {
+      return displayTranslation
+    }
+    return t.name
+  }).join(', ')
   let tagsTranslated = SAMPLE_TAGS.map((t: ExifTag) => {
     let displayTranslation = Constants.filterTranslatedName(t.name, t.translatedName)
     if (displayTranslation.length > 0) {
@@ -23,8 +30,9 @@ function buildPreviewComment(template: string): string {
     }
     return t.name
   }).join(', ')
-  // {tags_translated} 必须先于 {tags} 替换（前缀包含关系）
+  // {tags_localized} → {tags_translated} → {tags} 替换（前缀包含关系，最长先替换）
   return template
+    .replaceAll('{tags_localized}', tagsLocalized)
     .replaceAll('{tags_translated}', tagsTranslated)
     .replaceAll('{tags}', tagsOriginal)
     .replaceAll('{illust_id}', SAMPLE_ILLUST_ID.toString())
@@ -140,6 +148,7 @@ struct ExifTemplatePage {
           this.TokenButton('{part}')
           this.TokenButton('{tags}')
           this.TokenButton('{tags_translated}')
+          this.TokenButton('{tags_localized}')
         }
         .width('100%')
       }
@@ -185,6 +194,11 @@ struct ExifTemplatePage {
           .width('100%')
           .margin({ bottom: 4 })
         Text('{tags_translated}  标签（带翻译，如: オリジナル (原创), 女の子 (女孩子)；无翻译时仅显示原文）')
+          .fontSize(12)
+          .fontColor('#666666')
+          .width('100%')
+          .margin({ bottom: 4 })
+        Text('{tags_localized}  标签（纯中文，如: 原创, 女孩子；无中文翻译时保留原文）')
           .fontSize(12)
           .fontColor('#666666')
           .width('100%')

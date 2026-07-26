@@ -75,12 +75,25 @@ function formatTags(tags: ExifTag[]): string {
   }).join(', ')
 }
 
+// 纯目标语言输出：优先用有效的中文翻译，无翻译或无效翻译时用原文
+function formatTagsLocalized(tags: ExifTag[]): string {
+  return tags.map((t: ExifTag) => {
+    let displayTranslation = Constants.filterTranslatedName(t.name, t.translatedName)
+    if (displayTranslation.length > 0) {
+      return displayTranslation
+    }
+    return t.name
+  }).join(', ')
+}
+
 // 按模板渲染EXIF备注内容
-// 替换顺序固定：{tags_translated} 必须先于 {tags}（前缀包含关系），其余变量顺序无关
+// 替换顺序固定：{tags_localized} → {tags_translated} → {tags}（前缀包含关系，最长先替换）
 function renderCommentTemplate(template: string, info: ExifInfo, tags: ExifTag[]): string {
+  let tagsLocalized = formatTagsLocalized(tags)
   let tagsTranslated = formatTags(tags)
   let tagsOriginal = tags.map((t: ExifTag) => t.name).join(', ')
   return template
+    .replaceAll('{tags_localized}', tagsLocalized)
     .replaceAll('{tags_translated}', tagsTranslated)
     .replaceAll('{tags}', tagsOriginal)
     .replaceAll('{illust_id}', info.illustId.toString())
