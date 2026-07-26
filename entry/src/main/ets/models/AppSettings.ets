@@ -1,3 +1,19 @@
+export interface ExifTagMergeRuleOptions {
+  mainTag?: string
+  fromTags?: string[]
+}
+
+export class ExifTagMergeRule {
+  mainTag: string = ''
+  fromTags: string[] = []
+  constructor(options?: ExifTagMergeRuleOptions) {
+    if (options) {
+      this.mainTag = options.mainTag ?? ''
+      this.fromTags = options.fromTags ?? []
+    }
+  }
+}
+
 export interface AppSettingsOptions {
   pictureQuality?: number
   mangaQuality?: number
@@ -21,6 +37,9 @@ export interface AppSettingsOptions {
   showTranslatedTags?: boolean
   showR18Rank?: boolean
   antiSocialDeath?: boolean
+  exifMutedTags?: string[]
+  exifMergedTags?: ExifTagMergeRule[]
+  exifTagPriority?: string[]
 }
 
 export class AppSettings {
@@ -46,6 +65,9 @@ export class AppSettings {
   showTranslatedTags: boolean = true
   showR18Rank: boolean = false
   antiSocialDeath: boolean = false
+  exifMutedTags: string[] = []
+  exifMergedTags: ExifTagMergeRule[] = []
+  exifTagPriority: string[] = []
 
   constructor(options?: AppSettingsOptions) {
     if (options) {
@@ -71,6 +93,11 @@ export class AppSettings {
       this.showTranslatedTags = options.showTranslatedTags ?? true
       this.showR18Rank = options.showR18Rank ?? false
       this.antiSocialDeath = options.antiSocialDeath ?? false
+      this.exifMutedTags = options.exifMutedTags ?? []
+      this.exifMergedTags = (options.exifMergedTags ?? []).map(
+        (rule: ExifTagMergeRule) => new ExifTagMergeRule({ mainTag: rule.mainTag, fromTags: rule.fromTags.slice() })
+      )
+      this.exifTagPriority = options.exifTagPriority ?? []
     }
   }
 }

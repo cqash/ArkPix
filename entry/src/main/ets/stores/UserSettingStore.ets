@@ -1,5 +1,5 @@
 import { preferenceService } from '../services/PreferenceService';
-import { AppSettings, AppSettingsOptions } from '../models/AppSettings';
+import { AppSettings, AppSettingsOptions, ExifTagMergeRule } from '../models/AppSettings';
 
 export class UserSettingStore {
   private static instance: UserSettingStore
@@ -39,7 +39,12 @@ export class UserSettingStore {
       exifCommentTemplate: preferenceService.getString('exif_comment_template', 'PID:{illust_id} | {tags}'),
       showTranslatedTags: preferenceService.getBoolean('show_translated_tags', true),
       showR18Rank: preferenceService.getBoolean('show_r18_rank', false),
-      antiSocialDeath: preferenceService.getBoolean('anti_social_death', false)
+      antiSocialDeath: preferenceService.getBoolean('anti_social_death', false),
+      exifMutedTags: preferenceService.getObject('exif_muted_tags', []) as string[],
+      exifMergedTags: (preferenceService.getObject('exif_merged_tags', []) as ExifTagMergeRule[]).map(
+        (rule: ExifTagMergeRule) => new ExifTagMergeRule({ mainTag: rule.mainTag, fromTags: rule.fromTags.slice() })
+      ),
+      exifTagPriority: preferenceService.getObject('exif_tag_priority', []) as string[]
     }
     this.settings = new AppSettings(opts)
     AppStorage.setOrCreate('appSettings', this.settings)
@@ -68,6 +73,9 @@ export class UserSettingStore {
     preferenceService.setBoolean('show_translated_tags', this.settings.showTranslatedTags)
     preferenceService.setBoolean('show_r18_rank', this.settings.showR18Rank)
     preferenceService.setBoolean('anti_social_death', this.settings.antiSocialDeath)
+    preferenceService.setObject('exif_muted_tags', this.settings.exifMutedTags)
+    preferenceService.setObject('exif_merged_tags', this.settings.exifMergedTags)
+    preferenceService.setObject('exif_tag_priority', this.settings.exifTagPriority)
     let newSettings: AppSettings = this.getSettings()
     this.settings = newSettings
     AppStorage.setOrCreate('appSettings', newSettings)
@@ -96,7 +104,12 @@ export class UserSettingStore {
       exifCommentTemplate: this.settings.exifCommentTemplate,
       showTranslatedTags: this.settings.showTranslatedTags,
       showR18Rank: this.settings.showR18Rank,
-      antiSocialDeath: this.settings.antiSocialDeath
+      antiSocialDeath: this.settings.antiSocialDeath,
+      exifMutedTags: this.settings.exifMutedTags.slice(),
+      exifMergedTags: this.settings.exifMergedTags.map(
+        (rule: ExifTagMergeRule) => new ExifTagMergeRule({ mainTag: rule.mainTag, fromTags: rule.fromTags.slice() })
+      ),
+      exifTagPriority: this.settings.exifTagPriority.slice()
     })
   }
 
@@ -227,6 +240,103 @@ export class UserSettingStore {
 
   setSaveFormat(value: string): void {
     this.settings.saveFormat = value
+    this.saveSettings()
+  }
+
+  addExifMutedTag(tag: string): void {
+    if (!this.settings.exifMutedTags.includes(tag)) {
+      this.settings.exifMutedTags.push(tag)
+      this.saveSettings()
+    }
+  }
+
+  removeExifMutedTag(tag: string): void {
+    let index = this.settings.exifMutedTags.indexOf(tag)
+    if (index >= 0) {
+      this.settings.exifMutedTags.splice(index, 1)
+      this.saveSettings()
+    }
+  }
+
+  setExifMutedTags(tags: string[]): void {
+    this.settings.exifMutedTags = tags.slice()
+    this.saveSettings()
+  }
+
+  addExifMergeRule(mainTag: string, fromTags: string[]): void {
+    // If mainTag is already a fromTag of an existing rule, remove it from that rule first
+    for (let i = 0; i < this.settings.exifMergedTags.length; i++) {
+      let rule = this.settings.exifMergedTags[i]
+      let fromIdx = rule.fromTags.indexOf(mainTag)
+      if (fromIdx >= 0) {
+        rule.fromTags.splice(fromIdx, 1)
+      }
+    }
+    // Filter out mainTag from fromTags
+    let filteredFromTags: string[] = []
+    for (let i = 0; i < fromTags.length; i++) {
+      if (fromTags[i] !== mainTag) {
+        filteredFromTags.push(fromTags[i])
+      }
+    }
+    // Check if mainTag already has a rule; if so, append fromTags
+    let existingRule: ExifTagMergeRule | undefined = undefined
+    for (let i = 0; i < this.settings.exifMergedTags.length; i++) {
+      if (this.settings.exifMergedTags[i].mainTag === mainTag) {
+        existingRule = this.settings.exifMergedTags[i]
+        break
+      }
+    }
+    if (existingRule !== undefined) {
+      for (let i = 0; i < filteredFromTags.length; i++) {
+        if (!existingRule.fromTags.includes(filteredFromTags[i])) {
+          existingRule.fromTags.push(filteredFromTags[i])
+        }
+      }
+    } else {
+      let newRule = new ExifTagMergeRule({ mainTag: mainTag, fromTags: filteredFromTags })
+      this.settings.exifMergedTags.push(newRule)
+    }
+    this.saveSettings()
+  }
+
+  removeExifMergeRule(mainTag: string): void {
+    for (let i = 0; i < this.settings.exifMergedTags.length; i++) {
+      if (this.settings.exifMergedTags[i].mainTag === mainTag) {
+        this.settings.exifMergedTags.splice(i, 1)
+        break
+      }
+    }
+    this.saveSettings()
+  }
+
+  setExifMergedTags(rules: ExifTagMergeRule[]): void {
+    this.settings.exifMergedTags = rules.map(
+      (rule: ExifTagMergeRule) => new ExifTagMergeRule({ mainTag: rule.mainTag, fromTags: rule.fromTags.slice() })
+    )
+    this.saveSettings()
+  }
+
+  setExifTagPriority(priority: string[]): void {
+    this.settings.exifTagPriority = priority.slice()
+    this.saveSettings()
+  }
+
+  updateExifTagPriority(confirmedTags: string[]): void {
+    let result: string[] = []
+    // Add confirmed tags in order, deduplicating
+    for (let i = 0; i < confirmedTags.length; i++) {
+      if (!result.includes(confirmedTags[i])) {
+        result.push(confirmedTags[i])
+      }
+    }
+    // Append existing priority tags that are not in confirmedTags
+    for (let i = 0; i < this.settings.exifTagPriority.length; i++) {
+      if (!result.includes(this.settings.exifTagPriority[i])) {
+        result.push(this.settings.exifTagPriority[i])
+      }
+    }
+    this.settings.exifTagPriority = result
     this.saveSettings()
   }
 }

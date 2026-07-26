@@ -3,6 +3,7 @@ import { fileIo, ReadOptions } from '@kit.CoreFileKit';
 import { util } from '@kit.ArkTS';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { userSettingStore } from '../stores/UserSettingStore';
+import { AppSettings } from '../models/AppSettings';
 
 // 设备日志统一入口（console.* 在设备 hilog 中不可见，故全部经 hilog 输出）
 const EXIF_LOG_DOMAIN = 0x0001
@@ -74,9 +75,9 @@ function formatTags(tags: ExifTag[]): string {
 
 // 按模板渲染EXIF备注内容
 // 替换顺序固定：{tags_translated} 必须先于 {tags}（前缀包含关系），其余变量顺序无关
-function renderCommentTemplate(template: string, info: ExifInfo): string {
-  let tagsTranslated = formatTags(info.tags)
-  let tagsOriginal = info.tags.map((t: ExifTag) => t.name).join(', ')
+function renderCommentTemplate(template: string, info: ExifInfo, tags: ExifTag[]): string {
+  let tagsTranslated = formatTags(tags)
+  let tagsOriginal = tags.map((t: ExifTag) => t.name).join(', ')
   return template
     .replaceAll('{tags_translated}', tagsTranslated)
     .replaceAll('{tags}', tagsOriginal)
@@ -85,6 +86,117 @@ function renderCommentTemplate(template: string, info: ExifInfo): string {
     .replaceAll('{user_name}', info.userName)
     .replaceAll('{title}', info.title)
     .replaceAll('{part}', info.pageIndex.toString())
+}
+
+// 对 EXIF 备注的 tag 进行过滤和合并
+// 1. 过滤 exifMutedTags（屏蔽的移除）
+// 2. 应用 exifMergedTags（从属 tag 移除，只保留主 tag）
+// 3. 按 exifTagPriority 排序（优先级高的排前面，不在优先级列表中的排末尾保持原序）
+// 返回过滤合并排序后的 ExifTag[]
+export function filterTagsForExif(tags: ExifTag[], settings: AppSettings): ExifTag[] {
+  // Step 1: Filter muted tags
+  let filtered: ExifTag[] = []
+  for (let i = 0; i < tags.length; i++) {
+    if (!settings.exifMutedTags.includes(tags[i].name)) {
+      filtered.push(tags[i])
+    }
+  }
+
+  // Step 2: Apply merge rules
+  // Build a map of mainTag -> fromTags from settings
+  for (let r = 0; r < settings.exifMergedTags.length; r++) {
+    let rule = settings.exifMergedTags[r]
+    let mainTagInFiltered = false
+    for (let i = 0; i < filtered.length; i++) {
+      if (filtered[i].name === rule.mainTag) {
+        mainTagInFiltered = true
+        break
+      }
+    }
+    if (mainTagInFiltered) {
+      // mainTag exists: remove all fromTags
+      let result: ExifTag[] = []
+      for (let i = 0; i < filtered.length; i++) {
+        if (!rule.fromTags.includes(filtered[i].name)) {
+          result.push(filtered[i])
+        }
+      }
+      filtered = result
+    } else {
+      // mainTag not in tags: find first fromTag that exists, replace it with mainTag (keep translatedName)
+      let firstFromIdx = -1
+      let firstFromTag: ExifTag | undefined = undefined
+      for (let i = 0; i < filtered.length; i++) {
+        if (rule.fromTags.includes(filtered[i].name)) {
+          firstFromIdx = i
+          firstFromTag = filtered[i]
+          break
+        }
+      }
+      if (firstFromIdx >= 0 && firstFromTag !== undefined) {
+        // Replace the first fromTag with mainTag, keeping its translatedName
+        let replacement: ExifTag = { name: rule.mainTag, translatedName: firstFromTag.translatedName }
+        filtered[firstFromIdx] = replacement
+        // Remove remaining fromTags
+        let result: ExifTag[] = []
+        for (let i = 0; i < filtered.length; i++) {
+          if (i === firstFromIdx) {
+            result.push(filtered[i])
+          } else if (!rule.fromTags.includes(filtered[i].name)) {
+            result.push(filtered[i])
+          }
+        }
+        filtered = result
+      }
+    }
+  }
+
+  // Step 3: Sort by exifTagPriority
+  if (settings.exifTagPriority.length > 0) {
+    let prioritized: ExifTag[] = []
+    let remaining: ExifTag[] = []
+    // Tags in priority list come first, in priority order
+    for (let p = 0; p < settings.exifTagPriority.length; p++) {
+      for (let i = 0; i < filtered.length; i++) {
+        if (filtered[i].name === settings.exifTagPriority[p]) {
+          prioritized.push(filtered[i])
+        }
+      }
+    }
+    // Tags not in priority list keep original order, appended at end
+    for (let i = 0; i < filtered.length; i++) {
+      if (!settings.exifTagPriority.includes(filtered[i].name)) {
+        remaining.push(filtered[i])
+      }
+    }
+    let result: ExifTag[] = []
+    for (let i = 0; i < prioritized.length; i++) {
+      result.push(prioritized[i])
+    }
+    for (let i = 0; i < remaining.length; i++) {
+      result.push(remaining[i])
+    }
+    filtered = result
+  }
+
+  return filtered
+}
+
+// 用指定的 tags（已过滤合并）渲染备注模板，返回渲染结果字符串
+export function renderCommentWithTags(info: ExifInfo, filteredTags: ExifTag[]): string {
+  let template = userSettingStore.getSettings().exifCommentTemplate
+  return renderCommentTemplate(template, info, filteredTags)
+}
+
+// 检测渲染后的备注是否超过 EXIF 字段上限（120 UTF-8 字节）
+export function isCommentOverLimit(info: ExifInfo, filteredTags: ExifTag[]): boolean {
+  return renderCommentBytes(info, filteredTags) > EXIF_FIELD_MAX_BYTES
+}
+
+// 计算渲染后的备注 UTF-8 字节数
+export function renderCommentBytes(info: ExifInfo, filteredTags: ExifTag[]): number {
+  let rendered = renderCommentWithTags(info, filteredTags)
+  return utf8ByteLength(rendered)
 }
 
 // 设备实证（第六轮修复）：MediaLibrary 入册扫描器对 EXIF 字段值有约 128 字节上限，
@@ -134,8 +246,9 @@ async function safeWriteExif(source: image.ImageSource, key: image.PropertyKey, 
 
 // 读取当前备注模板并渲染（EXIF 与 XMP 共用同一份渲染结果，FR-004）
 function renderComment(info: ExifInfo): string {
-  let template = userSettingStore.getSettings().exifCommentTemplate
-  return renderCommentTemplate(template, info)
+  let settings = userSettingStore.getSettings()
+  let filteredTags = filterTagsForExif(info.tags, settings)
+  return renderCommentWithTags(info, filteredTags)
 }
 
 // 字节级 EXIF 存在性检测（替代 getImageProperty 探测——后者带 defaultValue 时对无 EXIF 图片
@@ -334,10 +447,12 @@ function writeIfdEntries(out: Uint8Array, entriesBase: number, entries: ExifEntr
 function buildExifSegment(info: ExifInfo): Uint8Array {
   // 设备上限统一截断（120 UTF-8 字节）：模板拼接完成后再截断；
   // UserComment 的 8 字节前缀在截断之后拼接（8+120=正好 128，符合扫描器上限）
+  let settings = userSettingStore.getSettings()
+  let filteredTags = filterTagsForExif(info.tags, settings)
   let desc = withNullTerminator(encodeUtf8(clampExifField('ImageDescription', `${info.title} | PID:${info.illustId}`)))
   let artist = withNullTerminator(encodeUtf8(clampExifField('Artist', `${info.userName} (UID:${info.userId})`)))
   let copyright = withNullTerminator(asciiBytes(clampExifField('Copyright', 'Pixiv')))
-  let comment = clampExifField('UserComment', renderComment(info))
+  let comment = clampExifField('UserComment', renderCommentWithTags(info, filteredTags))
   let commentBytes = encodeUtf8(comment)
   // 段容量防御：数据区上限 = 0xFFFD - 固定部分 - 其余数据字段
   let commentBudget = JPEG_APP1_MAX_PAYLOAD - EXIF_FIXED_SIZE - desc.length - artist.length - copyright.length -
@@ -490,9 +605,11 @@ function escapeXml(str: string): string {
 // dc:description ← 模板渲染备注全文（对应 UserComment）；dc:title ← 标题（ImageDescription）；
 // dc:creator ← 作者（Artist）；dc:rights ← 'Pixiv'（Copyright）。
 function buildXmpPacket(info: ExifInfo): string {
+  let settings = userSettingStore.getSettings()
+  let filteredTags = filterTagsForExif(info.tags, settings)
   let title = escapeXml(info.title)
   let creator = escapeXml(`${info.userName} (UID:${info.userId})`)
-  let description = escapeXml(renderComment(info))
+  let description = escapeXml(renderCommentWithTags(info, filteredTags))
   return '<?xpacket begin="\uFEFF" id="W5M0MpCehiHzreSzNTczkc9d"?>' +
     '<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="PixEz">' +
     '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">' +
