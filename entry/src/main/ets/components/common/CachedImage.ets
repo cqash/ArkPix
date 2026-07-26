@@ -17,13 +17,19 @@ export function prefetchCachedImage(url: string): void {
 
 @Component
 export struct CachedImage {
-  @Prop url: string
+  @Prop @Watch('onUrlChange') url: string
   @Prop ratio: number = 1
   @Prop fit: ImageFit = ImageFit.Cover
   @State localPath: string = ''
   @State isLoading: boolean = true
 
   aboutToAppear() {
+    this.loadImage()
+  }
+
+  onUrlChange(): void {
+    this.localPath = ''
+    this.isLoading = true
     this.loadImage()
   }
 
