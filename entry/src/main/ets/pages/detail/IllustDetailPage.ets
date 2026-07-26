@@ -237,7 +237,7 @@ struct IllustDetailPage {
         .width('100%')
         .aspectRatio(row.ratio)
         .justifyContent(FlexAlign.Center)
-        .backgroundColor('#2A2A2A')
+        .backgroundColor('#E0E0E0')
         .borderRadius(8)
         .onClick(() => { this.revealedR18 = true })
       } else {

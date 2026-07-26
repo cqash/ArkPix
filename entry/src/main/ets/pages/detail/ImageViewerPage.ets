@@ -128,15 +128,16 @@ struct ImageViewerPage {
         Column() {
           Text('🔒')
             .fontSize(32)
-            .opacity(0.4)
+            .opacity(0.25)
           Text('点击显示')
             .fontSize(13)
-            .fontColor('rgba(255, 255, 255, 0.35)')
+            .fontColor('rgba(255, 255, 255, 0.3)')
             .margin({ top: 12 })
         }
         .width('100%')
         .height('100%')
         .justifyContent(FlexAlign.Center)
+        .backgroundColor('#2C2C2C')
         .onClick(() => {
           this.revealedR18 = true
           this.prefetchNeighbors(this.currentIndex)

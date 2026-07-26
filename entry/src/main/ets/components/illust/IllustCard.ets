@@ -165,7 +165,7 @@ export struct IllustCard {
     .width('100%')
     .aspectRatio(this.imageRatio())
     .justifyContent(FlexAlign.Center)
-    .backgroundColor('#2A2A2A')
+    .backgroundColor('#E0E0E0')
     .borderRadius(8)
   }
 
