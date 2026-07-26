@@ -18,7 +18,6 @@ import { pickPreviewUrl, pickDetailUrl } from '../../utils/ImageUrlUtils';
 @Component
 export struct IllustCard {
   @State illust: Illust = new Illust()
-  @State menuShown: boolean = false
   @StorageLink('bookmarkStates') bookmarkStates: Map<number, number> = new Map<number, number>()
   @StorageLink('appSettings') appSettings: AppSettings = new AppSettings()
   onCardClick: (illust: Illust) => void = (illust: Illust) => {}
@@ -26,7 +25,6 @@ export struct IllustCard {
 
   aboutToReuse(params: Record<string, Object>) {
     this.illust = params.illust as Illust
-    this.menuShown = false
     if (params.onCardClick !== undefined) {
       this.onCardClick = params.onCardClick as (illust: Illust) => void
     }
@@ -134,25 +132,29 @@ export struct IllustCard {
     this.onMuteChange()
   }
 
-  @Builder
-  MenuItem(label: string, action: () => void) {
-    Text(label)
-      .fontSize(14)
-      .fontColor('#333333')
-      .width('100%')
-      .padding({ left: 16, right: 16, top: 10, bottom: 10 })
-      .onClick(action)
-  }
-
-  @Builder
-  MenuBuilder() {
-    Column() {
-      this.MenuItem('保存图片', () => { this.saveImage() })
-      this.MenuItem(this.heartState() === BOOKMARK_DONE ? '取消收藏' : '收藏', () => { this.toggleBookmark() })
-      this.MenuItem('屏蔽该作者', () => { this.muteAuthor() })
-    }
-    .width(160)
-    .padding({ top: 4, bottom: 4 })
+  showContextMenu(): void {
+    ActionSheet.show({
+      title: this.illust.title,
+      message: this.illust.user.name,
+      sheets: [
+        {
+          title: '保存图片',
+          action: () => { this.saveImage() }
+        },
+        {
+          title: this.heartState() === BOOKMARK_DONE ? '取消收藏' : '收藏',
+          action: () => { this.toggleBookmark() }
+        },
+        {
+          title: '屏蔽该作者',
+          action: () => { this.muteAuthor() }
+        }
+      ],
+      confirm: {
+        value: '取消',
+        action: () => {}
+      }
+    })
   }
 
   @Builder
@@ -214,13 +216,8 @@ export struct IllustCard {
     .padding(4)
     .onClick(() => { this.onCardClick(this.illust) })
     .gesture(
-      // 显式长按手势驱动 isShown 态菜单（瀑布流/LazyForEach 场景下
-      // bindContextMenu 的内置 LongPress 触发不稳定，改为程序化触发）
       LongPressGesture({ fingers: 1, duration: 500 })
-        .onAction(() => { this.menuShown = true })
+        .onAction(() => { this.showContextMenu() })
     )
-    .bindContextMenu(this.menuShown, this.MenuBuilder, {
-      onDisappear: () => { this.menuShown = false }
-    })
   }
 }
