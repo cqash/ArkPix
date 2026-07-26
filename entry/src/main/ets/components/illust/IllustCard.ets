@@ -1,6 +1,7 @@
 import { promptAction } from '@kit.ArkUI';
 import { common } from '@kit.AbilityKit';
 import { Illust } from '../../models/Illust';
+import { AppSettings } from '../../models/AppSettings';
 import { CachedImage } from '../common/CachedImage';
 import { bookmarkStateStore, BOOKMARK_LOADING, BOOKMARK_DONE } from '../../stores/BookmarkStateStore';
 import { userSettingStore } from '../../stores/UserSettingStore';
@@ -11,6 +12,7 @@ import { pickPreviewUrl, pickDetailUrl } from '../../utils/ImageUrlUtils';
  * 公共插画卡片（@Reusable）：
  * 按真实宽高比展示（高/宽>3 降级方图）、标题、作者、多 P 角标、红心角标，
  * 长按弹出快捷菜单（保存 / 收藏 / 屏蔽作者）。
+ * 防社死模式下 R18/R18G 图片显示遮罩。
  */
 @Reusable
 @Component
@@ -18,6 +20,7 @@ export struct IllustCard {
   @State illust: Illust = new Illust()
   @State menuShown: boolean = false
   @StorageLink('bookmarkStates') bookmarkStates: Map<number, number> = new Map<number, number>()
+  @StorageLink('appSettings') appSettings: AppSettings = new AppSettings()
   onCardClick: (illust: Illust) => void = (illust: Illust) => {}
   onMuteChange: () => void = () => {}
 
@@ -54,6 +57,10 @@ export struct IllustCard {
 
   private previewUrl(): string {
     return pickPreviewUrl(this.illust.imageUrls, userSettingStore.getSettings().previewQuality)
+  }
+
+  private isR18(): boolean {
+    return this.illust.xRestrict === 1 || this.illust.xRestrict === 2
   }
 
   private showToast(message: string): void {
@@ -148,10 +155,33 @@ export struct IllustCard {
     .padding({ top: 4, bottom: 4 })
   }
 
+  @Builder
+  R18Mask() {
+    Column() {
+      Text('R-18')
+        .fontSize(24)
+        .fontWeight(FontWeight.Bold)
+        .fontColor('#FFFFFF')
+      Text(this.illust.xRestrict === 2 ? 'R-18G' : 'R-18')
+        .fontSize(12)
+        .fontColor('rgba(255, 255, 255, 0.7)')
+        .margin({ top: 4 })
+    }
+    .width('100%')
+    .aspectRatio(this.imageRatio())
+    .justifyContent(FlexAlign.Center)
+    .backgroundColor('#1A1A1A')
+    .borderRadius(8)
+  }
+
   build() {
     Column() {
       Stack({ alignContent: Alignment.TopEnd }) {
-        CachedImage({ url: this.previewUrl(), ratio: this.imageRatio(), fit: ImageFit.Cover })
+        if (this.appSettings.antiSocialDeath && this.isR18()) {
+          this.R18Mask()
+        } else {
+          CachedImage({ url: this.previewUrl(), ratio: this.imageRatio(), fit: ImageFit.Cover })
+        }
         if (this.illust.pageCount > 1) {
           Text(this.illust.pageCount + 'P')
             .fontSize(10)

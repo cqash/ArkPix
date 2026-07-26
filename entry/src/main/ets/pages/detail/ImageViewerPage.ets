@@ -2,6 +2,7 @@ import { router, promptAction } from '@kit.ArkUI';
 import { common } from '@kit.AbilityKit';
 import { downloadService } from '../../services/DownloadService';
 import { Illust } from '../../models/Illust';
+import { AppSettings } from '../../models/AppSettings';
 import { userSettingStore } from '../../stores/UserSettingStore';
 import { bookmarkStateStore, BOOKMARK_DONE } from '../../stores/BookmarkStateStore';
 import { ZoomableImage } from '../../components/viewer/ZoomableImage';
@@ -24,6 +25,8 @@ struct ImageViewerPage {
   @State illust: Illust = new Illust()
   @State currentIndex: number = 0
   @State isZoomed: boolean = false
+  @State revealedR18: boolean = false
+  @StorageLink('appSettings') appSettings: AppSettings = new AppSettings()
 
   aboutToAppear() {
     let params = router.getParams() as ViewerParams
@@ -46,6 +49,14 @@ struct ImageViewerPage {
       this.currentIndex = 0
     }
     this.prefetchNeighbors(this.currentIndex)
+  }
+
+  private isR18(): boolean {
+    return this.illust.xRestrict === 1 || this.illust.xRestrict === 2
+  }
+
+  private needMask(): boolean {
+    return this.appSettings.antiSocialDeath && this.isR18() && !this.revealedR18
   }
 
   private prefetchNeighbors(index: number): void {
@@ -113,20 +124,40 @@ struct ImageViewerPage {
 
   build() {
     Stack({ alignContent: Alignment.Center }) {
-      Swiper() {
-        ForEach(this.urls, (url: string) => {
-          ZoomableImage({
-            url: url,
-            onZoomChange: (zoomed: boolean) => { this.isZoomed = zoomed }
-          })
-        }, (url: string) => url)
+      if (this.needMask()) {
+        Column() {
+          Text(this.illust.xRestrict === 2 ? 'R-18G' : 'R-18')
+            .fontSize(36)
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#FFFFFF')
+          Text('点击显示')
+            .fontSize(16)
+            .fontColor('rgba(255, 255, 255, 0.7)')
+            .margin({ top: 12 })
+        }
+        .width('100%')
+        .height('100%')
+        .justifyContent(FlexAlign.Center)
+        .onClick(() => {
+          this.revealedR18 = true
+          this.prefetchNeighbors(this.currentIndex)
+        })
+      } else {
+        Swiper() {
+          ForEach(this.urls, (url: string) => {
+            ZoomableImage({
+              url: url,
+              onZoomChange: (zoomed: boolean) => { this.isZoomed = zoomed }
+            })
+          }, (url: string) => url)
+        }
+        .index(this.currentIndex)
+        .indicator(false)
+        .disableSwipe(this.isZoomed)
+        .onChange((index: number) => { this.onIndexChange(index) })
+        .width('100%')
+        .height('100%')
       }
-      .index(this.currentIndex)
-      .indicator(false)
-      .disableSwipe(this.isZoomed)
-      .onChange((index: number) => { this.onIndexChange(index) })
-      .width('100%')
-      .height('100%')
 
       Column() {
         Row() {

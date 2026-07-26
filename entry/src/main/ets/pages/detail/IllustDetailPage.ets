@@ -2,6 +2,7 @@ import { router } from '@kit.ArkUI';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { imageCacheService } from '../../services/ImageCacheService';
 import { Illust, Tag } from '../../models/Illust';
+import { AppSettings } from '../../models/AppSettings';
 import { userSettingStore } from '../../stores/UserSettingStore';
 import { BOOKMARK_LOADING, BOOKMARK_DONE } from '../../stores/BookmarkStateStore';
 import { IllustDetailStore, DetailRow } from '../../stores/IllustDetailStore';
@@ -24,7 +25,9 @@ struct IllustDetailPage {
   @State errorMessage: string = ''
   @State illustId: number = 0
   @State userAvatarPath: string = ''
+  @State revealedR18: boolean = false
   @StorageLink('bookmarkStates') bookmarkStates: Map<number, number> = new Map<number, number>()
+  @StorageLink('appSettings') appSettings: AppSettings = new AppSettings()
 
   aboutToAppear() {
     this.store.uiContext = this.getUIContext()
@@ -73,6 +76,14 @@ struct IllustDetailPage {
       return state
     }
     return this.illust.isBookmarked ? BOOKMARK_DONE : 0
+  }
+
+  private isR18(): boolean {
+    return this.illust.xRestrict === 1 || this.illust.xRestrict === 2
+  }
+
+  private needMask(): boolean {
+    return this.appSettings.antiSocialDeath && this.isR18() && !this.revealedR18
   }
 
   openViewer(pageIndex: number) {
@@ -213,8 +224,27 @@ struct IllustDetailPage {
   @Builder
   ImageRow(row: DetailRow) {
     Stack({ alignContent: Alignment.TopEnd }) {
-      CachedImage({ url: row.imageUrl, ratio: row.ratio, fit: ImageFit.Contain })
-      if (this.illust.pageCount > 1) {
+      if (this.needMask()) {
+        Column() {
+          Text(this.illust.xRestrict === 2 ? 'R-18G' : 'R-18')
+            .fontSize(28)
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#FFFFFF')
+          Text('点击显示')
+            .fontSize(14)
+            .fontColor('rgba(255, 255, 255, 0.7)')
+            .margin({ top: 8 })
+        }
+        .width('100%')
+        .aspectRatio(row.ratio)
+        .justifyContent(FlexAlign.Center)
+        .backgroundColor('#1A1A1A')
+        .borderRadius(8)
+        .onClick(() => { this.revealedR18 = true })
+      } else {
+        CachedImage({ url: row.imageUrl, ratio: row.ratio, fit: ImageFit.Contain })
+      }
+      if (this.illust.pageCount > 1 && !this.needMask()) {
         Text((row.pageIndex + 1) + '/' + this.illust.pageCount)
           .fontSize(10)
           .fontColor('#FFFFFF')
@@ -225,10 +255,20 @@ struct IllustDetailPage {
       }
     }
     .width('100%')
-    .onClick(() => { this.openViewer(row.pageIndex) })
+    .onClick(() => {
+      if (this.needMask()) {
+        this.revealedR18 = true
+        return
+      }
+      this.openViewer(row.pageIndex)
+    })
     .gesture(
       LongPressGesture({ duration: 500 })
-        .onAction(() => { this.showSaveSheet(row.pageIndex) })
+        .onAction(() => {
+          if (!this.needMask()) {
+            this.showSaveSheet(row.pageIndex)
+          }
+        })
     )
   }
 

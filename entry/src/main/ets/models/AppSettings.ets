@@ -20,6 +20,7 @@ export interface AppSettingsOptions {
   exifCommentTemplate?: string
   showTranslatedTags?: boolean
   showR18Rank?: boolean
+  antiSocialDeath?: boolean
 }
 
 export class AppSettings {
@@ -44,6 +45,7 @@ export class AppSettings {
   exifCommentTemplate: string = 'PID:{illust_id} | {tags}'
   showTranslatedTags: boolean = true
   showR18Rank: boolean = false
+  antiSocialDeath: boolean = false
 
   constructor(options?: AppSettingsOptions) {
     if (options) {
@@ -68,6 +70,7 @@ export class AppSettings {
       this.exifCommentTemplate = options.exifCommentTemplate ?? 'PID:{illust_id} | {tags}'
       this.showTranslatedTags = options.showTranslatedTags ?? true
       this.showR18Rank = options.showR18Rank ?? false
+      this.antiSocialDeath = options.antiSocialDeath ?? false
     }
   }
 }

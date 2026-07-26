@@ -219,6 +219,14 @@ export struct SettingsPage {
               this.refresh()
             }
           })
+          SwitchItem({
+            title: '防社死模式',
+            isOn: this.settings.antiSocialDeath,
+            onToggle: () => {
+              userSettingStore.setAntiSocialDeath(!this.settings.antiSocialDeath)
+              this.refresh()
+            }
+          })
         }
         .width('100%')
         .padding({ top: 8, bottom: 8 })
