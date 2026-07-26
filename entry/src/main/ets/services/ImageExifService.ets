@@ -212,10 +212,10 @@ export interface MergeGroup {
 
 // 检测未在 exifMergedTags 中定义的同义 tag 组
 // 检测方式：
-//   A) translatedName 相同且非空的 tag 组（如 女の子/女孩子 都翻译为"女孩子"）
-//   B) tag 的 translatedName 匹配列表中另一个 tag 的 name（如 崩壊3rd 翻译为"崩坏3"而列表中有崩坏3）
-//   C) tag 的 name 匹配列表中另一个 tag 的有效 translatedName（如 崩坏3 被翻译为英文但它是崩壊3rd的中文名）
-// 排除已在 exifMergedTags 规则中覆盖的组。
+//   A) 原始 translatedName 相同且非空的 tag 组（包括被 CJK→ASCII 过滤的翻译）
+//   B) tag 的有效翻译（过滤后）匹配列表中另一个 tag 的 name
+// 注意：Method A 使用原始 translatedName（不过滤），因为 CJK→ASCII 翻译虽然
+// 对显示无意义，但暗示了 tag 间的关联性（如 爱莉希雅→Elysia + Elysia 在列表中）
 export function findUnresolvedMergeGroups(tags: ExifTag[], settings: AppSettings): MergeGroup[] {
   if (!settings.autoMergeTranslatedTags) {
     return []
@@ -237,23 +237,25 @@ export function findUnresolvedMergeGroups(tags: ExifTag[], settings: AppSettings
     nameMap.set(tags[i].name, tags[i])
   }
 
-  // Group tags by translatedName (method A)
+  // Method A: Group tags by raw translatedName (including CJK→ASCII)
+  // This catches cases like 爱莉希雅→Elysia + エリシア→Ellicia (same English translation)
   let groups: Map<string, ExifTag[]> = new Map()
   for (let i = 0; i < tags.length; i++) {
-    let tn = Constants.filterTranslatedName(tags[i].name, tags[i].translatedName)
-    if (tn.length === 0) {
+    let rawTn = tags[i].translatedName
+    if (rawTn.length === 0) {
       continue
     }
-    let existing = groups.get(tn)
+    let existing = groups.get(rawTn)
     if (existing !== undefined) {
       existing.push(tags[i])
     } else {
-      groups.set(tn, [tags[i]])
+      groups.set(rawTn, [tags[i]])
     }
   }
 
-  // Method B: tag's filteredTranslation matches another tag's name → merge them
-  // e.g. 崩壊3rd translates to "崩坏3", and 崩坏3 exists as a tag name
+  // Method B: tag's filtered translation matches another tag's name
+  // e.g. 崩壊3rd translates to "崩坏3rd", and 崩坏3rd exists as tag name
+  // e.g. 崩坏3rd translates to "崩坏3", and 崩坏3 exists as tag name
   for (let i = 0; i < tags.length; i++) {
     let filtered = Constants.filterTranslatedName(tags[i].name, tags[i].translatedName)
     if (filtered.length === 0) {
@@ -261,12 +263,11 @@ export function findUnresolvedMergeGroups(tags: ExifTag[], settings: AppSettings
     }
     let matchTag = nameMap.get(filtered)
     if (matchTag !== undefined && matchTag.name !== tags[i].name) {
-      // tags[i] and matchTag are synonyms
       let existing = groups.get(filtered)
       if (existing === undefined) {
         groups.set(filtered, [tags[i], matchTag])
       } else {
-        // Check if tags[i] already in group
+        // Add tags[i] if not already in group
         let found = false
         for (let g = 0; g < existing.length; g++) {
           if (existing[g].name === tags[i].name) {
@@ -277,7 +278,48 @@ export function findUnresolvedMergeGroups(tags: ExifTag[], settings: AppSettings
         if (!found) {
           existing.push(tags[i])
         }
-        // Check if matchTag already in group
+        // Add matchTag if not already in group
+        let matchFound = false
+        for (let g = 0; g < existing.length; g++) {
+          if (existing[g].name === matchTag.name) {
+            matchFound = true
+            break
+          }
+        }
+        if (!matchFound) {
+          existing.push(matchTag)
+        }
+      }
+    }
+  }
+
+  // Method C: tag's raw translation (even if CJK→ASCII filtered) matches another tag's name
+  // e.g. 爱莉希雅→Elysia (filtered out for display) + Elysia exists as tag name → synonym!
+  for (let i = 0; i < tags.length; i++) {
+    let rawTn = tags[i].translatedName
+    // Only check translations that were filtered out (CJK→ASCII) and non-empty
+    let filtered = Constants.filterTranslatedName(tags[i].name, rawTn)
+    if (rawTn.length === 0 || filtered.length > 0) {
+      // Either no translation, or translation was kept (not filtered) — skip
+      continue
+    }
+    // rawTn was filtered (CJK→ASCII) — check if it matches a tag name in the list
+    let matchTag = nameMap.get(rawTn)
+    if (matchTag !== undefined && matchTag.name !== tags[i].name) {
+      let existing = groups.get(rawTn)
+      if (existing === undefined) {
+        groups.set(rawTn, [tags[i], matchTag])
+      } else {
+        let found = false
+        for (let g = 0; g < existing.length; g++) {
+          if (existing[g].name === tags[i].name) {
+            found = true
+            break
+          }
+        }
+        if (!found) {
+          existing.push(tags[i])
+        }
         let matchFound = false
         for (let g = 0; g < existing.length; g++) {
           if (existing[g].name === matchTag.name) {
