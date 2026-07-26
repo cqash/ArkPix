@@ -1,7 +1,7 @@
 import { apiService } from '../../network/ApiService';
 import { IllustWaterfall, IllustListPage, parseIllustListPage } from '../../components/illust/IllustWaterfall';
 import { getDbService } from '../../services/DatabaseService';
-import { userSettingStore } from '../../stores/UserSettingStore';
+import { AppSettings } from '../../models/AppSettings';
 
 interface RankModeItem {
   label: string
@@ -29,6 +29,7 @@ export struct RankPage {
   @State selectedMode: string = 'day'
   @State selectedDate: string = ''
   @State reloadToken: number = 0
+  @StorageLink('appSettings') appSettings: AppSettings = new AppSettings()
 
   aboutToAppear() {
     let yesterday = new Date()
@@ -85,7 +86,7 @@ export struct RankPage {
       Scroll() {
         Row() {
           ForEach(RANK_MODES, (item: RankModeItem) => {
-            if (!item.r18 || userSettingStore.getSettings().showR18Rank) {
+            if (!item.r18 || this.appSettings.showR18Rank) {
               Text(item.label)
                 .fontSize(14)
                 .fontColor(this.selectedMode === item.mode ? '#0096FA' : '#333333')
