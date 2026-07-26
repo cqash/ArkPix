@@ -96,26 +96,21 @@ struct IllustDetailPage {
     })
   }
 
-  showBookmarkRestrictSheet() {
+  showBookmarkRestrictDialog() {
     if (this.bookmarkState() !== 0) {
       return
     }
-    ActionSheet.show({
-      title: '选择收藏可见性',
-      message: '',
-      sheets: [
-        {
-          title: '公开收藏',
-          action: () => { this.store.starWithRestrict('public') }
-        },
-        {
-          title: '私密收藏',
-          action: () => { this.store.starWithRestrict('private') }
-        }
-      ],
-      confirm: {
-        value: '取消',
-        action: () => {}
+    this.getUIContext().showAlertDialog({
+      title: '收藏可见性',
+      message: '选择公开收藏还是私密收藏',
+      autoCancel: true,
+      primaryButton: {
+        value: '私密收藏',
+        action: () => { this.store.starWithRestrict('private') }
+      },
+      secondaryButton: {
+        value: '公开收藏',
+        action: () => { this.store.starWithRestrict('public') }
       }
     })
   }
@@ -337,7 +332,7 @@ struct IllustDetailPage {
           .onClick(() => { this.store.toggleBookmark() })
           .gesture(
             LongPressGesture({ duration: 500 })
-              .onAction(() => { this.showBookmarkRestrictSheet() })
+              .onAction(() => { this.showBookmarkRestrictDialog() })
           )
 
         Button('保存图片')
