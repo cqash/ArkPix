@@ -25,14 +25,10 @@ struct SplashPage {
 
   build() {
     Column() {
-      Text('PixEz')
+      Text('ArkPix')
         .fontSize(48)
         .fontWeight(FontWeight.Bold)
         .fontColor('#0096FA')
-      Text('HarmonyOS')
-        .fontSize(16)
-        .fontColor('#999999')
-        .margin({ top: 8 })
       LoadingProgress()
         .width(40)
         .height(40)
