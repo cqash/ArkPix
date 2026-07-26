@@ -88,7 +88,6 @@ struct IllustDetailPage {
       this.illust = this.store.illust
       this.rebuildRows()
       this.loadAvatar()
-      this.checkMergeReview()
       this.store.loadRelated().then(() => {
         this.rebuildRows()
       }).catch((e: Object) => {
@@ -121,6 +120,15 @@ struct IllustDetailPage {
 
   private isR18(): boolean {
     return this.illust.xRestrict === 1 || this.illust.xRestrict === 2
+  }
+
+  private hasUnresolvedMergeGroups(): boolean {
+    let settings = userSettingStore.getSettings()
+    let exifTags: ExifTag[] = this.illust.tags.map((t: Tag): ExifTag => {
+      return { name: t.name, translatedName: t.translatedName }
+    })
+    let groups = findUnresolvedMergeGroups(exifTags, settings)
+    return groups.length > 0
   }
 
   private checkMergeReview(): void {
@@ -163,7 +171,7 @@ struct IllustDetailPage {
     this.mergeReviewShown = false
     this.mergeReviewGroups = []
     this.mergeReviewSelected = []
-    promptAction.showToast({ message: '合并规则已保存' })
+    promptAction.showToast({ message: '合并规则已保存，请再次点击保存' })
   }
 
   private needMask(): boolean {
@@ -272,8 +280,12 @@ struct IllustDetailPage {
     }
   }
 
-  /** 保存单页：先检测 EXIF 超限，超限则弹出 TagExifPicker */
+  /** 保存单页：先检测合并审查，再检测 EXIF 超限 */
   private handleSavePage(pageIndex: number): void {
+    if (this.hasUnresolvedMergeGroups()) {
+      this.checkMergeReview()
+      return
+    }
     if (this.store.isExifOverLimit()) {
       this.exifPickerPageIndex = pageIndex
       this.exifPickerIsSaveAll = false
@@ -284,8 +296,12 @@ struct IllustDetailPage {
     }
   }
 
-  /** 保存全部页：先检测 EXIF 超限，超限则弹出 TagExifPicker */
+  /** 保存全部页：先检测合并审查，再检测 EXIF 超限 */
   private handleSaveAll(): void {
+    if (this.hasUnresolvedMergeGroups()) {
+      this.checkMergeReview()
+      return
+    }
     if (this.store.isExifOverLimit()) {
       this.exifPickerPageIndex = 0
       this.exifPickerIsSaveAll = true

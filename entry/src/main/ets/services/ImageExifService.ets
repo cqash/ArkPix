@@ -110,6 +110,19 @@ function renderCommentTemplate(template: string, info: ExifInfo, tags: ExifTag[]
 // 3. 按 exifTagPriority 排序（优先级高的排前面，不在优先级列表中的排末尾保持原序）
 // 返回过滤合并排序后的 ExifTag[]
 export function filterTagsForExif(tags: ExifTag[], settings: AppSettings): ExifTag[] {
+  // Debug: log input tags and merge rules
+  let tagNames: string[] = []
+  for (let i = 0; i < tags.length; i++) {
+    tagNames.push(tags[i].name + '->' + (tags[i].translatedName || 'null'))
+  }
+  console.info('[PixEzExif] filterTagsForExif input tags: ' + tagNames.join(', '))
+  let ruleDescs: string[] = []
+  for (let r = 0; r < settings.exifMergedTags.length; r++) {
+    ruleDescs.push(settings.exifMergedTags[r].mainTag + '<-' + settings.exifMergedTags[r].fromTags.join(','))
+  }
+  console.info('[PixEzExif] filterTagsForExif merge rules: ' + ruleDescs.join('; '))
+  console.info('[PixEzExif] filterTagsForExif mutedTags: ' + settings.exifMutedTags.join(', '))
+
   // Step 1: Filter muted tags
   let filtered: ExifTag[] = []
   for (let i = 0; i < tags.length; i++) {
@@ -217,9 +230,12 @@ export interface MergeGroup {
 // 注意：Method A 使用原始 translatedName（不过滤），因为 CJK→ASCII 翻译虽然
 // 对显示无意义，但暗示了 tag 间的关联性（如 爱莉希雅→Elysia + Elysia 在列表中）
 export function findUnresolvedMergeGroups(tags: ExifTag[], settings: AppSettings): MergeGroup[] {
-  if (!settings.autoMergeTranslatedTags) {
-    return []
-  }
+  console.info('[PixEzExif] findUnresolvedMergeGroups: autoMerge=' + settings.autoMergeTranslatedTags +
+    ', exifMergedTags count=' + settings.exifMergedTags.length)
+  // Note: merge detection always runs regardless of autoMergeTranslatedTags switch.
+  // The switch only controls whether the old "auto-merge without asking" behavior was used.
+  // Now the merge review dialog always pops up for unresolved groups, requiring user confirmation.
+  // This ensures EXIF tag deduplication works even when the switch is off.
 
   // Build a set of all tag names already covered by exifMergedTags rules
   let coveredTags: string[] = []
@@ -239,6 +255,13 @@ export function findUnresolvedMergeGroups(tags: ExifTag[], settings: AppSettings
 
   // Method A: Group tags by raw translatedName (including CJK→ASCII)
   // This catches cases like 爱莉希雅→Elysia + エリシア→Ellicia (same English translation)
+  let tagDebugInfo: string[] = []
+  for (let i = 0; i < tags.length; i++) {
+    let filtered = Constants.filterTranslatedName(tags[i].name, tags[i].translatedName)
+    tagDebugInfo.push(tags[i].name + '->' + (tags[i].translatedName || 'null') + '(f:' + (filtered || 'empty') + ')')
+  }
+  console.info('[PixEzExif] findUnresolvedMergeGroups tag data: ' + tagDebugInfo.join(', '))
+
   let groups: Map<string, ExifTag[]> = new Map()
   for (let i = 0; i < tags.length; i++) {
     let rawTn = tags[i].translatedName
@@ -352,6 +375,16 @@ export function findUnresolvedMergeGroups(tags: ExifTag[], settings: AppSettings
       result.push({ translatedName: tn, tags: groupTags })
     }
   })
+
+  let groupDescs: string[] = []
+  for (let g = 0; g < result.length; g++) {
+    let tagNames: string[] = []
+    for (let t = 0; t < result[g].tags.length; t++) {
+      tagNames.push(result[g].tags[t].name)
+    }
+    groupDescs.push(result[g].translatedName + ':[' + tagNames.join(',') + ']')
+  }
+  console.info('[PixEzExif] findUnresolvedMergeGroups result: ' + groupDescs.length + ' groups: ' + groupDescs.join('; '))
 
   return result
 }
