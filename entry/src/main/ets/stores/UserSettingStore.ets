@@ -44,7 +44,8 @@ export class UserSettingStore {
       exifMergedTags: (preferenceService.getObject('exif_merged_tags', []) as ExifTagMergeRule[]).map(
         (rule: ExifTagMergeRule) => new ExifTagMergeRule({ mainTag: rule.mainTag, fromTags: rule.fromTags.slice() })
       ),
-      exifTagPriority: preferenceService.getObject('exif_tag_priority', []) as string[]
+      exifTagPriority: preferenceService.getObject('exif_tag_priority', []) as string[],
+      autoMergeTranslatedTags: preferenceService.getBoolean('auto_merge_translated_tags', false)
     }
     this.settings = new AppSettings(opts)
     AppStorage.setOrCreate('appSettings', this.settings)
@@ -76,6 +77,7 @@ export class UserSettingStore {
     preferenceService.setObject('exif_muted_tags', this.settings.exifMutedTags)
     preferenceService.setObject('exif_merged_tags', this.settings.exifMergedTags)
     preferenceService.setObject('exif_tag_priority', this.settings.exifTagPriority)
+    preferenceService.setBoolean('auto_merge_translated_tags', this.settings.autoMergeTranslatedTags)
     let newSettings: AppSettings = this.getSettings()
     this.settings = newSettings
     AppStorage.setOrCreate('appSettings', newSettings)
@@ -109,7 +111,8 @@ export class UserSettingStore {
       exifMergedTags: this.settings.exifMergedTags.map(
         (rule: ExifTagMergeRule) => new ExifTagMergeRule({ mainTag: rule.mainTag, fromTags: rule.fromTags.slice() })
       ),
-      exifTagPriority: this.settings.exifTagPriority.slice()
+      exifTagPriority: this.settings.exifTagPriority.slice(),
+      autoMergeTranslatedTags: this.settings.autoMergeTranslatedTags
     })
   }
 
@@ -337,6 +340,11 @@ export class UserSettingStore {
       }
     }
     this.settings.exifTagPriority = result
+    this.saveSettings()
+  }
+
+  setAutoMergeTranslatedTags(value: boolean): void {
+    this.settings.autoMergeTranslatedTags = value
     this.saveSettings()
   }
 }

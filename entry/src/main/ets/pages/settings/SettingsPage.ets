@@ -282,6 +282,14 @@ export struct SettingsPage {
             }
           })
           SwitchItem({
+            title: '自动合并同义标签',
+            isOn: this.settings.autoMergeTranslatedTags,
+            onToggle: () => {
+              userSettingStore.setAutoMergeTranslatedTags(!this.settings.autoMergeTranslatedTags)
+              this.refresh()
+            }
+          })
+          SwitchItem({
             title: '下载时自动收藏',
             isOn: this.settings.autoBookmarkOnDownload,
             onToggle: () => {

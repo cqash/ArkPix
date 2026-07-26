@@ -91,6 +91,7 @@ function renderCommentTemplate(template: string, info: ExifInfo, tags: ExifTag[]
 // 对 EXIF 备注的 tag 进行过滤和合并
 // 1. 过滤 exifMutedTags（屏蔽的移除）
 // 2. 应用 exifMergedTags（从属 tag 移除，只保留主 tag）
+// 2.5 自动合并翻译相同的 tag（autoMergeTranslatedTags 开启时，translatedName 相同且非空的 tag 保留第一个，移除其余）
 // 3. 按 exifTagPriority 排序（优先级高的排前面，不在优先级列表中的排末尾保持原序）
 // 返回过滤合并排序后的 ExifTag[]
 export function filterTagsForExif(tags: ExifTag[], settings: AppSettings): ExifTag[] {
@@ -149,6 +150,27 @@ export function filterTagsForExif(tags: ExifTag[], settings: AppSettings): ExifT
         filtered = result
       }
     }
+  }
+
+  // Step 2.5: Auto-merge tags with same translatedName
+  // When autoMergeTranslatedTags is enabled, tags sharing the same non-empty translatedName
+  // are merged: keep the first occurrence, remove the rest.
+  if (settings.autoMergeTranslatedTags) {
+    let seenTranslations: string[] = []
+    let result: ExifTag[] = []
+    for (let i = 0; i < filtered.length; i++) {
+      let tn = filtered[i].translatedName
+      if (tn.length === 0) {
+        // No translation — keep as-is
+        result.push(filtered[i])
+      } else if (!seenTranslations.includes(tn)) {
+        // First time seeing this translation — keep
+        seenTranslations.push(tn)
+        result.push(filtered[i])
+      }
+      // Duplicate translation — skip (auto-merged)
+    }
+    filtered = result
   }
 
   // Step 3: Sort by exifTagPriority

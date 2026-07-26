@@ -40,6 +40,7 @@ export interface AppSettingsOptions {
   exifMutedTags?: string[]
   exifMergedTags?: ExifTagMergeRule[]
   exifTagPriority?: string[]
+  autoMergeTranslatedTags?: boolean
 }
 
 export class AppSettings {
@@ -68,6 +69,7 @@ export class AppSettings {
   exifMutedTags: string[] = []
   exifMergedTags: ExifTagMergeRule[] = []
   exifTagPriority: string[] = []
+  autoMergeTranslatedTags: boolean = false
 
   constructor(options?: AppSettingsOptions) {
     if (options) {
@@ -98,6 +100,7 @@ export class AppSettings {
         (rule: ExifTagMergeRule) => new ExifTagMergeRule({ mainTag: rule.mainTag, fromTags: rule.fromTags.slice() })
       )
       this.exifTagPriority = options.exifTagPriority ?? []
+      this.autoMergeTranslatedTags = options.autoMergeTranslatedTags ?? false
     }
   }
 }
