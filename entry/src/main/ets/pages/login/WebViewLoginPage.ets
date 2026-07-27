@@ -42,6 +42,8 @@ struct WebViewLoginPage {
   async doLogin(code: string): Promise<void> {
     let success = await accountStore.addAccount(code, this.codeVerifier)
     if (success) {
+      // 清空返回栈（LoginPage 用 pushUrl 压底，仅 replace 换栈顶仍会退回登录页）再进首页
+      router.clear()
       router.replaceUrl({ url: 'pages/home/HomePage' })
     }
   }

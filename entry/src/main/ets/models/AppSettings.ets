@@ -41,6 +41,7 @@ export interface AppSettingsOptions {
   exifMergedTags?: ExifTagMergeRule[]
   exifTagPriority?: string[]
   autoMergeTranslatedTags?: boolean
+  downloadConcurrency?: number
 }
 
 export class AppSettings {
@@ -70,6 +71,7 @@ export class AppSettings {
   exifMergedTags: ExifTagMergeRule[] = []
   exifTagPriority: string[] = []
   autoMergeTranslatedTags: boolean = false
+  downloadConcurrency: number = 3
 
   constructor(options?: AppSettingsOptions) {
     if (options) {
@@ -101,6 +103,7 @@ export class AppSettings {
       )
       this.exifTagPriority = options.exifTagPriority ?? []
       this.autoMergeTranslatedTags = options.autoMergeTranslatedTags ?? false
+      this.downloadConcurrency = options.downloadConcurrency ?? 3
     }
   }
 }

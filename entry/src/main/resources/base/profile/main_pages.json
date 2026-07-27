@@ -16,6 +16,8 @@
     "pages/settings/ExifTagConfigPage",
     "pages/settings/AboutPage",
     "pages/settings/MutePage",
+    "pages/settings/HistoryPage",
+    "pages/detail/CommentPage",
     "pages/user/UserProfilePage"
   ]
 }

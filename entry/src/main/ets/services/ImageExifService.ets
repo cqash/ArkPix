@@ -106,7 +106,7 @@ function renderCommentTemplate(template: string, info: ExifInfo, tags: ExifTag[]
 // 对 EXIF 备注的 tag 进行过滤和合并
 // 1. 过滤 exifMutedTags（屏蔽的移除）
 // 2. 应用 exifMergedTags（从属 tag 移除，只保留主 tag）
-// 2.5 自动合并翻译相同的 tag（autoMergeTranslatedTags 开启时，translatedName 相同且非空的 tag 保留第一个，移除其余）
+// （自动合并步骤已移除：同义 tag 组由 findUnresolvedMergeGroups 检测 + 保存时审查弹窗确认后写入 exifMergedTags）
 // 3. 按 exifTagPriority 排序（优先级高的排前面，不在优先级列表中的排末尾保持原序）
 // 返回过滤合并排序后的 ExifTag[]
 export function filterTagsForExif(tags: ExifTag[], settings: AppSettings): ExifTag[] {

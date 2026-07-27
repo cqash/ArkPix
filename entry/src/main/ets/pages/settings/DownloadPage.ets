@@ -1,7 +1,6 @@
 import { promptAction } from '@kit.ArkUI';
-import { common } from '@kit.AbilityKit';
 import { getDbService, DownloadTaskItem } from '../../services/DatabaseService';
-import { downloadService } from '../../services/DownloadService';
+import { downloadService, RetryAllResult, TaskChangeListener } from '../../services/DownloadService';
 import { apiService } from '../../network/ApiService';
 import { Illust } from '../../models/Illust';
 
@@ -14,9 +13,26 @@ interface IllustDetailResponse {
 export struct DownloadPage {
   @State tasks: DownloadTaskItem[] = []
   @State isLoading: boolean = false
+  private pollTimer: number = -1
+  private taskChangeListener: TaskChangeListener = () => {
+    this.refreshTasksSilently()
+  }
 
   aboutToAppear() {
     this.loadTasks()
+    // 可见期 1.5s 轮询静默刷新 + 任务变更事件回调，进度/状态无需退出重进
+    downloadService.registerTaskChangeListener(this.taskChangeListener)
+    this.pollTimer = setInterval(() => {
+      this.refreshTasksSilently()
+    }, 1500)
+  }
+
+  aboutToDisappear() {
+    downloadService.unregisterTaskChangeListener(this.taskChangeListener)
+    if (this.pollTimer >= 0) {
+      clearInterval(this.pollTimer)
+      this.pollTimer = -1
+    }
   }
 
   async loadTasks() {
@@ -31,8 +47,18 @@ export struct DownloadPage {
     }
   }
 
+  /** 静默刷新：不置 isLoading，避免列表 Loading 闪烁 */
+  async refreshTasksSilently() {
+    try {
+      let db = await getDbService()
+      this.tasks = await db.getDownloadTasks()
+    } catch (e) {
+      console.error('Refresh download tasks failed: ' + e)
+    }
+  }
+
   async retryTask(task: DownloadTaskItem) {
-    if (task.status === 'downloading') { return }
+    if (task.status === 'downloading' || task.status === 'pending') { return }
     try {
       let response = await apiService.getIllustDetail(task.illust_id)
       let illustObj = (response as IllustDetailResponse).illust
@@ -41,21 +67,9 @@ export struct DownloadPage {
         return
       }
       let illust = Illust.fromJson(illustObj)
-      let localPath = await downloadService.downloadToCache(task.image_url, illust, task.page_index, false)
-      if (localPath.length > 0) {
-        let ctx = AppStorage.get<common.Context>('context')
-        if (ctx) {
-          let saved = await downloadService.applyToGallery(localPath, ctx)
-          if (saved) {
-            promptAction.showToast({ message: '已保存到图库' })
-          } else {
-            promptAction.showToast({ message: '下载完成但保存图库失败' })
-          }
-        }
-      } else {
-        promptAction.showToast({ message: '下载失败' })
-      }
-      await this.loadTasks()
+      downloadService.enqueue(task.image_url, illust, task.page_index)
+      promptAction.showToast({ message: '已加入下载任务' })
+      await this.refreshTasksSilently()
     } catch (e) {
       console.error('Retry task failed: ' + e)
       promptAction.showToast({ message: '重试失败: ' + e })
@@ -70,9 +84,18 @@ export struct DownloadPage {
   }
 
   async doRetryAllFailed() {
-    let count = await downloadService.retryAllFailed(() => { this.loadTasks() })
-    promptAction.showToast({ message: '已重试 ' + count + ' 个失败任务' })
-    await this.loadTasks()
+    let result: RetryAllResult = await downloadService.retryAllFailed(() => { this.refreshTasksSilently() })
+    if (result.started === 0 && result.skipped === 0 && result.failed === 0) {
+      promptAction.showToast({ message: '没有可重试的失败任务' })
+    } else {
+      // 入队为 fire-and-forget：started=入队数，成功/失败由任务体异步落库，列表轮询反映
+      promptAction.showToast({
+        message: '已重新加入 ' + result.started + ' 个下载任务' +
+          (result.failed > 0 ? '，重建失败 ' + result.failed : '') +
+          (result.skipped > 0 ? '，跳过 ' + result.skipped : '')
+      })
+    }
+    await this.refreshTasksSilently()
   }
 
   async doClearFailed() {
@@ -100,6 +123,7 @@ export struct DownloadPage {
   private statusText(status: string): string {
     if (status === 'completed') { return '已完成' }
     if (status === 'downloading') { return '下载中' }
+    if (status === 'pending') { return '排队中' }
     if (status === 'failed') { return '失败' }
     return status
   }
@@ -107,6 +131,7 @@ export struct DownloadPage {
   private statusColor(status: string): ResourceColor {
     if (status === 'completed') { return '#0096FA' }
     if (status === 'downloading') { return '#FFAA00' }
+    if (status === 'pending') { return '#999999' }
     if (status === 'failed') { return '#FF4444' }
     return '#999999'
   }

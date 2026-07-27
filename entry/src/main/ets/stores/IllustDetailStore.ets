@@ -1,5 +1,4 @@
 import { promptAction } from '@kit.ArkUI';
-import { common } from '@kit.AbilityKit';
 import { apiService } from '../network/ApiService';
 import { getDbService } from '../services/DatabaseService';
 import { downloadService } from '../services/DownloadService';
@@ -264,23 +263,61 @@ export class IllustDetailStore {
   private async doSavePage(pageIndex: number): Promise<void> {
     let quality = userSettingStore.getSettings().downloadQuality
     let url = pickDetailUrl(this.illust, pageIndex, quality)
-    let localPath = await downloadService.downloadToCache(url, this.illust, pageIndex)
-    if (!localPath) {
-      this.showToast('下载失败')
+    downloadService.enqueue(url, this.illust, pageIndex)
+    this.showToast('已加入下载任务')
+    await this.maybeAutoBookmark()
+  }
+
+  /** 保存指定页集合：逐页 isDownloaded 检测，有重复走 AlertDialog（跳过已下载页 / 全部重新下载所选页） */
+  async savePages(pageIndexes: number[]): Promise<void> {
+    if (pageIndexes.length === 0) {
       return
     }
-    let ctx = AppStorage.get<common.Context>('context')
-    if (!ctx) {
-      this.showToast('保存失败')
+    let downloadedPages: number[] = []
+    for (let i = 0; i < pageIndexes.length; i++) {
+      if (await downloadService.isDownloaded(this.illust.id, pageIndexes[i])) {
+        downloadedPages.push(pageIndexes[i])
+      }
+    }
+    let ctx = this.uiContext
+    if (downloadedPages.length > 0 && ctx !== undefined) {
+      let freshPages: number[] = []
+      for (let i = 0; i < pageIndexes.length; i++) {
+        if (downloadedPages.indexOf(pageIndexes[i]) < 0) {
+          freshPages.push(pageIndexes[i])
+        }
+      }
+      ctx.showAlertDialog({
+        title: '重复下载确认',
+        message: '其中 ' + downloadedPages.length + ' 页已下载过',
+        autoCancel: true,
+        primaryButton: {
+          value: '跳过已下载页',
+          action: () => { this.doSavePages(freshPages) }
+        },
+        secondaryButton: {
+          value: '全部重新下载',
+          action: () => { this.doSavePages(pageIndexes) }
+        }
+      })
       return
     }
-    let saved = await downloadService.applyToGallery(localPath, ctx)
-    if (saved) {
-      this.showToast('已保存到图库')
-      await this.maybeAutoBookmark()
-    } else {
-      this.showToast('保存失败')
+    await this.doSavePages(pageIndexes)
+  }
+
+  /** 循环入队（fire-and-forget，不再 await 下载结果）；汇总 toast 语义为"已加入 N 个下载任务" */
+  private async doSavePages(pageIndexes: number[]): Promise<void> {
+    if (pageIndexes.length === 0) {
+      this.showToast('没有需要下载的页')
+      return
     }
+    let quality = userSettingStore.getSettings().downloadQuality
+    for (let i = 0; i < pageIndexes.length; i++) {
+      let url = pickDetailUrl(this.illust, pageIndexes[i], quality)
+      downloadService.enqueue(url, this.illust, pageIndexes[i])
+    }
+    this.showToast('已加入 ' + pageIndexes.length + ' 个下载任务')
+    await this.maybeAutoBookmark()
   }
 
   async saveAll(): Promise<void> {
@@ -295,22 +332,17 @@ export class IllustDetailStore {
     }
     let ctx = this.uiContext
     if (downloadedPages.length > 0 && ctx !== undefined) {
-      ctx.showActionSheet({
+      ctx.showAlertDialog({
         title: '重复下载确认',
         message: '其中 ' + downloadedPages.length + ' 页已下载过',
-        sheets: [
-          {
-            title: '跳过已下载页',
-            action: () => { this.doSaveAll(downloadedPages) }
-          },
-          {
-            title: '全部重新下载',
-            action: () => { this.doSaveAll([]) }
-          }
-        ],
-        confirm: {
-          value: '取消',
-          action: () => {}
+        autoCancel: true,
+        primaryButton: {
+          value: '跳过已下载页',
+          action: () => { this.doSaveAll(downloadedPages) }
+        },
+        secondaryButton: {
+          value: '全部重新下载',
+          action: () => { this.doSaveAll([]) }
         }
       })
       return
@@ -318,41 +350,14 @@ export class IllustDetailStore {
     await this.doSaveAll([])
   }
 
+  /** 全量保存重构：复用 doSavePages，skipPages 取补集 */
   private async doSaveAll(skipPages: number[]): Promise<void> {
-    let quality = userSettingStore.getSettings().downloadQuality
-    let ctx = AppStorage.get<common.Context>('context')
-    if (!ctx) {
-      this.showToast('保存失败')
-      return
-    }
-    let successCount = 0
-    let failCount = 0
-    let skipCount = 0
+    let pages: number[] = []
     for (let i = 0; i < this.illust.pageCount; i++) {
-      if (skipPages.indexOf(i) >= 0) {
-        skipCount++
-        continue
-      }
-      let url = pickDetailUrl(this.illust, i, quality)
-      let localPath = await downloadService.downloadToCache(url, this.illust, i)
-      if (!localPath) {
-        failCount++
-        continue
-      }
-      let saved = await downloadService.applyToGallery(localPath, ctx)
-      if (saved) {
-        successCount++
-      } else {
-        failCount++
+      if (skipPages.indexOf(i) < 0) {
+        pages.push(i)
       }
     }
-    let summary = '完成: 成功' + successCount + ', 失败' + failCount
-    if (skipCount > 0) {
-      summary += ', 跳过' + skipCount
-    }
-    this.showToast(summary)
-    if (successCount > 0) {
-      await this.maybeAutoBookmark()
-    }
+    await this.doSavePages(pages)
   }
 }

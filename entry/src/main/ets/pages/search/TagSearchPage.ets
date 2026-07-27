@@ -1,5 +1,6 @@
 import { router } from '@kit.ArkUI';
 import { apiService } from '../../network/ApiService';
+import { getDbService } from '../../services/DatabaseService';
 import { IllustWaterfall, IllustListPage, parseIllustListPage } from '../../components/illust/IllustWaterfall';
 
 interface TagSearchParams {
@@ -15,7 +16,17 @@ struct TagSearchPage {
     let params = router.getParams() as TagSearchParams
     if (params && params.keyword) {
       this.keyword = params.keyword
+      // tag 跳转/历史回放统一在此写搜索历史（illust 类型，既有先删后插去重）
+      this.recordSearchHistory(params.keyword)
     }
+  }
+
+  private recordSearchHistory(keyword: string): void {
+    getDbService().then((db) => {
+      return db.addSearchHistory(keyword, 'illust')
+    }).catch((e: Object) => {
+      console.error('Add tag search history failed: ' + e)
+    })
   }
 
   private async fetchFirst(): Promise<IllustListPage> {

@@ -19,6 +19,8 @@ struct TokenLoginPage {
     try {
       let success = await accountStore.loginWithRefreshToken(this.tokenInput.trim())
       if (success) {
+        // 清空返回栈（LoginPage 用 pushUrl 压底，仅 replace 换栈顶仍会退回登录页）再进首页
+        router.clear()
         router.replaceUrl({ url: 'pages/home/HomePage' })
       } else {
         this.errorMessage = '登录失败，请检查 Token 是否有效'

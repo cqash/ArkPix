@@ -45,7 +45,8 @@ export class UserSettingStore {
         (rule: ExifTagMergeRule) => new ExifTagMergeRule({ mainTag: rule.mainTag, fromTags: rule.fromTags.slice() })
       ),
       exifTagPriority: preferenceService.getObject('exif_tag_priority', []) as string[],
-      autoMergeTranslatedTags: preferenceService.getBoolean('auto_merge_translated_tags', false)
+      autoMergeTranslatedTags: preferenceService.getBoolean('auto_merge_translated_tags', false),
+      downloadConcurrency: preferenceService.getNumber('download_concurrency', 3)
     }
     this.settings = new AppSettings(opts)
     AppStorage.setOrCreate('appSettings', this.settings)
@@ -78,6 +79,7 @@ export class UserSettingStore {
     preferenceService.setObject('exif_merged_tags', this.settings.exifMergedTags)
     preferenceService.setObject('exif_tag_priority', this.settings.exifTagPriority)
     preferenceService.setBoolean('auto_merge_translated_tags', this.settings.autoMergeTranslatedTags)
+    preferenceService.setNumber('download_concurrency', this.settings.downloadConcurrency)
     let newSettings: AppSettings = this.getSettings()
     this.settings = newSettings
     AppStorage.setOrCreate('appSettings', newSettings)
@@ -112,7 +114,8 @@ export class UserSettingStore {
         (rule: ExifTagMergeRule) => new ExifTagMergeRule({ mainTag: rule.mainTag, fromTags: rule.fromTags.slice() })
       ),
       exifTagPriority: this.settings.exifTagPriority.slice(),
-      autoMergeTranslatedTags: this.settings.autoMergeTranslatedTags
+      autoMergeTranslatedTags: this.settings.autoMergeTranslatedTags,
+      downloadConcurrency: this.settings.downloadConcurrency
     })
   }
 
@@ -143,6 +146,11 @@ export class UserSettingStore {
 
   setDownloadQuality(value: number): void {
     this.settings.downloadQuality = value
+    this.saveSettings()
+  }
+
+  setDownloadConcurrency(value: number): void {
+    this.settings.downloadConcurrency = value
     this.saveSettings()
   }
 

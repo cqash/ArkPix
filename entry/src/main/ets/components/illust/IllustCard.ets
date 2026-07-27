@@ -1,5 +1,4 @@
 import { promptAction } from '@kit.ArkUI';
-import { common } from '@kit.AbilityKit';
 import { Illust } from '../../models/Illust';
 import { AppSettings } from '../../models/AppSettings';
 import { CachedImage } from '../common/CachedImage';
@@ -95,24 +94,10 @@ export struct IllustCard {
   private async doSaveImage(): Promise<void> {
     let quality = userSettingStore.getSettings().downloadQuality
     let url = pickDetailUrl(this.illust, 0, quality)
-    let localPath = await downloadService.downloadToCache(url, this.illust, 0)
-    if (!localPath) {
-      this.showToast('下载失败')
-      return
-    }
-    let ctx = AppStorage.get<common.Context>('context')
-    if (!ctx) {
-      this.showToast('保存失败')
-      return
-    }
-    let saved = await downloadService.applyToGallery(localPath, ctx)
-    if (saved) {
-      this.showToast('已保存到图库')
-      if (userSettingStore.getSettings().autoBookmarkOnDownload && this.heartState() !== BOOKMARK_DONE) {
-        await bookmarkStateStore.star(this.illust)
-      }
-    } else {
-      this.showToast('保存失败')
+    downloadService.enqueue(url, this.illust, 0)
+    this.showToast('已加入下载任务')
+    if (userSettingStore.getSettings().autoBookmarkOnDownload && this.heartState() !== BOOKMARK_DONE) {
+      await bookmarkStateStore.star(this.illust)
     }
   }
 

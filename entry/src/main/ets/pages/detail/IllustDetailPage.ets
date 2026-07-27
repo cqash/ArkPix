@@ -1,12 +1,16 @@
 import { router, promptAction } from '@kit.ArkUI';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { imageCacheService } from '../../services/ImageCacheService';
+import { apiService } from '../../network/ApiService';
+import { buildLocalSuggestions } from '../../utils/MergeSuggest';
 import { Illust, Tag } from '../../models/Illust';
 import { AppSettings } from '../../models/AppSettings';
 import { userSettingStore } from '../../stores/UserSettingStore';
 import { BOOKMARK_LOADING, BOOKMARK_DONE } from '../../stores/BookmarkStateStore';
 import { IllustDetailStore, DetailRow } from '../../stores/IllustDetailStore';
 import { Constants } from '../../utils/Constants';
+import { copyText } from '../../utils/ClipboardUtils';
+import { formatCreateDate } from '../../utils/DateUtils';
 import { buildPageUrls } from '../../utils/ImageUrlUtils';
 import { CachedImage } from '../../components/common/CachedImage';
 import { IllustCard } from '../../components/illust/IllustCard';
@@ -35,6 +39,16 @@ interface ExifPickerItem {
   withinBudget: boolean
 }
 
+/** /v2/search/autocomplete 响应 tags[] 元素 */
+interface RawAutoCompleteTag {
+  name?: string
+  translated_name?: string
+}
+
+interface RawAutoCompleteResponse {
+  tags?: Object[]
+}
+
 @Entry
 @Component
 struct IllustDetailPage {
@@ -54,9 +68,13 @@ struct IllustDetailPage {
   @State mergeDialogShown: boolean = false
   @State mergeFromTag: string = ''
   @State mergeInputText: string = ''
+  /** 合并对话框补全建议（名称 + 对齐的翻译副标题），输入为空时不显示 */
+  @State mergeSuggestions: string[] = []
+  @State mergeSuggestionSubs: string[] = []
+  private mergeSuggestTimer: number = -1
   @State exifPickerShown: boolean = false
-  @State exifPickerPageIndex: number = 0
-  @State exifPickerIsSaveAll: boolean = false
+  /** EXIF Picker 确认/跳过后续走的页集合（单页=[index]，全部=全集，选页=子集） */
+  @State exifPickerPendingPages: number[] = []
   @State exifPickerWritableItems: ExifPickerItem[] = []
   @State exifPickerMutedItems: ExifPickerItem[] = []
   @State exifPickerPreviewText: string = ''
@@ -65,6 +83,19 @@ struct IllustDetailPage {
   @State mergeReviewShown: boolean = false
   @State mergeReviewGroups: MergeGroup[] = []
   @State mergeReviewSelected: string[] = []  // 每组选中的主 tag 名
+  // 选页弹窗状态
+  @State pageSelectShown: boolean = false
+  @State pageSelectChecked: boolean[] = []
+  private pageSelectThumbUrls: string[] = []
+  /** 拖选：PanGestureOptions 动态 distance（普通 10000vp 让位 Grid 滚动，长按激活后 1vp 跟手拖选） */
+  private pageSelectPanOptions: PanGestureOptions = new PanGestureOptions({ fingers: 1, distance: 10000 })
+  private pageSelectDragging: boolean = false
+  private pageSelectStartIndex: number = -1
+  private pageSelectTargetState: boolean = false
+  private pageSelectPreDrag: boolean[] = []
+  private pageSelectGridWidth: number = 0
+  private pageSelectScrollOffset: number = 0
+  private pageSelectSuppressClick: boolean = false
   @StorageLink('bookmarkStates') bookmarkStates: Map<number, number> = new Map<number, number>()
   @StorageLink('appSettings') appSettings: AppSettings = new AppSettings()
 
@@ -177,6 +208,84 @@ struct IllustDetailPage {
     return this.appSettings.antiSocialDeath && this.isR18() && !this.revealedR18
   }
 
+  private clearMergeSuggestState(): void {
+    if (this.mergeSuggestTimer >= 0) {
+      clearTimeout(this.mergeSuggestTimer)
+      this.mergeSuggestTimer = -1
+    }
+    this.mergeSuggestions = []
+    this.mergeSuggestionSubs = []
+  }
+
+  private closeMergeDialog(): void {
+    this.clearMergeSuggestState()
+    this.mergeDialogShown = false
+  }
+
+  /** 合并输入变化：本地来源（合并规则+本作品 tag）即时匹配；本地零匹配且停顿 ≥300ms 才调 API */
+  private onMergeInputChange(value: string): void {
+    this.mergeInputText = value
+    if (this.mergeSuggestTimer >= 0) {
+      clearTimeout(this.mergeSuggestTimer)
+      this.mergeSuggestTimer = -1
+    }
+    let prefix = value.trim()
+    if (prefix.length === 0) {
+      this.mergeSuggestions = []
+      this.mergeSuggestionSubs = []
+      return
+    }
+    let settings = userSettingStore.getSettings()
+    let illustTagNames: string[] = this.illust.tags.map((t: Tag) => t.name)
+    let local = buildLocalSuggestions(prefix, settings.exifMergedTags, illustTagNames)
+    if (local.length > 0) {
+      // 本地有匹配 → 不发起 API 请求
+      this.mergeSuggestions = local
+      this.mergeSuggestionSubs = local.map((): string => '')
+      return
+    }
+    this.mergeSuggestions = []
+    this.mergeSuggestionSubs = []
+    this.mergeSuggestTimer = setTimeout(() => {
+      this.mergeSuggestTimer = -1
+      this.fetchApiSuggestions(prefix)
+    }, 300)
+  }
+
+  /** API 联想词兜底：仅在本地零匹配时触发；失败静默降级不影响本地建议 */
+  private async fetchApiSuggestions(prefix: string): Promise<void> {
+    try {
+      let response = await apiService.getAutoComplete(prefix)
+      // 输入已变化则丢弃过期结果
+      if (!this.mergeDialogShown || this.mergeInputText.trim() !== prefix) {
+        return
+      }
+      let raw = response as RawAutoCompleteResponse
+      let tags = raw.tags ?? []
+      let names: string[] = []
+      let subs: string[] = []
+      for (let i = 0; i < tags.length; i++) {
+        let item = tags[i] as RawAutoCompleteTag
+        let name = item.name ?? ''
+        if (name.length === 0 || names.includes(name)) {
+          continue
+        }
+        names.push(name)
+        subs.push(Constants.filterTranslatedName(name, item.translated_name ?? ''))
+      }
+      this.mergeSuggestions = names
+      this.mergeSuggestionSubs = subs
+    } catch (e) {
+      console.error('Autocomplete failed: ' + e)
+    }
+  }
+
+  /** 点选建议：回填输入框并收起建议区 */
+  private pickMergeSuggestion(name: string): void {
+    this.mergeInputText = name
+    this.clearMergeSuggestState()
+  }
+
   openViewer(pageIndex: number) {
     let settings = userSettingStore.getSettings()
     let urls = buildPageUrls(this.illust, settings.fullScreenQuality)
@@ -266,6 +375,7 @@ struct IllustDetailPage {
         .onClick(() => {
           this.mergeFromTag = this.tagMenuTarget
           this.mergeInputText = ''
+          this.clearMergeSuggestState()
           this.mergeDialogShown = true
         })
     }
@@ -286,8 +396,7 @@ struct IllustDetailPage {
       return
     }
     if (this.store.isExifOverLimit()) {
-      this.exifPickerPageIndex = pageIndex
-      this.exifPickerIsSaveAll = false
+      this.exifPickerPendingPages = [pageIndex]
       this.initExifPickerItems()
       this.exifPickerShown = true
     } else {
@@ -302,12 +411,206 @@ struct IllustDetailPage {
       return
     }
     if (this.store.isExifOverLimit()) {
-      this.exifPickerPageIndex = 0
-      this.exifPickerIsSaveAll = true
+      let pages: number[] = []
+      for (let i = 0; i < this.illust.pageCount; i++) {
+        pages.push(i)
+      }
+      this.exifPickerPendingPages = pages
       this.initExifPickerItems()
       this.exifPickerShown = true
     } else {
       this.store.saveAll()
+    }
+  }
+
+  /** 保存指定页集合（选页弹窗确认入口）：空集合不发起；先检测合并审查，再检测 EXIF 超限 */
+  private handleSavePages(pageIndexes: number[]): void {
+    if (pageIndexes.length === 0) {
+      return
+    }
+    if (this.hasUnresolvedMergeGroups()) {
+      this.checkMergeReview()
+      return
+    }
+    if (this.store.isExifOverLimit()) {
+      this.exifPickerPendingPages = pageIndexes.slice()
+      this.initExifPickerItems()
+      this.exifPickerShown = true
+    } else {
+      this.store.savePages(pageIndexes)
+    }
+  }
+
+  /** EXIF Picker 确认/跳过后的续走：单页→savePage，全集→saveAll，子集→savePages */
+  private resumeSaveAfterPicker(): void {
+    let pages = this.exifPickerPendingPages
+    if (pages.length === 1) {
+      this.store.savePage(pages[0])
+    } else if (pages.length === this.illust.pageCount && pages.length > 1) {
+      this.store.saveAll()
+    } else if (pages.length > 0) {
+      this.store.savePages(pages)
+    }
+  }
+
+  /** 选页弹窗：缩略图 URL（方图缩略档优先） */
+  private pageThumbUrl(pageIndex: number): string {
+    let hasMetaPage = this.illust.pageCount > 1 && pageIndex >= 0 && pageIndex < this.illust.metaPages.length
+    let urls = hasMetaPage ? this.illust.metaPages[pageIndex].imageUrls : this.illust.imageUrls
+    return urls.squareMedium || urls.medium || urls.large
+  }
+
+  /** 打开选页弹窗（仅多页）：默认全选，重置拖选/滚动状态 */
+  private openPageSelect(): void {
+    let count = this.illust.pageCount
+    if (count <= 1) {
+      return
+    }
+    let checked: boolean[] = []
+    let thumbs: string[] = []
+    for (let i = 0; i < count; i++) {
+      checked.push(true)
+      thumbs.push(this.pageThumbUrl(i))
+    }
+    this.pageSelectChecked = checked
+    this.pageSelectThumbUrls = thumbs
+    this.pageSelectScrollOffset = 0
+    this.pageSelectDragging = false
+    this.pageSelectSuppressClick = false
+    this.pageSelectPanOptions.setDistance(10000)
+    this.pageSelectShown = true
+  }
+
+  private closePageSelect(): void {
+    this.pageSelectShown = false
+    this.endPageSelectDrag()
+  }
+
+  private pageSelectCount(): number {
+    let n = 0
+    for (let i = 0; i < this.pageSelectChecked.length; i++) {
+      if (this.pageSelectChecked[i]) {
+        n++
+      }
+    }
+    return n
+  }
+
+  /** 确认下载：空选择不发起 */
+  private confirmPageSelect(): void {
+    let selected: number[] = []
+    for (let i = 0; i < this.pageSelectChecked.length; i++) {
+      if (this.pageSelectChecked[i]) {
+        selected.push(i)
+      }
+    }
+    if (selected.length === 0) {
+      return
+    }
+    this.closePageSelect()
+    this.handleSavePages(selected)
+  }
+
+  private setAllPageSelect(value: boolean): void {
+    let next: boolean[] = []
+    for (let i = 0; i < this.pageSelectChecked.length; i++) {
+      next.push(value)
+    }
+    this.pageSelectChecked = next
+  }
+
+  /** 单击单格切换（长按后的抬起 click 被吞掉，避免撤销拖选起始格的置位） */
+  private togglePageSelect(index: number): void {
+    if (this.pageSelectSuppressClick) {
+      this.pageSelectSuppressClick = false
+      return
+    }
+    if (index < 0 || index >= this.pageSelectChecked.length) {
+      return
+    }
+    let next = this.pageSelectChecked.slice()
+    next[index] = !next[index]
+    this.pageSelectChecked = next
+  }
+
+  /** 长按（≥300ms）激活拖选：起始格定方向（选中↔未选），记录拖前快照供区间重算 */
+  private startPageSelectDrag(index: number): void {
+    if (index < 0 || index >= this.pageSelectChecked.length) {
+      return
+    }
+    this.pageSelectDragging = true
+    this.pageSelectSuppressClick = true
+    this.pageSelectStartIndex = index
+    this.pageSelectTargetState = !this.pageSelectChecked[index]
+    this.pageSelectPreDrag = this.pageSelectChecked.slice()
+    this.pageSelectPanOptions.setDistance(1)
+    this.applyPageSelectRange(index)
+  }
+
+  /** 拖选区间置位：起始格与当前格之间的连续区间（行优先序）统一置为目标状态 */
+  private applyPageSelectRange(currentIndex: number): void {
+    if (this.pageSelectStartIndex < 0) {
+      return
+    }
+    let start = Math.min(this.pageSelectStartIndex, currentIndex)
+    let end = Math.max(this.pageSelectStartIndex, currentIndex)
+    let next = this.pageSelectPreDrag.slice()
+    for (let i = start; i <= end && i < next.length; i++) {
+      next[i] = this.pageSelectTargetState
+    }
+    this.pageSelectChecked = next
+  }
+
+  private endPageSelectDrag(): void {
+    if (!this.pageSelectDragging) {
+      return
+    }
+    this.pageSelectDragging = false
+    this.pageSelectStartIndex = -1
+    this.pageSelectPanOptions.setDistance(10000)
+  }
+
+  /** 单格边长（4 列，gap 8vp） */
+  private pageSelectCellSize(): number {
+    if (this.pageSelectGridWidth <= 0) {
+      return 0
+    }
+    return (this.pageSelectGridWidth - 24) / 4
+  }
+
+  /** 触点坐标（相对 Grid，vp）→ 格子索引；含滚动偏移换算，越界钳制 */
+  private pageSelectIndexAt(x: number, y: number): number {
+    let cell = this.pageSelectCellSize()
+    if (cell <= 0 || this.pageSelectChecked.length === 0) {
+      return -1
+    }
+    let col = Math.floor(x / (cell + 8))
+    if (col < 0) {
+      col = 0
+    }
+    if (col > 3) {
+      col = 3
+    }
+    let row = Math.floor((y + this.pageSelectScrollOffset) / (cell + 8))
+    let index = row * 4 + col
+    if (index < 0) {
+      index = 0
+    }
+    if (index >= this.pageSelectChecked.length) {
+      index = this.pageSelectChecked.length - 1
+    }
+    return index
+  }
+
+  /** 拖选滑动更新：按经过格区间批量置目标状态 */
+  private onPageSelectPanUpdate(event: GestureEvent): void {
+    if (!this.pageSelectDragging || event.fingerList.length === 0) {
+      return
+    }
+    let finger = event.fingerList[0]
+    let index = this.pageSelectIndexAt(finger.localX, finger.localY)
+    if (index >= 0) {
+      this.applyPageSelectRange(index)
     }
   }
 
@@ -432,21 +735,13 @@ struct IllustDetailPage {
     this.exifPickerShown = false
 
     // 继续保存流程
-    if (this.exifPickerIsSaveAll) {
-      this.store.saveAll()
-    } else {
-      this.store.savePage(this.exifPickerPageIndex)
-    }
+    this.resumeSaveAfterPicker()
   }
 
   /** TagExifPicker 跳过回调：直接保存不做过滤 */
   private onExifPickerSkip(): void {
     this.exifPickerShown = false
-    if (this.exifPickerIsSaveAll) {
-      this.store.saveAll()
-    } else {
-      this.store.savePage(this.exifPickerPageIndex)
-     }
+    this.resumeSaveAfterPicker()
    }
 
   /** 长按可写入标签 → 移入屏蔽区（永久屏蔽） */
@@ -677,6 +972,33 @@ struct IllustDetailPage {
       .width('100%')
       .padding({ left: 16, right: 16, top: 8 })
 
+      // 发布日期（本地时区 yyyy-MM-dd HH:mm；解析失败返回 '' 不渲染该行）
+      if (formatCreateDate(this.illust.createDate).length > 0) {
+        Row() {
+          Text('发布于 ' + formatCreateDate(this.illust.createDate))
+            .fontSize(12)
+            .fontColor('#999999')
+        }
+        .width('100%')
+        .padding({ left: 16, right: 16, top: 8 })
+      }
+
+      Row() {
+        Text('PID: ' + this.illust.id)
+          .fontSize(12)
+          .fontColor('#999999')
+          .gesture(
+            LongPressGesture({ duration: 500 })
+              .onAction(() => {
+                copyText(this.illust.id.toString()).then((ok: boolean) => {
+                  promptAction.showToast({ message: ok ? '已复制 PID' : '复制失败' })
+                })
+              })
+          )
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16, top: 8 })
+
       Flex({ wrap: FlexWrap.Wrap }) {
         ForEach(this.illust.tags, (tag: Tag) => {
           this.TagChip(tag)
@@ -685,54 +1007,19 @@ struct IllustDetailPage {
       .width('100%')
       .padding({ left: 16, right: 16, top: 8 })
 
-      Row() {
-        Button(this.bookmarkState() === BOOKMARK_LOADING ? '收藏中...' :
-          this.bookmarkState() === BOOKMARK_DONE ? '已收藏' : '收藏')
-          .width('28%')
-          .fontSize(13)
-          .backgroundColor(this.bookmarkState() === BOOKMARK_DONE ? '#FF6B6B' :
-            this.bookmarkState() === BOOKMARK_LOADING ? '#999999' : '#0096FA')
-          .enabled(this.bookmarkState() !== BOOKMARK_LOADING)
-          .onClick(() => { this.store.toggleBookmark() })
-          .gesture(
-            LongPressGesture({ duration: 500 })
-              .onAction(() => {
-                if (this.bookmarkState() === 0) {
-                  this.bookmarkMenuShown = true
-                }
-              })
-          )
-          .bindContextMenu(this.bookmarkMenuShown, this.BookmarkMenuBuilder, {
-            onDisappear: () => { this.bookmarkMenuShown = false }
+      // 查看评论：tag 云之后、相关作品之前的居中小号文字按钮（原按钮区已迁移至右下角双 FAB）
+      Text('查看评论')
+        .fontSize(12)
+        .fontColor('#999999')
+        .width('100%')
+        .textAlign(TextAlign.Center)
+        .padding({ top: 12, bottom: 16 })
+        .onClick(() => {
+          router.pushUrl({
+            url: 'pages/detail/CommentPage',
+            params: { illustId: this.illust.id, illustTitle: this.illust.title }
           })
-
-        Button('保存图片')
-          .width('28%')
-          .fontSize(13)
-          .backgroundColor('#0096FA')
-          .onClick(() => {
-            if (this.illust.pageCount > 1) {
-              this.saveMenuPageIndex = 0
-              this.saveMenuShown = true
-            } else {
-              this.handleSavePage(0)
-            }
-          })
-          .bindContextMenu(this.saveMenuShown && this.saveMenuPageIndex === 0, this.SaveMenuBuilder, {
-            onDisappear: () => { this.saveMenuShown = false }
-          })
-
-        if (this.illust.pageCount > 1) {
-          Button('下载全部')
-            .width('28%')
-            .fontSize(13)
-            .backgroundColor('#FF8800')
-            .onClick(() => { this.handleSaveAll() })
-        }
-      }
-      .width('100%')
-      .justifyContent(FlexAlign.SpaceEvenly)
-      .padding({ top: 16, bottom: 16 })
+        })
     }
     .width('100%')
   }
@@ -767,6 +1054,215 @@ struct IllustDetailPage {
     .width('100%')
   }
 
+  /** 右下角双 FAB：收藏（点按收藏/取消，长按公开/私密菜单；未收藏=浅灰♡，已收藏=红❤）+
+   *  下载（蓝底白↓；单击=保存全部页/单页保存，长按仅多页=选页弹窗） */
+  @Builder
+  FabOverlay() {
+    Column({ space: 12 }) {
+      // 收藏 FAB
+      Stack({ alignContent: Alignment.Center }) {
+        Text(this.bookmarkState() === BOOKMARK_DONE ? '❤' : '♡')
+          .fontSize(22)
+          .fontColor(this.bookmarkState() === BOOKMARK_DONE ? '#FF4081' :
+            this.bookmarkState() === BOOKMARK_LOADING ? '#CCCCCC' : '#999999')
+      }
+      .width(52)
+      .height(52)
+      .borderRadius(26)
+      .backgroundColor('#FFFFFF')
+      .shadow({ radius: 8, color: 'rgba(0, 0, 0, 0.2)', offsetY: 2 })
+      .onClick(() => { this.store.toggleBookmark() })
+      .gesture(
+        LongPressGesture({ duration: 500 })
+          .onAction(() => {
+            if (this.bookmarkState() === 0) {
+              this.bookmarkMenuShown = true
+            }
+          })
+      )
+      .bindContextMenu(this.bookmarkMenuShown, this.BookmarkMenuBuilder, {
+        onDisappear: () => { this.bookmarkMenuShown = false }
+      })
+
+      // 下载 FAB：蓝底白↓；单击多页=保存全部、单页=保存该页；长按仅多页=选页弹窗
+      Stack({ alignContent: Alignment.Center }) {
+        Text('↓')
+          .fontSize(22)
+          .fontColor('#FFFFFF')
+      }
+      .width(52)
+      .height(52)
+      .borderRadius(26)
+      .backgroundColor('#0096FA')
+      .shadow({ radius: 8, color: 'rgba(0, 0, 0, 0.2)', offsetY: 2 })
+      .onClick(() => {
+        if (this.illust.pageCount > 1) {
+          this.handleSaveAll()
+        } else {
+          this.handleSavePage(0)
+        }
+      })
+      .gesture(
+        LongPressGesture({ duration: 500 })
+          .onAction(() => {
+            if (this.illust.pageCount > 1) {
+              this.openPageSelect()
+            }
+          })
+      )
+    }
+    .margin({ right: 16, bottom: 32 })
+  }
+
+  /** 选页弹窗单格：缩略图 + 勾选角标 + 页码；防社死模式下 R18 页纯色遮罩（弹层内不揭示） */
+  @Builder
+  PageSelectCell(url: string, index: number) {
+    Stack({ alignContent: Alignment.TopEnd }) {
+      if (this.appSettings.antiSocialDeath && this.isR18()) {
+        Column() {
+          Text('🔒')
+            .fontSize(16)
+            .opacity(0.4)
+        }
+        .width('100%')
+        .aspectRatio(1)
+        .justifyContent(FlexAlign.Center)
+        .backgroundColor('#E0E0E0')
+        .borderRadius(6)
+      } else {
+        CachedImage({ url: url, ratio: 1, fit: ImageFit.Cover })
+      }
+      // 勾选角标（右上）
+      if (index < this.pageSelectChecked.length && this.pageSelectChecked[index]) {
+        Text('✓')
+          .fontSize(12)
+          .fontColor('#FFFFFF')
+          .width(20)
+          .height(20)
+          .borderRadius(10)
+          .backgroundColor('#0096FA')
+          .textAlign(TextAlign.Center)
+          .margin(4)
+      } else {
+        Column()
+          .width(20)
+          .height(20)
+          .borderRadius(10)
+          .backgroundColor('rgba(0, 0, 0, 0.3)')
+          .border({ width: 1, color: '#FFFFFF' })
+          .margin(4)
+      }
+      // 页码（左下）
+      Text('P' + (index + 1))
+        .fontSize(10)
+        .fontColor('#FFFFFF')
+        .backgroundColor('rgba(0, 0, 0, 0.6)')
+        .padding({ left: 4, right: 4, top: 1, bottom: 1 })
+        .borderRadius(4)
+        .margin(4)
+        .align(Alignment.BottomStart)
+    }
+    .width('100%')
+    .aspectRatio(1)
+    .clip(true)
+    .borderRadius(6)
+    .border({
+      width: 2,
+      color: index < this.pageSelectChecked.length && this.pageSelectChecked[index] ? '#0096FA' : '#00000000'
+    })
+    .onClick(() => { this.togglePageSelect(index) })
+    .gesture(
+      LongPressGesture({ duration: 300 })
+        .onAction(() => { this.startPageSelectDrag(index) })
+    )
+  }
+
+  /** 选页弹窗：半透明遮罩 + 底部弹层（4 列缩略图网格；单击切换，长按≥300ms 激活拖选后滑动连选） */
+  @Builder
+  PageSelectOverlay() {
+    Column() {
+      Column() {
+        // 头部：计数 + 全选/清空
+        Row() {
+          Text('选择下载页（' + this.pageSelectCount() + '/' + this.pageSelectChecked.length + '）')
+            .fontSize(16)
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#333333')
+            .layoutWeight(1)
+          Text('全选')
+            .fontSize(13)
+            .fontColor('#0096FA')
+            .onClick(() => { this.setAllPageSelect(true) })
+          Text('清空')
+            .fontSize(13)
+            .fontColor('#999999')
+            .margin({ left: 16 })
+            .onClick(() => { this.setAllPageSelect(false) })
+        }
+        .width('100%')
+        .margin({ bottom: 12 })
+
+        // 缩略图网格：priorityGesture 动态 distance——普通状态 10000vp 让位 Grid 滚动，
+        // 长按激活拖选后 1vp 即触，滑动按经过格区间批量置目标状态
+        Grid() {
+          ForEach(this.pageSelectThumbUrls, (url: string, index: number) => {
+            GridItem() {
+              this.PageSelectCell(url, index)
+            }
+          }, (url: string, index: number) => index.toString() + '_' +
+            (index < this.pageSelectChecked.length && this.pageSelectChecked[index] ? '1' : '0'))
+        }
+        .columnsTemplate('1fr 1fr 1fr 1fr')
+        .columnsGap(8)
+        .rowsGap(8)
+        .width('100%')
+        .layoutWeight(1)
+        .onAreaChange((_oldArea: Area, newArea: Area) => {
+          this.pageSelectGridWidth = newArea.width as number
+        })
+        .onDidScroll((scrollOffset: number, _scrollState: ScrollState) => {
+          this.pageSelectScrollOffset += scrollOffset
+        })
+        .priorityGesture(
+          PanGesture(this.pageSelectPanOptions)
+            .onActionUpdate((event: GestureEvent) => { this.onPageSelectPanUpdate(event) })
+            .onActionEnd(() => { this.endPageSelectDrag() })
+            .onActionCancel(() => { this.endPageSelectDrag() })
+        )
+
+        // 底部按钮：取消 / 确定下载(N)，空选择不发起
+        Row({ space: 12 }) {
+          Button('取消')
+            .fontSize(14)
+            .backgroundColor('#EEEEEE')
+            .fontColor('#333333')
+            .layoutWeight(1)
+            .onClick(() => { this.closePageSelect() })
+          Button(this.pageSelectCount() > 0 ? '确定下载(' + this.pageSelectCount() + ')' : '确定下载')
+            .fontSize(14)
+            .backgroundColor(this.pageSelectCount() > 0 ? '#0096FA' : '#CCCCCC')
+            .fontColor('#FFFFFF')
+            .layoutWeight(1)
+            .onClick(() => { this.confirmPageSelect() })
+        }
+        .width('100%')
+        .margin({ top: 12 })
+      }
+      .width('100%')
+      .height('75%')
+      .padding(16)
+      .backgroundColor('#FFFFFF')
+      .borderRadius({ topLeft: 16, topRight: 16 })
+      // 内层消费点击防冒泡到遮罩关闭
+      .onClick(() => {})
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor('rgba(0, 0, 0, 0.4)')
+    .justifyContent(FlexAlign.End)
+    .onClick(() => { this.closePageSelect() })
+  }
+
   @Builder
   MergeDialogOverlay() {
     Column() {
@@ -782,10 +1278,38 @@ struct IllustDetailPage {
           .margin({ bottom: 16 })
         TextInput({ placeholder: '输入主标签名', text: this.mergeInputText })
           .onChange((value: string) => {
-            this.mergeInputText = value
+            this.onMergeInputChange(value)
           })
           .width('100%')
-          .margin({ bottom: 24 })
+          .margin({ bottom: 8 })
+        // 输入补全建议区：本地来源即时、API 防抖兜底；点选回填
+        if (this.mergeSuggestions.length > 0) {
+          Column() {
+            ForEach(this.mergeSuggestions, (name: string, index: number) => {
+              Row() {
+                Text(name)
+                  .fontSize(14)
+                  .fontColor('#333333')
+                  .layoutWeight(1)
+                if (index < this.mergeSuggestionSubs.length && this.mergeSuggestionSubs[index].length > 0) {
+                  Text(this.mergeSuggestionSubs[index])
+                    .fontSize(11)
+                    .fontColor('#999999')
+                    .margin({ left: 8 })
+                }
+              }
+              .width('100%')
+              .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+              .onClick(() => {
+                this.pickMergeSuggestion(name)
+              })
+            }, (name: string, index: number) => name + '_' + index)
+          }
+          .width('100%')
+          .backgroundColor('#F8F8F8')
+          .borderRadius(8)
+          .margin({ bottom: 16 })
+        }
         Row({ space: 12 }) {
           Button('取消')
             .fontSize(14)
@@ -793,7 +1317,7 @@ struct IllustDetailPage {
             .fontColor('#333333')
             .layoutWeight(1)
             .onClick(() => {
-              this.mergeDialogShown = false
+              this.closeMergeDialog()
             })
           Button('确认合并')
             .fontSize(14)
@@ -804,7 +1328,7 @@ struct IllustDetailPage {
               if (this.mergeInputText.length > 0) {
                 userSettingStore.addExifMergeRule(this.mergeInputText, [this.mergeFromTag])
                 promptAction.showToast({ message: '已将 [' + this.mergeFromTag + '] 合并到 [' + this.mergeInputText + ']' })
-                this.mergeDialogShown = false
+                this.closeMergeDialog()
               }
             })
         }
@@ -814,19 +1338,20 @@ struct IllustDetailPage {
       .backgroundColor('#FFFFFF')
       .borderRadius(12)
       .width('85%')
-      .hitTestBehavior(HitTestMode.Block)
+      // 内层消费点击防冒泡到遮罩关闭（hitTestBehavior(Block) 会挡住输入框/按钮交互，已禁用）
+      .onClick(() => {})
     }
     .width('100%')
     .height('100%')
     .backgroundColor('rgba(0, 0, 0, 0.4)')
     .justifyContent(FlexAlign.Center)
     .onClick(() => {
-      this.mergeDialogShown = false
+      this.closeMergeDialog()
     })
   }
 
   build() {
-    Stack() {
+    Stack({ alignContent: Alignment.BottomEnd }) {
       Column() {
         if (this.errorMessage && this.rows.length === 0) {
           ErrorView({ message: this.errorMessage, onRetry: () => { this.loadDetail(this.illustId) } })
@@ -863,8 +1388,18 @@ struct IllustDetailPage {
       .width('100%')
       .height('100%')
 
+      // 双 FAB：主 Column 之后、各弹层之前；任一弹层打开时隐藏
+      if (this.illust.id > 0 && !this.exifPickerShown && !this.mergeReviewShown && !this.mergeDialogShown &&
+        !this.pageSelectShown) {
+        this.FabOverlay()
+      }
+
       if (this.mergeDialogShown) {
         this.MergeDialogOverlay()
+      }
+
+      if (this.pageSelectShown) {
+        this.PageSelectOverlay()
       }
 
       if (this.mergeReviewShown) {

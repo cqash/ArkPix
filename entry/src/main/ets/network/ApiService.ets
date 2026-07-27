@@ -25,7 +25,19 @@ export class ApiService {
 
   private ensureSuccess(response: http.HttpResponse, url: string): void {
     if (response.responseCode < 200 || response.responseCode >= 300) {
-      throw new Error('HTTP ' + response.responseCode + ': ' + url)
+      // 附加截断后的响应体（约 200 字符），便于定位服务端 4xx/5xx 原因
+      let bodySnippet = ''
+      try {
+        let raw = String(response.result)
+        bodySnippet = raw.length > 200 ? raw.substring(0, 200) + '...' : raw
+      } catch (e) {
+        bodySnippet = ''
+      }
+      let message = 'HTTP ' + response.responseCode + ': ' + url
+      if (bodySnippet.length > 0) {
+        message += ' | body: ' + bodySnippet
+      }
+      throw new Error(message)
     }
   }
 
@@ -100,6 +112,19 @@ export class ApiService {
 
   async getIllustComments(id: number): Promise<Object> {
     return this.get(PixivEndpoints.illustComments(id))
+  }
+
+  async getIllustCommentReplies(commentId: number): Promise<Object> {
+    return this.get(PixivEndpoints.illustCommentReplies(commentId))
+  }
+
+  async addIllustComment(illustId: number, text: string, parentCommentId?: number): Promise<Object> {
+    // Pixiv /v1/illust/comment/add 的 form 字段名为 comment（误用 text 会触发服务端 500）
+    let fields: Record<string, string | number | boolean> = { 'illust_id': illustId, 'comment': text }
+    if (parentCommentId !== undefined && parentCommentId > 0) {
+      fields['parent_comment_id'] = parentCommentId
+    }
+    return this.post(PixivEndpoints.illustCommentAdd(), fields)
   }
 
   async addBookmark(illustId: number, restrict: string = 'public', tags: string[] = []): Promise<Object> {

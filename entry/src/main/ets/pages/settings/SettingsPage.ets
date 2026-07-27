@@ -1,8 +1,22 @@
-import { router } from '@kit.ArkUI';
+import { router, promptAction } from '@kit.ArkUI';
+import { common } from '@kit.AbilityKit';
+import { picker, fileIo } from '@kit.CoreFileKit';
 import { accountStore } from '../../stores/AccountStore';
 import { AppSettings } from '../../models/AppSettings'
 import { imageCacheService } from '../../services/ImageCacheService';
 import { userSettingStore } from '../../stores/UserSettingStore';
+import { copyText } from '../../utils/ClipboardUtils';
+
+interface TokenExportData {
+  version: number
+  appName: string
+  type: string
+  userId: number
+  userName: string
+  account: string
+  refreshToken: string
+  exportedAt: string
+}
 
 @Component
 struct SettingItem {
@@ -143,8 +157,87 @@ export struct SettingsPage {
     { label: '代理', value: 2 }
   ]
 
+  private downloadConcurrencyOptions: QualityOption[] = [
+    { label: '1 线程', value: 1 },
+    { label: '2 线程', value: 2 },
+    { label: '3 线程', value: 3 },
+    { label: '4 线程', value: 4 },
+    { label: '5 线程', value: 5 }
+  ]
+
   private refresh(): void {
     this.settings = userSettingStore.getSettings()
+  }
+
+  // ===== 导出 Token =====
+  private showExportTokenDialog(): void {
+    let account = accountStore.getCurrentAccount()
+    if (!account || account.refreshToken.length === 0) {
+      promptAction.showToast({ message: '无可用 token' })
+      return
+    }
+    this.getUIContext().showAlertDialog({
+      title: '导出 Token',
+      message: 'Token 等同于登录凭证，泄露后他人可直接登录你的账号。请仅在可信环境使用，导出后妥善保管。',
+      autoCancel: true,
+      primaryButton: {
+        value: '复制到剪贴板',
+        action: () => { this.copyToken() }
+      },
+      secondaryButton: {
+        value: '导出为文件',
+        action: () => { this.exportTokenFile() }
+      }
+    })
+  }
+
+  private async copyToken(): Promise<void> {
+    let account = accountStore.getCurrentAccount()
+    if (!account || account.refreshToken.length === 0) {
+      promptAction.showToast({ message: '无可用 token' })
+      return
+    }
+    let ok = await copyText(account.refreshToken)
+    promptAction.showToast({ message: ok ? '已复制 refresh token 到剪贴板' : '复制失败' })
+  }
+
+  private async exportTokenFile(): Promise<void> {
+    let account = accountStore.getCurrentAccount()
+    if (!account || account.refreshToken.length === 0) {
+      promptAction.showToast({ message: '无可用 token' })
+      return
+    }
+    let exportData: TokenExportData = {
+      version: 1,
+      appName: 'ArkPix',
+      type: 'token',
+      userId: account.id,
+      userName: account.name,
+      account: account.account,
+      refreshToken: account.refreshToken,
+      exportedAt: new Date().toISOString()
+    }
+    let json = JSON.stringify(exportData, null, 2)
+    try {
+      let ctx = AppStorage.get<common.Context>('context')
+      if (!ctx) {
+        promptAction.showToast({ message: '导出失败：无法获取上下文' })
+        return
+      }
+      let options = new picker.DocumentSaveOptions()
+      options.newFileNames = ['arkpix-token.json']
+      let docPicker = new picker.DocumentViewPicker(ctx)
+      let uris: Array<string> = await docPicker.save(options)
+      if (uris.length === 0) {
+        return
+      }
+      let file = fileIo.openSync(uris[0], fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE)
+      fileIo.writeSync(file.fd, json)
+      fileIo.closeSync(file)
+      promptAction.showToast({ message: '导出成功' })
+    } catch (e) {
+      promptAction.showToast({ message: '导出失败: ' + e })
+    }
   }
 
   build() {
@@ -250,6 +343,14 @@ export struct SettingsPage {
             onItemClick: () => {
               this.showQualityPicker('下载图片质量', this.detailQualityOptions, this.settings.downloadQuality,
                 (v: number) => { userSettingStore.setDownloadQuality(v); this.refresh() })
+            }
+          })
+          SettingItem({
+            title: '下载线程数',
+            value: this.qualityLabel(this.downloadConcurrencyOptions, this.settings.downloadConcurrency),
+            onItemClick: () => {
+              this.showQualityPicker('下载线程数', this.downloadConcurrencyOptions, this.settings.downloadConcurrency,
+                (v: number) => { userSettingStore.setDownloadConcurrency(v); this.refresh() })
             }
           })
           SettingItem({
@@ -365,6 +466,13 @@ export struct SettingsPage {
             }
           })
           SettingItem({
+            title: '历史记录',
+            value: '',
+            onItemClick: () => {
+              router.pushUrl({ url: 'pages/settings/HistoryPage' })
+            }
+          })
+          SettingItem({
             title: '清理图片缓存',
             value: '',
             onItemClick: () => {
@@ -400,6 +508,13 @@ export struct SettingsPage {
       ListItem() {
         Column() {
           SectionHeader({ title: '账户' })
+          SettingItem({
+            title: '导出 Token',
+            value: '',
+            onItemClick: () => {
+              this.showExportTokenDialog()
+            }
+          })
           Row() {
             Text('退出登录')
               .fontSize(14)

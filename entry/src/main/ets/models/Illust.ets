@@ -151,8 +151,8 @@ export class UserPreview {
     }
   }
 
-  static fromJson(json: RawUserPreview): UserPreviewOptions {
-    let p = json
+  static fromJson(json: Object): UserPreviewOptions {
+    let p = json as RawUserPreview
     let opts: UserPreviewOptions = {
       id: p?.id ?? 0,
       name: p?.name ?? '',

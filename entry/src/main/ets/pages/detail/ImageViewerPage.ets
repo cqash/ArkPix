@@ -1,5 +1,4 @@
 import { router, promptAction } from '@kit.ArkUI';
-import { common } from '@kit.AbilityKit';
 import { downloadService } from '../../services/DownloadService';
 import { Illust } from '../../models/Illust';
 import { AppSettings } from '../../models/AppSettings';
@@ -98,27 +97,12 @@ struct ImageViewerPage {
   }
 
   private async doSave(): Promise<void> {
-    let localPath = await downloadService.downloadToCache(
-      this.downloadUrls[this.currentIndex], this.illust, this.currentIndex)
-    if (!localPath) {
-      promptAction.showToast({ message: '下载失败' })
-      return
-    }
-    let ctx = AppStorage.get<common.Context>('context')
-    if (!ctx) {
-      promptAction.showToast({ message: '保存失败' })
-      return
-    }
-    let saved = await downloadService.applyToGallery(localPath, ctx)
-    if (saved) {
-      promptAction.showToast({ message: '已保存到图库' })
-      // 下载时自动收藏联动，走 BookmarkStateStore 保证跨页同步
-      if (userSettingStore.getSettings().autoBookmarkOnDownload && this.illust.id > 0 &&
-        bookmarkStateStore.stateOf(this.illust.id, this.illust.isBookmarked) !== BOOKMARK_DONE) {
-        await bookmarkStateStore.star(this.illust, 'public')
-      }
-    } else {
-      promptAction.showToast({ message: '保存失败' })
+    downloadService.enqueue(this.downloadUrls[this.currentIndex], this.illust, this.currentIndex)
+    promptAction.showToast({ message: '已加入下载任务' })
+    // 下载时自动收藏联动，走 BookmarkStateStore 保证跨页同步
+    if (userSettingStore.getSettings().autoBookmarkOnDownload && this.illust.id > 0 &&
+      bookmarkStateStore.stateOf(this.illust.id, this.illust.isBookmarked) !== BOOKMARK_DONE) {
+      await bookmarkStateStore.star(this.illust, 'public')
     }
   }
 

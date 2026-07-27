@@ -15,6 +15,8 @@ export class PixivEndpoints {
   static illustDetail(id: number): string { return PixivEndpoints.API_BASE + '/v1/illust/detail?illust_id=' + id + '&filter=for_android' }
   static illustRelated(id: number): string { return PixivEndpoints.API_BASE + '/v2/illust/related?illust_id=' + id + '&filter=for_android' }
   static illustComments(id: number): string { return PixivEndpoints.API_BASE + '/v3/illust/comments?illust_id=' + id }
+  static illustCommentReplies(commentId: number): string { return PixivEndpoints.API_BASE + '/v2/illust/comment/replies?comment_id=' + commentId }
+  static illustCommentAdd(): string { return PixivEndpoints.API_BASE + '/v1/illust/comment/add' }
   static illustBookmarkAdd(): string { return PixivEndpoints.API_BASE + '/v2/illust/bookmark/add' }
   static illustBookmarkDelete(): string { return PixivEndpoints.API_BASE + '/v1/illust/bookmark/delete' }
   static illustLike(): string { return PixivEndpoints.API_BASE + '/v2/illust/bookmark/add' }
@@ -39,7 +41,7 @@ export class PixivEndpoints {
     return url
   }
   static searchUser(word: string): string { return PixivEndpoints.API_BASE + '/v1/search/user?word=' + encodeURIComponent(word) }
-  static searchAutoComplete(word: string): string { return PixivEndpoints.API_BASE + '/v2/search/autocomplete?word=' + encodeURIComponent(word) }
+  static searchAutoComplete(word: string): string { return PixivEndpoints.API_BASE + '/v2/search/autocomplete?word=' + encodeURIComponent(word) + '&merge_plain_keyword_results=true' }
   static trendingTagsIllust(): string { return PixivEndpoints.API_BASE + '/v1/trending-tags/illust?filter=for_android' }
 
   static novelRecommended(): string { return PixivEndpoints.API_BASE + '/v1/novel/recommended?filter=for_android' }

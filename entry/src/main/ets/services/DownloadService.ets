@@ -3,7 +3,6 @@ import { http } from '@kit.NetworkKit';
 import { rcp } from '@kit.RemoteCommunicationKit';
 import { fileIo, fileUri } from '@kit.CoreFileKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
-import { promptAction } from '@kit.ArkUI';
 import { getDbService, DatabaseService } from './DatabaseService';
 import { Constants } from '../utils/Constants';
 import { imageExifService, ExifInfo, ExifTag } from './ImageExifService';
@@ -17,8 +16,33 @@ interface IllustDetailResponse {
   illust: Object
 }
 
+/** 重试全部失败任务的分类计数：发起/成功/失败/跳过（元信息缺失） */
+export interface RetryAllResult {
+  started: number
+  succeeded: number
+  failed: number
+  skipped: number
+}
+
+/** 任务变更事件回调（任务完成/失败时触发，供页面可见期刷新列表） */
+export type TaskChangeListener = () => void
+
+/** 内存 FIFO 队列任务；DB 中的 pending 记录由 enqueue 时写入，dbReady 保证落库先于任务体执行 */
+interface QueuedDownloadTask {
+  url: string
+  illust: Illust
+  pageIndex: number
+  taskId: string
+  dbReady: Promise<void>
+}
+
 export class DownloadService {
   private static instance: DownloadService
+  private taskChangeListeners: TaskChangeListener[] = []
+  private queue: QueuedDownloadTask[] = []
+  private activeCount: number = 0
+  /** 排队中+执行中的 taskId 集合：并发重复下载防护（isDownloaded 只查 completed，管不到在途任务） */
+  private inflightTaskIds: string[] = []
 
   private constructor() {}
 
@@ -27,6 +51,29 @@ export class DownloadService {
       DownloadService.instance = new DownloadService()
     }
     return DownloadService.instance
+  }
+
+  /** 注册任务变更回调（页面可见期注册，aboutToDisappear 注销） */
+  registerTaskChangeListener(listener: TaskChangeListener): void {
+    this.taskChangeListeners.push(listener)
+  }
+
+  unregisterTaskChangeListener(listener: TaskChangeListener): void {
+    let idx = this.taskChangeListeners.indexOf(listener)
+    if (idx >= 0) {
+      this.taskChangeListeners.splice(idx, 1)
+    }
+  }
+
+  private notifyTaskChanged(): void {
+    let snapshot = this.taskChangeListeners.slice()
+    for (let i = 0; i < snapshot.length; i++) {
+      try {
+        snapshot[i]()
+      } catch (e) {
+        console.error('Task change listener failed: ' + e)
+      }
+    }
   }
 
   private getExtension(url: string): string {
@@ -118,15 +165,96 @@ export class DownloadService {
     return tempPath
   }
 
-  async downloadToCache(url: string, illust: Illust, pageIndex: number, showStartToast: boolean = true): Promise<string> {
+  /**
+   * 公开入队入口（fire-and-forget）：
+   * 先写 DB pending 记录入 FIFO 队列；activeCount < 当前上限立即执行，否则排队等待补位。
+   * 并发上限每次调度时读 userSettingStore.getSettings().downloadConcurrency（防御拷贝，配置即时生效）。
+   */
+  enqueue(url: string, illust: Illust, pageIndex: number): void {
+    let taskId = illust.id + '_' + pageIndex
+    if (this.inflightTaskIds.indexOf(taskId) >= 0) {
+      // 同一页已在排队/下载中，跳过重复入队
+      return
+    }
+    this.inflightTaskIds.push(taskId)
+    let dbReady: Promise<void> = getDbService()
+      .then(async (db: DatabaseService): Promise<void> => {
+        await db.addDownloadTask(taskId, illust.id, pageIndex, url)
+      })
+      .catch((e: Object) => {
+        console.error('Enqueue DB write failed: ' + e)
+      })
+    let task: QueuedDownloadTask = {
+      url: url,
+      illust: illust,
+      pageIndex: pageIndex,
+      taskId: taskId,
+      dbReady: dbReady
+    }
+    this.queue.push(task)
+    // 通知监听方刷新（DownloadPage 可见 pending "排队中"）
+    this.notifyTaskChanged()
+    this.scheduleNext()
+  }
+
+  private currentConcurrencyLimit(): number {
+    let limit = userSettingStore.getSettings().downloadConcurrency
+    if (limit < 1) {
+      return 1
+    }
+    if (limit > 5) {
+      return 5
+    }
+    return limit
+  }
+
+  private scheduleNext(): void {
+    let limit = this.currentConcurrencyLimit()
+    while (this.activeCount < limit && this.queue.length > 0) {
+      let task = this.queue.shift()
+      if (task === undefined) {
+        break
+      }
+      this.activeCount++
+      this.runTask(task)
+        .then(() => {
+          this.onTaskSettled()
+        })
+        .catch((e: Object) => {
+          console.error('Download task failed: ' + e)
+          this.onTaskSettled()
+        })
+    }
+  }
+
+  private onTaskSettled(): void {
+    this.activeCount--
+    this.scheduleNext()
+  }
+
+  /** 任务体 = 等待 pending 落库 → 下载落盘 → finalize → applyToGallery（状态落库与 notifyTaskChanged 在下载链路内完成） */
+  private async runTask(task: QueuedDownloadTask): Promise<void> {
+    try {
+      await task.dbReady
+      let localPath = await this.downloadToCache(task.url, task.illust, task.pageIndex)
+      if (localPath.length > 0) {
+        let ctx = AppStorage.get<common.Context>('context')
+        if (ctx) {
+          await this.applyToGallery(localPath, ctx)
+        }
+      }
+    } finally {
+      let idx = this.inflightTaskIds.indexOf(task.taskId)
+      if (idx >= 0) {
+        this.inflightTaskIds.splice(idx, 1)
+      }
+    }
+  }
+
+  private async downloadToCache(url: string, illust: Illust, pageIndex: number): Promise<string> {
     let taskId = illust.id + '_' + pageIndex
     let proxyUrl = Constants.applyProxy(url)
     let db = await getDbService()
-    await db.addDownloadTask(taskId, illust.id, pageIndex, url)
-
-    if (showStartToast) {
-      promptAction.showToast({ message: '开始下载...' })
-    }
 
     try {
       await db.updateDownloadStatus(taskId, 'downloading', 0, '')
@@ -147,7 +275,9 @@ export class DownloadService {
 
       let networkMode = preferenceService.getString('network_mode', 'direct')
       if (networkMode === 'bypass') {
-        return await this.downloadBypass(url, tempPath, basePath, ext, taskId, db, shouldEmbedExif, illust, pageIndex)
+        let bypassResult = await this.downloadBypass(url, tempPath, basePath, ext, taskId, db, shouldEmbedExif, illust, pageIndex)
+        this.notifyTaskChanged()
+        return bypassResult
       }
 
       let httpClient = http.createHttp()
@@ -167,10 +297,13 @@ export class DownloadService {
         let file = fileIo.openSync(tempPath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE)
         fileIo.writeSync(file.fd, response.result)
         fileIo.closeSync(file)
-        return await this.finalizeDownload(tempPath, basePath, ext, shouldEmbedExif, illust, pageIndex, taskId, db)
+        let finalPath = await this.finalizeDownload(tempPath, basePath, ext, shouldEmbedExif, illust, pageIndex, taskId, db)
+        this.notifyTaskChanged()
+        return finalPath
       }
     } catch (e) {
       await db.updateDownloadStatus(taskId, 'failed', 0, '')
+      this.notifyTaskChanged()
       console.error('Download failed: ' + e)
     }
     return ''
@@ -209,7 +342,7 @@ export class DownloadService {
     return ''
   }
 
-  async applyToGallery(localPath: string, context: common.Context): Promise<boolean> {
+  private async applyToGallery(localPath: string, context: common.Context): Promise<boolean> {
     try {
       let ph = photoAccessHelper.getPhotoAccessHelper(context)
       let srcUri = fileUri.getUriFromPath(localPath)
@@ -252,15 +385,21 @@ export class DownloadService {
     return await db.deleteDownloadTasksByStatus(status)
   }
 
-  /** 重试全部失败任务：用任务记录的 URL + 接口元信息重建下载；元信息缺失条目跳过。返回成功发起数。
-   *  onTaskDone 每完成一个任务（无论成功失败）回调，供 UI 刷新列表。 */
-  async retryAllFailed(onTaskDone?: () => void): Promise<number> {
+  /** 重试全部失败任务：用任务记录的 URL + 接口元信息重建下载并入队；元信息缺失条目计 skipped。
+   *  入队为 fire-and-forget，started=入队数，succeeded/failed 不再同步统计（保持 0）。
+   *  onTaskDone 每处理完一条记录回调，供 UI 刷新列表。 */
+  async retryAllFailed(onTaskDone?: () => void): Promise<RetryAllResult> {
     let db = await getDbService()
     let tasks = await db.getDownloadTasks()
-    let started = 0
+    let result: RetryAllResult = { started: 0, succeeded: 0, failed: 0, skipped: 0 }
     for (let i = 0; i < tasks.length; i++) {
       let task = tasks[i]
-      if (task.status !== 'failed' || task.image_url.length === 0) {
+      if (task.status !== 'failed') {
+        continue
+      }
+      if (task.image_url.length === 0) {
+        result.skipped++
+        if (onTaskDone) { onTaskDone() }
         continue
       }
       try {
@@ -268,28 +407,25 @@ export class DownloadService {
         let raw = (response as IllustDetailResponse).illust
         if (!raw) {
           console.error('Retry task ' + task.id + ' skipped: illust metadata missing')
+          result.skipped++
           if (onTaskDone) { onTaskDone() }
           continue
         }
         let illust = Illust.fromJson(raw)
         if (illust.id === 0) {
+          result.skipped++
           if (onTaskDone) { onTaskDone() }
           continue
         }
-        let localPath = await this.downloadToCache(task.image_url, illust, task.page_index, false)
-        if (localPath.length > 0) {
-          let ctx = AppStorage.get<common.Context>('context')
-          if (ctx) {
-            await this.applyToGallery(localPath, ctx)
-          }
-          started++
-        }
+        result.started++
+        this.enqueue(task.image_url, illust, task.page_index)
       } catch (e) {
         console.error('Retry task ' + task.id + ' failed: ' + e)
+        result.failed++
       }
       if (onTaskDone) { onTaskDone() }
     }
-    return started
+    return result
   }
 }
 

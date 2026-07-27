@@ -71,13 +71,18 @@ export class DatabaseService {
     return DatabaseService.instance
   }
 
+  /** 按 illust_id 去重：history 表 illust_id 无 UNIQUE 约束，INSERT OR REPLACE 不去重，先删后插 */
   async addHistory(illustId: number, title: string, imageUrl: string, userName: string): Promise<void> {
-    await this.db.execute('INSERT OR REPLACE INTO history (illust_id, title, image_url, user_name, timestamp) VALUES (?, ?, ?, ?, ?)',
+    await this.db.execute('DELETE FROM history WHERE illust_id = ?', [illustId])
+    await this.db.execute('INSERT INTO history (illust_id, title, image_url, user_name, timestamp) VALUES (?, ?, ?, ?, ?)',
       [illustId, title, imageUrl, userName, Date.now()])
   }
 
-  async getHistory(limit: number = 100): Promise<HistoryItem[]> {
-    let resultSet = await this.db.querySql('SELECT * FROM history ORDER BY timestamp DESC LIMIT ?', [limit])
+  async getHistory(limit: number = 500): Promise<HistoryItem[]> {
+    // 按 illust_id 合并：同一作品仅取最新一条（MAX(id) 分组在同毫秒 timestamp 下仍唯一），不动存量数据
+    let resultSet = await this.db.querySql(
+      'SELECT * FROM history WHERE id IN (SELECT MAX(id) FROM history GROUP BY illust_id) ORDER BY timestamp DESC LIMIT ?',
+      [limit])
     let results: HistoryItem[] = []
     while (resultSet.goToNextRow()) {
       let item: HistoryItem = {
@@ -98,8 +103,10 @@ export class DatabaseService {
     await this.db.execute('DELETE FROM history')
   }
 
+  /** 按 keyword+search_type 去重：search_history 表无 UNIQUE 约束，INSERT OR REPLACE 不去重，先删后插 */
   async addSearchHistory(keyword: string, searchType: string): Promise<void> {
-    await this.db.execute('INSERT OR REPLACE INTO search_history (keyword, search_type, timestamp) VALUES (?, ?, ?)',
+    await this.db.execute('DELETE FROM search_history WHERE keyword = ? AND search_type = ?', [keyword, searchType])
+    await this.db.execute('INSERT INTO search_history (keyword, search_type, timestamp) VALUES (?, ?, ?)',
       [keyword, searchType, Date.now()])
   }
 
