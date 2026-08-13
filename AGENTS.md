@@ -11,7 +11,7 @@ HarmonyOS ArkTS Stage Model 应用（单模块 `entry`），API 12+ / SDK 6.1.0(
 
 ## 入口与导航
 
-- `EntryAbility` → `AppStorage.setOrCreate('context', this.context)` + `hoster.init()`（DoH/bypass 主机解析，bypass 模式 `refreshAll()`）→ 加载 `pages/splash/SplashPage`
+- `EntryAbility` → `AppStorage.setOrCreate('context', this.context)` + `hoster.init()` + `hoster.refreshAll()`（DoH 主机解析）+ `localProxyServer.start()`（本地中继，供 WebView 走绕过）→ 加载 `pages/splash/SplashPage`
 - `SplashPage` 等 1.5s → `router.replaceUrl` 到 `HomePage`（已登录）或 `LoginPage`（`needsRelogin` 时先 toast 提示重新登录）
 - `HomePage` = `Tabs` 容器（RecomPage、FollowPage、RankPage、SearchPage、SettingsPage）
 - 深层页用 `router.pushUrl` / `router.replaceUrl`（非 Navigation）。路由上限 32 页。
@@ -27,10 +27,10 @@ components/  — 可复用组件
   illust/    — IllustCard（@Reusable 公共卡片：宽高比/角标/红心/长按菜单）、IllustWaterfall（瀑布流容器：分页/刷新/过滤/可选 compareFn 排序）
   viewer/    — ZoomableImage（PanGestureOptions.setDistance 动态 distance + .priorityGesture 优先级提升）
 stores/      — AccountStore、UserSettingStore、BookmarkStateStore（收藏注册表单例）、IllustDetailStore（详情页编排，非单例）、CommentStore（评论页编排，非单例，主楼/回复楼双模式）
-network/     — HttpClient + 拦截器链 + ApiService / OAuthService / PixivEndpoints + Hoster（DoH/直连-bypass 主机解析）
+network/     — HttpClient + 拦截器链 + ApiService / OAuthService / PixivEndpoints + Hoster（DoH 主机解析）+ LocalProxyServer（本地 TCP 中继，WebView 用）
 services/    — PreferenceService（KV）、DatabaseService（relationalStore）、ImageCacheService、DownloadService、ImageExifService
 models/      — Illust、User、Novel、Comment、Bookmark、SearchHistory、MuteItem、DownloadTask、AppSettings、DohResponse
-utils/       — Constants（containsCjk/isAsciiOnly/filterTranslatedName）、CryptoUtils、MuteFilter（屏蔽过滤纯函数）、ImageUrlUtils（画质选档/整组页 URL）、ClipboardUtils（copyText 剪贴板复制，pasteboard，无需权限）、HistoryExport（历史导出内容构建纯函数）、MergeSuggest（合并对话框补全候选纯函数）、DateUtils（formatCreateDate：ISO→本地时区 yyyy-MM-dd HH:mm，失败返回 ''）
+utils/       — Constants（containsCjk/isAsciiOnly/filterTranslatedName、applyDirectIp/extractHost/normalizeMode/applyImageHost/isOauthUrl/isApiUrl/isImageUrl/直连 IP 常量）、CryptoUtils、MuteFilter（屏蔽过滤纯函数）、ImageUrlUtils（画质选档/整组页 URL）、ClipboardUtils（copyText 剪贴板复制，pasteboard，无需权限）、HistoryExport（历史导出内容构建纯函数）、MergeSuggest（合并对话框补全候选纯函数）、DateUtils（formatCreateDate：ISO→本地时区 yyyy-MM-dd HH:mm，失败返回 ''）
 ```
 
 ## 状态管理
@@ -43,13 +43,17 @@ utils/       — Constants（containsCjk/isAsciiOnly/filterTranslatedName）、C
 
 ## HTTP 与网络
 
-- 使用 `@kit.NetworkKit` 的 `http` 模块（bypass 模式走 rcp）。`HttpClient` 单例包装 + 拦截器链。
+- 使用 `@kit.NetworkKit` 的 `http` 模块（兼容模式走 `http` 直连 IP；OAuth token 接口走 `@ohos.net.socket` 的 `TLSSocket` 手写 no-SNI POST）。`HttpClient` 单例包装 + 拦截器链。
+- **网络模式三档（对齐 pixez）**：`standard`（标准直连）/ `compatible`（兼容：直连 Pixiv 真实 IP + 不发 SNI + 跳过证书校验，绕过 GFW SNI 封锁）/ `ech`（增强：ECH，鸿蒙无原生支持，行为等价 compatible）。认证与 API 服务各一个独立开关（`authMode`/`apiMode`），旧值 `sni`/`doh`/`bypass` 经 `Constants.normalizeMode()` 归一化为 `compatible`。
+- 兼容模式实现：`Constants.applyDirectIp(url)` 把 Pixiv 域名改写为直连 IP（app-api/oauth→`210.140.139.155`，i.pximg/s.pximg→`210.140.139.133`），`Constants.extractHost()` 提取原域名写入 `Host` 头，`http` 请求加 `remoteValidation:'skip'` + `sniHostName:''`。`http` 模块对 IP URL 仍发 SNI，导致 oauth 走 http 会 421，故 OAuth token 接口（`OAuthService.doNoSniPost`）改用 `TLSSocket` 直连 IP 手写 no-SNI POST。
+- 图片（`ImageCacheService`/`DownloadService`）：`applyImageHost`（图床 default/optional/custom 域名切换）→ `applyDirectIp`（直连 IP）→ `Host` 头 + `remoteValidation:'skip'`。
 - 拦截器顺序：AuthInterceptor → RetryInterceptor → LogInterceptor（无 CacheInterceptor）
 - `AuthInterceptor`：注入 `Authorization: Bearer` + `Accept-Language: zh-CN`；鉴权错误（401，或 400 且错误体含 invalid access token / invalid_grant 等 OAuth 错误，见 `isAuthErrorResponse()`）自动 refresh token + 队列化并发请求 + 120s 刷新节流 + 重放后用同一宽判定最终校验
 - `OAuthService.refreshToken()`：校验 `responseCode===200 且 access_token 非空 且 user.id 非空` 后才写回 token；失败抛类型化错误 `CredentialInvalidError`（凭证失效，登出并置 needsRelogin）/ `NetworkError`（临时故障，不登出）
+- `LocalProxyServer`（单例，`127.0.0.1:10809`）：本地 TCP 中继，`on('connect')` 解析 CONNECT/HTTP 请求，上游用 `TCPSocket` 直连。目前仅 WebView 登录页（`webview.ProxyController.applyProxyOverride` + `insertProxyRule`）走它；HTTP/API 已改走 `http` 直连 IP，不再经过中继。SNI 分片（fragment）逻辑已保留但实测无效。
 - 列表分页：`ApiService.fetchNext(nextUrl)` 通用游标续页，配合 `IllustWaterfall` 分页状态机
-- OAuth2 认证（`oauth.secure.pixiv.net`），token 通过 `PreferenceService` 持久化
-- `Constants.applyProxy(url)` 在 `HttpClient.request()` 内自动调用，替换 Pixiv 域名 → 代理主机
+- OAuth2 认证（`oauth.secure.pixiv.net`），token 通过 `PreferenceService` 持久化（access_token 约 1 小时有效；refresh_token 轮换制，每次刷新后新 refresh_token 写回 `AccountStore.saveAccounts()`，多设备共用同一 refresh_token 会导致旧 token 作废）
+- `Constants.applyProxy(url)`（`PROXY_HOST` 为空，目前是空壳）在 `HttpClient.request()` 内仍会调用；真正的域名改写走 `applyDirectIp`/`applyImageHost`
 - 图片下载需 `Referer: https://app-api.pixiv.net/` + `User-Agent: PixivIOSApp/5.8.0`（`Constants.IMAGE_USER_AGENT`），在 `DownloadService` 和 `ImageCacheService` 内处理（拦截器不注入图片头）
 
 ## 列表与收藏同步
@@ -220,7 +224,7 @@ Pixiv API 在 `Accept-Language: zh-CN` 时会将 CJK tag "翻译"成英文（爱
 
 - `HttpClient` 单例，不要 new。拦截器在 `ApiService` 构造函数中注册（Auth → Retry → Log）。
 - `AccountStore` 构造时自动加载持久化账号 + 同步 token 到 `AuthInterceptor` + 注册 refresh handler。
-- `Constants.applyProxy()` 在 `HttpClient.request()` 内已处理，无需手动调用。
+- `Constants.applyProxy()` 在 `HttpClient.request()` 内已处理（空壳）；实际域名改写由 `Constants.applyDirectIp()`（兼容模式）与 `Constants.applyImageHost()`（图床）负责，均在 HttpClient/ImageCacheService/DownloadService 内部自动调用，无需手动调用。
 - Pixiv 图片 URL 需特殊 Referer/User-Agent 头；在 DownloadService 和 ImageCacheService 内处理（拦截器只注入 Authorization/Accept-Language，不管图片头）。
 - `Index.ets` 是脚手架占位符；真正入口是 `EntryAbility` → `SplashPage`。
 - 混淆已禁用（`entry/build-profile.json5` `enable: false`）。
