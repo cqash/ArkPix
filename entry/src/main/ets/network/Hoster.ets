@@ -5,6 +5,16 @@ import { parseDohResponse } from '../models/DohResponse';
 const DOH_URL: string = 'https://1dot1dot1dot1.cloudflare-dns.com/dns-query';
 const DOH_IPS: string[] = ['104.16.248.249', '104.16.249.249'];
 
+const PIXIV_HOSTS: string[] = [
+  'app-api.pixiv.net',
+  'oauth.secure.pixiv.net',
+  'i.pximg.net',
+  's.pximg.net',
+  'www.pixiv.net',
+  'accounts.pixiv.net',
+  'public-api.secure.pixiv.net'
+];
+
 export class Hoster {
   private static instance: Hoster
   private ipMap: Map<string, string> = new Map()
@@ -19,9 +29,8 @@ export class Hoster {
   }
 
   init(): void {
-    let hosts: string[] = ['app-api.pixiv.net', 'oauth.secure.pixiv.net', 'i.pximg.net', 's.pximg.net']
-    for (let i = 0; i < hosts.length; i++) {
-      let host: string = hosts[i]
+    for (let i = 0; i < PIXIV_HOSTS.length; i++) {
+      let host: string = PIXIV_HOSTS[i]
       let key: string = 'h_hoster_' + host
       let saved: string = preferenceService.getString(key, '')
       if (saved.length > 0) {
@@ -52,12 +61,11 @@ export class Hoster {
   }
 
   async refreshAll(): Promise<void> {
-    let hosts: string[] = ['app-api.pixiv.net', 'oauth.secure.pixiv.net', 'i.pximg.net', 's.pximg.net']
-    for (let i = 0; i < hosts.length; i++) {
+    for (let i = 0; i < PIXIV_HOSTS.length; i++) {
       try {
-        await this.refreshHost(hosts[i])
+        await this.refreshHost(PIXIV_HOSTS[i])
       } catch (e) {
-        console.error('Hoster refresh failed for ' + hosts[i] + ': ' + e)
+        console.error('Hoster refresh failed for ' + PIXIV_HOSTS[i] + ': ' + e)
       }
     }
   }
@@ -89,6 +97,7 @@ export class Hoster {
         if (ip.length > 0) {
           this.ipMap.set(host, ip)
           preferenceService.setString('h_hoster_' + host, ip)
+          console.info('[Hoster] ' + host + ' -> ' + ip)
         }
       }
     } catch (e) {

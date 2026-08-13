@@ -1,5 +1,6 @@
 import { preferenceService } from '../services/PreferenceService';
 import { AppSettings, AppSettingsOptions, ExifTagMergeRule } from '../models/AppSettings';
+import { Constants } from '../utils/Constants';
 
 export class UserSettingStore {
   private static instance: UserSettingStore
@@ -26,7 +27,8 @@ export class UserSettingStore {
       downloadQuality: preferenceService.getNumber('download_quality', 1),
       theme: preferenceService.getString('theme', 'system'),
       language: preferenceService.getString('language', 'zh-CN'),
-      networkMode: preferenceService.getString('network_mode', 'direct'),
+      authMode: Constants.normalizeMode(preferenceService.getString('auth_mode', 'standard')),
+      apiMode: Constants.normalizeMode(preferenceService.getString('api_mode', 'standard')),
       crossCount: preferenceService.getNumber('cross_count', 2),
       isTopMode: preferenceService.getBoolean('is_top_mode', false),
       muteTags: preferenceService.getObject('mute_tags', []) as string[],
@@ -46,7 +48,15 @@ export class UserSettingStore {
       ),
       exifTagPriority: preferenceService.getObject('exif_tag_priority', []) as string[],
       autoMergeTranslatedTags: preferenceService.getBoolean('auto_merge_translated_tags', false),
-      downloadConcurrency: preferenceService.getNumber('download_concurrency', 3)
+      downloadConcurrency: preferenceService.getNumber('download_concurrency', 3),
+      proxyType: preferenceService.getString('proxy_type', 'http'),
+      proxyHost: preferenceService.getString('proxy_host', ''),
+      proxyPort: preferenceService.getNumber('proxy_port', 1080),
+      proxyUsername: preferenceService.getString('proxy_username', ''),
+      proxyPassword: preferenceService.getString('proxy_password', ''),
+      imageHostType: preferenceService.getString('image_host_type', 'default'),
+      imageHostCustom: preferenceService.getString('image_host_custom', 'i.pximg.net'),
+      sniHost: preferenceService.getString('sni_host', '')
     }
     this.settings = new AppSettings(opts)
     AppStorage.setOrCreate('appSettings', this.settings)
@@ -61,7 +71,8 @@ export class UserSettingStore {
     preferenceService.setNumber('download_quality', this.settings.downloadQuality)
     preferenceService.setString('theme', this.settings.theme)
     preferenceService.setString('language', this.settings.language)
-    preferenceService.setString('network_mode', this.settings.networkMode)
+    preferenceService.setString('auth_mode', this.settings.authMode)
+    preferenceService.setString('api_mode', this.settings.apiMode)
     preferenceService.setNumber('cross_count', this.settings.crossCount)
     preferenceService.setBoolean('is_top_mode', this.settings.isTopMode)
     preferenceService.setObject('mute_tags', this.settings.muteTags)
@@ -80,6 +91,14 @@ export class UserSettingStore {
     preferenceService.setObject('exif_tag_priority', this.settings.exifTagPriority)
     preferenceService.setBoolean('auto_merge_translated_tags', this.settings.autoMergeTranslatedTags)
     preferenceService.setNumber('download_concurrency', this.settings.downloadConcurrency)
+    preferenceService.setString('proxy_type', this.settings.proxyType)
+    preferenceService.setString('proxy_host', this.settings.proxyHost)
+    preferenceService.setNumber('proxy_port', this.settings.proxyPort)
+    preferenceService.setString('proxy_username', this.settings.proxyUsername)
+    preferenceService.setString('proxy_password', this.settings.proxyPassword)
+    preferenceService.setString('image_host_type', this.settings.imageHostType)
+    preferenceService.setString('image_host_custom', this.settings.imageHostCustom)
+    preferenceService.setString('sni_host', this.settings.sniHost)
     let newSettings: AppSettings = this.getSettings()
     this.settings = newSettings
     AppStorage.setOrCreate('appSettings', newSettings)
@@ -95,7 +114,8 @@ export class UserSettingStore {
       downloadQuality: this.settings.downloadQuality,
       theme: this.settings.theme,
       language: this.settings.language,
-      networkMode: this.settings.networkMode,
+      authMode: this.settings.authMode,
+      apiMode: this.settings.apiMode,
       crossCount: this.settings.crossCount,
       isTopMode: this.settings.isTopMode,
       muteTags: this.settings.muteTags.slice(),
@@ -115,7 +135,15 @@ export class UserSettingStore {
       ),
       exifTagPriority: this.settings.exifTagPriority.slice(),
       autoMergeTranslatedTags: this.settings.autoMergeTranslatedTags,
-      downloadConcurrency: this.settings.downloadConcurrency
+      downloadConcurrency: this.settings.downloadConcurrency,
+      proxyType: this.settings.proxyType,
+      proxyHost: this.settings.proxyHost,
+      proxyPort: this.settings.proxyPort,
+      proxyUsername: this.settings.proxyUsername,
+      proxyPassword: this.settings.proxyPassword,
+      imageHostType: this.settings.imageHostType,
+      imageHostCustom: this.settings.imageHostCustom,
+      sniHost: this.settings.sniHost
     })
   }
 
@@ -199,8 +227,13 @@ export class UserSettingStore {
     this.saveSettings()
   }
 
-  setNetworkMode(value: string): void {
-    this.settings.networkMode = value
+  setAuthMode(value: string): void {
+    this.settings.authMode = value
+    this.saveSettings()
+  }
+
+  setApiMode(value: string): void {
+    this.settings.apiMode = value
     this.saveSettings()
   }
 
@@ -353,6 +386,46 @@ export class UserSettingStore {
 
   setAutoMergeTranslatedTags(value: boolean): void {
     this.settings.autoMergeTranslatedTags = value
+    this.saveSettings()
+  }
+
+  setProxyType(value: string): void {
+    this.settings.proxyType = value
+    this.saveSettings()
+  }
+
+  setProxyHost(value: string): void {
+    this.settings.proxyHost = value
+    this.saveSettings()
+  }
+
+  setProxyPort(value: number): void {
+    this.settings.proxyPort = value
+    this.saveSettings()
+  }
+
+  setProxyUsername(value: string): void {
+    this.settings.proxyUsername = value
+    this.saveSettings()
+  }
+
+  setProxyPassword(value: string): void {
+    this.settings.proxyPassword = value
+    this.saveSettings()
+  }
+
+  setImageHostType(value: string): void {
+    this.settings.imageHostType = value
+    this.saveSettings()
+  }
+
+  setImageHostCustom(value: string): void {
+    this.settings.imageHostCustom = value
+    this.saveSettings()
+  }
+
+  setSniHost(value: string): void {
+    this.settings.sniHost = value
     this.saveSettings()
   }
 }

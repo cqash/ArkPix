@@ -1,9 +1,7 @@
 import { http } from '@kit.NetworkKit';
-import { rcp } from '@kit.RemoteCommunicationKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { Constants } from '../utils/Constants';
 import { preferenceService } from '../services/PreferenceService';
-import { hoster } from './Hoster';
 
 export interface HttpRequestOptions {
   url: string
@@ -20,7 +18,6 @@ export interface HttpInterceptor {
 export class HttpClient {
   private static instance: HttpClient
   private interceptors: HttpInterceptor[] = []
-  private bypassSession: rcp.Session | null = null
 
   private constructor() {
   }
@@ -36,10 +33,6 @@ export class HttpClient {
     this.interceptors.push(interceptor)
   }
 
-  isBypassEnabled(): boolean {
-    return preferenceService.getString('network_mode', 'direct') === 'bypass'
-  }
-
   async request(options: HttpRequestOptions): Promise<http.HttpResponse> {
     options.url = Constants.applyProxy(options.url)
     return this.executeChain(options, 0)
@@ -52,30 +45,34 @@ export class HttpClient {
     return this.doRequest(options)
   }
 
-  private getBypassSession(): rcp.Session {
-    if (this.bypassSession === null) {
-      this.bypassSession = rcp.createSession({
-        requestConfiguration: {
-          dns: {
-            dnsRules: (host: string, port: number): string[] => {
-              return hoster.resolveIps(host)
-            }
-          },
-          transfer: {
-            timeout: { connectMs: 30000, transferMs: 30000 }
-          }
-        }
-      })
+  /** 按 URL 归属解析网络模式：认证主机→authMode，API 主机→apiMode，其余直连 */
+  private resolveMode(url: string): string {
+    let mode = Constants.MODE_STANDARD
+    if (Constants.isOauthUrl(url)) {
+      mode = preferenceService.getString('auth_mode', Constants.MODE_STANDARD)
+    } else if (Constants.isApiUrl(url)) {
+      mode = preferenceService.getString('api_mode', Constants.MODE_STANDARD)
     }
-    return this.bypassSession
+    return Constants.normalizeMode(mode)
   }
 
   private async doRequest(options: HttpRequestOptions): Promise<http.HttpResponse> {
-    if (this.isBypassEnabled()) {
-      return this.doBypassRequest(options)
+    let httpClient = http.createHttp()
+    let mode = this.resolveMode(options.url)
+    let isCompatible = (mode === Constants.MODE_COMPATIBLE || mode === Constants.MODE_ECH)
+
+    let requestUrl = options.url
+    if (isCompatible) {
+      let originalHost = Constants.extractHost(options.url)
+      requestUrl = Constants.applyDirectIp(options.url)
+      if (originalHost.length > 0) {
+        if (!options.header) {
+          options.header = {}
+        }
+        options.header['Host'] = originalHost
+      }
     }
 
-    let httpClient = http.createHttp()
     let emptyHeader: Record<string, string> = {}
     let reqOptions: http.HttpRequestOptions = {
       method: options.method ?? http.RequestMethod.GET,
@@ -83,6 +80,11 @@ export class HttpClient {
       expectDataType: http.HttpDataType.STRING,
       connectTimeout: 30000,
       readTimeout: 30000
+    }
+
+    if (isCompatible) {
+      reqOptions.remoteValidation = 'skip'
+      reqOptions.sniHostName = ''
     }
 
     if (options.body) {
@@ -94,7 +96,7 @@ export class HttpClient {
     }
 
     return new Promise((resolve, reject) => {
-      httpClient.request(options.url, reqOptions, (err: BusinessError, data: http.HttpResponse) => {
+      httpClient.request(requestUrl, reqOptions, (err: BusinessError, data: http.HttpResponse) => {
         httpClient.destroy()
         if (!err) {
           resolve(data)
@@ -103,70 +105,6 @@ export class HttpClient {
         }
       })
     })
-  }
-
-  private async doBypassRequest(options: HttpRequestOptions): Promise<http.HttpResponse> {
-    let session: rcp.Session = this.getBypassSession()
-    let methodStr: string = 'GET'
-    if (options.method === http.RequestMethod.POST) {
-      methodStr = 'POST'
-    } else if (options.method === http.RequestMethod.PUT) {
-      methodStr = 'PUT'
-    } else if (options.method === http.RequestMethod.DELETE) {
-      methodStr = 'DELETE'
-    } else if (options.method === http.RequestMethod.HEAD) {
-      methodStr = 'HEAD'
-    } else if (options.method === http.RequestMethod.OPTIONS) {
-      methodStr = 'OPTIONS'
-    }
-
-    let request: rcp.Request = new rcp.Request(options.url, methodStr)
-    if (options.header) {
-      request.headers = options.header
-    }
-    if (options.body) {
-      if (typeof options.body === 'string') {
-        request.content = options.body
-      } else {
-        request.content = JSON.stringify(options.body)
-      }
-    }
-
-    let response: rcp.Response = await session.fetch(request)
-    let result: string = ''
-    if (response.body) {
-      result = this.arrayBufferToString(response.body)
-    }
-
-    let httpResponse: http.HttpResponse = {
-      responseCode: response.statusCode,
-      result: result,
-      header: response.headers,
-      cookies: '',
-      resultType: http.HttpDataType.STRING,
-      performanceTiming: {
-        dnsTiming: 0,
-        tcpTiming: 0,
-        tlsTiming: 0,
-        firstSendTiming: 0,
-        firstReceiveTiming: 0,
-        totalFinishTiming: 0,
-        redirectTiming: 0,
-        responseHeaderTiming: 0,
-        responseBodyTiming: 0,
-        totalTiming: 0
-      }
-    }
-    return httpResponse
-  }
-
-  private arrayBufferToString(buffer: ArrayBuffer): string {
-    let bytes = new Uint8Array(buffer)
-    let chars: string[] = []
-    for (let i = 0; i < bytes.length; i++) {
-      chars.push(String.fromCharCode(bytes[i]))
-    }
-    return chars.join('')
   }
 
   async get(url: string, header?: Record<string, string>): Promise<http.HttpResponse> {

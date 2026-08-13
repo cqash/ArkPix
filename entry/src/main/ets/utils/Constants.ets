@@ -12,11 +12,108 @@ export class Constants {
   static readonly APP_VERSION: string = '5.0.234'
   static readonly OS_VERSION: string = 'Android 14'
   static readonly PROXY_HOST: string = ''
+  static readonly LOCAL_PROXY_HOST: string = '127.0.0.1'
+  static readonly LOCAL_PROXY_PORT: number = 10809
+
+  // 网络绕过模式（认证 / API 服务，对齐 pixez 三档：标准 / 兼容 / 增强）
+  static readonly MODE_STANDARD: string = 'standard'
+  static readonly MODE_COMPATIBLE: string = 'compatible'
+  static readonly MODE_ECH: string = 'ech'
+
+  // 图床
+  static readonly IMAGE_HOST_DEFAULT: string = 'i.pximg.net'
+  static readonly IMAGE_HOST_OPTIONAL: string = 'i.pixiv.re'
+
+  // Pixiv 直连 IP（兼容模式：连直连 IP + 不发 SNI + 跳过证书校验，绕过 GFW SNI 封锁）
+  static readonly DIRECT_IP_API: string = '210.140.139.155'
+  static readonly DIRECT_IP_OAUTH: string = '210.140.139.155'
+  static readonly DIRECT_IP_IMAGE: string = '210.140.139.133'
+  static readonly DIRECT_IP_IMAGE_S: string = '210.140.139.133'
 
   static readonly RANKING_MODES: string[] = [
     'day', 'week', 'month', 'day_male', 'day_female', 'week_original', 'week_rookie',
     'day_r18', 'day_male_r18', 'day_female_r18', 'week_r18', 'week_r18g'
   ]
+
+  /** 是否为 OAuth 认证主机 */
+  static isOauthUrl(url: string): boolean {
+    return url.indexOf('oauth.secure.pixiv.net') >= 0
+  }
+
+  /** 是否为 API 主机 */
+  static isApiUrl(url: string): boolean {
+    return url.indexOf('app-api.pixiv.net') >= 0 || url.indexOf('public-api.secure.pixiv.net') >= 0
+  }
+
+  /** 是否为图片主机 */
+  static isImageUrl(url: string): boolean {
+    return url.indexOf('i.pximg.net') >= 0 || url.indexOf('s.pximg.net') >= 0
+  }
+
+  /** 按图床类型改写图片域名（default 不改写；optional 用镜像；custom 用自定义域名） */
+  static applyImageHost(url: string, hostType: string, customHost: string): string {
+    let target = ''
+    if (hostType === 'optional') {
+      target = Constants.IMAGE_HOST_OPTIONAL
+    } else if (hostType === 'custom') {
+      target = customHost.trim()
+    }
+    if (target.length === 0) {
+      return url
+    }
+    if (url.startsWith('https://i.pximg.net')) {
+      return url.replace('https://i.pximg.net', 'https://' + target)
+    }
+    if (url.startsWith('https://s.pximg.net')) {
+      return url.replace('https://s.pximg.net', 'https://' + target)
+    }
+    return url
+  }
+
+  /** 把 Pixiv 域名改写为直连 IP（兼容模式，配合 Host 头 + 跳过证书校验） */
+  static applyDirectIp(url: string): string {
+    if (url.startsWith('https://app-api.pixiv.net')) {
+      return url.replace('https://app-api.pixiv.net', 'https://' + Constants.DIRECT_IP_API)
+    }
+    if (url.startsWith('https://oauth.secure.pixiv.net')) {
+      return url.replace('https://oauth.secure.pixiv.net', 'https://' + Constants.DIRECT_IP_OAUTH)
+    }
+    if (url.startsWith('https://i.pximg.net')) {
+      return url.replace('https://i.pximg.net', 'https://' + Constants.DIRECT_IP_IMAGE)
+    }
+    if (url.startsWith('https://s.pximg.net')) {
+      return url.replace('https://s.pximg.net', 'https://' + Constants.DIRECT_IP_IMAGE_S)
+    }
+    return url
+  }
+
+  /** 提取 URL 的 host（不含 scheme/port） */
+  static extractHost(url: string): string {
+    let start = url.indexOf('://')
+    if (start < 0) {
+      return ''
+    }
+    let rest = url.substring(start + 3)
+    let end = rest.indexOf('/')
+    if (end >= 0) {
+      return rest.substring(0, end)
+    }
+    return rest
+  }
+
+  /** 归一化网络模式：兼容旧值（sni/doh/bypass → compatible） */
+  static normalizeMode(mode: string): string {
+    if (mode === Constants.MODE_STANDARD) {
+      return Constants.MODE_STANDARD
+    }
+    if (mode === Constants.MODE_COMPATIBLE) {
+      return Constants.MODE_COMPATIBLE
+    }
+    if (mode === Constants.MODE_ECH) {
+      return Constants.MODE_ECH
+    }
+    return Constants.MODE_COMPATIBLE
+  }
 
   static applyProxy(url: string): string {
     if (Constants.PROXY_HOST.length === 0) {

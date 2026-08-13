@@ -1,11 +1,9 @@
 import { common } from '@kit.AbilityKit';
 import { http } from '@kit.NetworkKit';
-import { rcp } from '@kit.RemoteCommunicationKit';
 import { fileIo } from '@kit.CoreFileKit';
-import { getDbService, DatabaseService } from './DatabaseService';
+import { getDbService } from './DatabaseService';
 import { Constants } from '../utils/Constants';
 import { preferenceService } from './PreferenceService';
-import { hoster } from '../network/Hoster';
 
 export class ImageCacheService {
   private static instance: ImageCacheService
@@ -114,7 +112,12 @@ export class ImageCacheService {
     if (memory && this.fileExists(memory)) {
       return memory
     }
-    let proxyUrl = Constants.applyProxy(url)
+    let imageHostType = preferenceService.getString('image_host_type', 'default')
+    let imageHostCustom = preferenceService.getString('image_host_custom', 'i.pximg.net')
+    let hostUrl = Constants.applyImageHost(Constants.applyProxy(url), imageHostType, imageHostCustom)
+    let originalHost = Constants.extractHost(hostUrl)
+    let requestUrl = Constants.applyDirectIp(hostUrl)
+    let useDirectIp = requestUrl !== hostUrl
     let db = await getDbService()
     let cached = await db.getImageCache(url)
     if (cached && this.fileExists(cached)) {
@@ -123,24 +126,27 @@ export class ImageCacheService {
     }
     let localPath = this.cacheDir + '/' + this.getFileName(url)
 
-    let networkMode = preferenceService.getString('network_mode', 'direct')
-    if (networkMode === 'bypass') {
-      return this.getLocalPathBypass(url, localPath, db)
-    }
-
     try {
       let httpClient = http.createHttp()
+      let headers: Record<string, string> = {
+        'Referer': 'https://app-api.pixiv.net/',
+        'User-Agent': Constants.IMAGE_USER_AGENT
+      }
+      if (useDirectIp && originalHost.length > 0) {
+        headers['Host'] = originalHost
+      }
+      let reqOptions: http.HttpRequestOptions = {
+        method: http.RequestMethod.GET,
+        expectDataType: http.HttpDataType.ARRAY_BUFFER,
+        connectTimeout: 30000,
+        readTimeout: 30000,
+        header: headers
+      }
+      if (useDirectIp) {
+        reqOptions.remoteValidation = 'skip'
+      }
       let response = await new Promise<http.HttpResponse>((resolve, reject) => {
-        httpClient.request(proxyUrl, {
-          method: http.RequestMethod.GET,
-          expectDataType: http.HttpDataType.ARRAY_BUFFER,
-          connectTimeout: 30000,
-          readTimeout: 30000,
-          header: {
-            'Referer': 'https://app-api.pixiv.net/',
-            'User-Agent': Constants.IMAGE_USER_AGENT
-          }
-        }, (err, data) => {
+        httpClient.request(requestUrl, reqOptions, (err, data) => {
           if (err) { reject(err) } else { resolve(data) }
         })
       })
@@ -154,42 +160,6 @@ export class ImageCacheService {
       }
     } catch (e) {
       console.error('ImageCache download failed: ' + e)
-    }
-    return ''
-  }
-
-  private async getLocalPathBypass(url: string, localPath: string, db: DatabaseService): Promise<string> {
-    let session: rcp.Session = rcp.createSession({
-      requestConfiguration: {
-        dns: {
-          dnsRules: (host: string, port: number): string[] => {
-            return hoster.resolveIps(host)
-          }
-        },
-        transfer: {
-          timeout: { connectMs: 30000, transferMs: 30000 }
-        }
-      }
-    })
-    try {
-      let request: rcp.Request = new rcp.Request(url, 'GET')
-      request.headers = {
-        'Referer': 'https://app-api.pixiv.net/',
-        'User-Agent': Constants.IMAGE_USER_AGENT
-      }
-      let response: rcp.Response = await session.fetch(request)
-      if (response.statusCode === 200 && response.body) {
-        let file = fileIo.openSync(localPath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE)
-        fileIo.writeSync(file.fd, response.body)
-        fileIo.closeSync(file)
-        await db.addImageCache(url, localPath)
-        this.memoryCache.set(url, localPath)
-        return localPath
-      }
-    } catch (e) {
-      console.error('ImageCache bypass download failed: ' + e)
-    } finally {
-      session.close()
     }
     return ''
   }

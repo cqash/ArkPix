@@ -3,6 +3,9 @@ import { webview } from '@kit.ArkWeb';
 import { oauthService } from '../../network/OAuthService';
 import { accountStore } from '../../stores/AccountStore';
 import { CryptoUtils } from '../../utils/CryptoUtils';
+import { Constants } from '../../utils/Constants';
+import { preferenceService } from '../../services/PreferenceService';
+import { localProxyServer } from '../../network/LocalProxyServer';
 
 interface WebResourceRequest {
   getRequestUrl(): string
@@ -18,11 +21,45 @@ struct WebViewLoginPage {
   @State codeVerifier: string = ''
   @State codeChallenge: string = ''
   @State loginUrl: string = ''
+  private proxyApplied: boolean = false
 
   aboutToAppear() {
     this.codeVerifier = this.generateCodeVerifier()
     this.codeChallenge = CryptoUtils.base64urlEncode(CryptoUtils.sha256(this.codeVerifier))
     this.loginUrl = oauthService.getAuthUrl(this.codeChallenge)
+    this.applyProxyIfNeeded()
+  }
+
+  aboutToDisappear() {
+    if (this.proxyApplied) {
+      this.proxyApplied = false
+      try {
+        webview.ProxyController.removeProxyOverride(() => {})
+      } catch (e) {
+        console.error('removeProxyOverride failed: ' + e)
+      }
+    }
+  }
+
+  private applyProxyIfNeeded(): void {
+    let authMode = preferenceService.getString('auth_mode', Constants.MODE_STANDARD)
+    let apiMode = preferenceService.getString('api_mode', Constants.MODE_STANDARD)
+    if (authMode === Constants.MODE_STANDARD && apiMode === Constants.MODE_STANDARD) {
+      return
+    }
+    localProxyServer.start().then((started: boolean) => {
+      if (!started) {
+        return
+      }
+      try {
+        let config = new webview.ProxyConfig()
+        config.insertProxyRule('http://' + Constants.LOCAL_PROXY_HOST + ':' + Constants.LOCAL_PROXY_PORT)
+        webview.ProxyController.applyProxyOverride(config, () => {})
+        this.proxyApplied = true
+      } catch (e) {
+        console.error('applyProxyOverride failed: ' + e)
+      }
+    })
   }
 
   generateCodeVerifier(): string {

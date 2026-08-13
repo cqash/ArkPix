@@ -23,7 +23,8 @@ export interface AppSettingsOptions {
   downloadQuality?: number
   theme?: string
   language?: string
-  networkMode?: string
+  authMode?: string
+  apiMode?: string
   crossCount?: number
   isTopMode?: boolean
   muteTags?: string[]
@@ -42,6 +43,14 @@ export interface AppSettingsOptions {
   exifTagPriority?: string[]
   autoMergeTranslatedTags?: boolean
   downloadConcurrency?: number
+  proxyType?: string
+  proxyHost?: string
+  proxyPort?: number
+  proxyUsername?: string
+  proxyPassword?: string
+  imageHostType?: string
+  imageHostCustom?: string
+  sniHost?: string
 }
 
 export class AppSettings {
@@ -53,7 +62,8 @@ export class AppSettings {
   downloadQuality: number = 1
   theme: string = 'system'
   language: string = 'zh-CN'
-  networkMode: string = 'direct'
+  authMode: string = 'standard'
+  apiMode: string = 'standard'
   crossCount: number = 2
   isTopMode: boolean = false
   muteTags: string[] = []
@@ -72,6 +82,14 @@ export class AppSettings {
   exifTagPriority: string[] = []
   autoMergeTranslatedTags: boolean = false
   downloadConcurrency: number = 3
+  proxyType: string = 'http'
+  proxyHost: string = ''
+  proxyPort: number = 1080
+  proxyUsername: string = ''
+  proxyPassword: string = ''
+  imageHostType: string = 'default'
+  imageHostCustom: string = 'i.pximg.net'
+  sniHost: string = ''
 
   constructor(options?: AppSettingsOptions) {
     if (options) {
@@ -83,7 +101,8 @@ export class AppSettings {
       this.downloadQuality = options.downloadQuality ?? 1
       this.theme = options.theme ?? 'system'
       this.language = options.language ?? 'zh-CN'
-      this.networkMode = options.networkMode ?? 'direct'
+      this.authMode = options.authMode ?? 'standard'
+      this.apiMode = options.apiMode ?? 'standard'
       this.crossCount = options.crossCount ?? 2
       this.isTopMode = options.isTopMode ?? false
       this.muteTags = options.muteTags ?? []
@@ -104,6 +123,14 @@ export class AppSettings {
       this.exifTagPriority = options.exifTagPriority ?? []
       this.autoMergeTranslatedTags = options.autoMergeTranslatedTags ?? false
       this.downloadConcurrency = options.downloadConcurrency ?? 3
+      this.proxyType = options.proxyType ?? 'http'
+      this.proxyHost = options.proxyHost ?? ''
+      this.proxyPort = options.proxyPort ?? 1080
+      this.proxyUsername = options.proxyUsername ?? ''
+      this.proxyPassword = options.proxyPassword ?? ''
+      this.imageHostType = options.imageHostType ?? 'default'
+      this.imageHostCustom = options.imageHostCustom ?? 'i.pximg.net'
+      this.sniHost = options.sniHost ?? ''
     }
   }
 }

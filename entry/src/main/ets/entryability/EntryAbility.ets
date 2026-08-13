@@ -2,7 +2,7 @@ import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.Ab
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import { hoster } from '../network/Hoster';
-import { preferenceService } from '../services/PreferenceService';
+import { localProxyServer } from '../network/LocalProxyServer';
 
 const DOMAIN = 0x0000;
 
@@ -17,14 +17,13 @@ export default class EntryAbility extends UIAbility {
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onCreate');
 
     hoster.init();
-    let networkMode = preferenceService.getString('network_mode', 'direct');
-    if (networkMode === 'bypass') {
-      hoster.refreshAll();
-    }
+    hoster.refreshAll();
+    localProxyServer.start();
   }
 
   onDestroy(): void {
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onDestroy');
+    localProxyServer.stop();
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {

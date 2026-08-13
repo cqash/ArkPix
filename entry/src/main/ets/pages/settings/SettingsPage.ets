@@ -6,6 +6,8 @@ import { AppSettings } from '../../models/AppSettings'
 import { imageCacheService } from '../../services/ImageCacheService';
 import { userSettingStore } from '../../stores/UserSettingStore';
 import { copyText } from '../../utils/ClipboardUtils';
+import { hoster } from '../../network/Hoster';
+import { localProxyServer } from '../../network/LocalProxyServer';
 
 interface TokenExportData {
   version: number
@@ -99,6 +101,46 @@ struct SectionHeader {
   }
 }
 
+@Component
+struct TextInputItem {
+  @Prop title: string = ''
+  @Prop placeholder: string = ''
+  @Prop value: string = ''
+  @State inputValue: string = ''
+  isPassword: boolean = false
+  onTextChange: ((text: string) => void) | null = null
+
+  aboutToAppear() {
+    this.inputValue = this.value
+  }
+
+  build() {
+    Row() {
+      Text(this.title)
+        .fontSize(14)
+        .fontColor('#333333')
+      TextInput({ text: this.inputValue, placeholder: this.placeholder })
+        .type(this.isPassword ? InputType.Password : InputType.Normal)
+        .fontSize(14)
+        .fontColor('#333333')
+        .textAlign(TextAlign.End)
+        .layoutWeight(1)
+        .backgroundColor(Color.Transparent)
+        .onChange((text: string) => {
+          this.inputValue = text
+          if (this.onTextChange) {
+            this.onTextChange(text)
+          }
+        })
+    }
+    .width('100%')
+    .height(48)
+    .justifyContent(FlexAlign.SpaceBetween)
+    .padding({ left: 16, right: 16 })
+    .backgroundColor('#FFFFFF')
+  }
+}
+
 interface QualityOption {
   label: string
   value: number
@@ -152,9 +194,24 @@ export struct SettingsPage {
   ]
 
   private networkModeOptions: QualityOption[] = [
-    { label: '直连', value: 0 },
-    { label: '绕过', value: 1 },
-    { label: '代理', value: 2 }
+    { label: '标准', value: 0 },
+    { label: '兼容', value: 1 },
+    { label: '增强', value: 2 }
+  ]
+
+  private networkModeValues: string[] = ['standard', 'compatible', 'ech']
+
+  private imageHostOptions: QualityOption[] = [
+    { label: '默认 (i.pximg.net)', value: 0 },
+    { label: '可选 (i.pixiv.re)', value: 1 },
+    { label: '自定义', value: 2 }
+  ]
+
+  private imageHostValues: string[] = ['default', 'optional', 'custom']
+
+  private proxyTypeOptions: QualityOption[] = [
+    { label: 'HTTP', value: 0 },
+    { label: 'SOCKS5', value: 1 }
   ]
 
   private downloadConcurrencyOptions: QualityOption[] = [
@@ -167,6 +224,42 @@ export struct SettingsPage {
 
   private refresh(): void {
     this.settings = userSettingStore.getSettings()
+  }
+
+  private modeLabel(mode: string): string {
+    for (let i = 0; i < this.networkModeValues.length; i++) {
+      if (this.networkModeValues[i] === mode) {
+        return this.networkModeOptions[i].label
+      }
+    }
+    return ''
+  }
+
+  private modeIndex(mode: string): number {
+    for (let i = 0; i < this.networkModeValues.length; i++) {
+      if (this.networkModeValues[i] === mode) {
+        return i
+      }
+    }
+    return 0
+  }
+
+  private imageHostLabel(hostType: string): string {
+    for (let i = 0; i < this.imageHostValues.length; i++) {
+      if (this.imageHostValues[i] === hostType) {
+        return this.imageHostOptions[i].label
+      }
+    }
+    return ''
+  }
+
+  private imageHostIndex(hostType: string): number {
+    for (let i = 0; i < this.imageHostValues.length; i++) {
+      if (this.imageHostValues[i] === hostType) {
+        return i
+      }
+    }
+    return 0
   }
 
   // ===== 导出 Token =====
@@ -435,19 +528,61 @@ export struct SettingsPage {
         Column() {
           SectionHeader({ title: '网络' })
           SettingItem({
-            title: '网络模式',
-            value: this.settings.networkMode === 'direct' ? '直连' : this.settings.networkMode === 'bypass' ? '绕过' : '代理',
+            title: '认证方式',
+            value: this.modeLabel(this.settings.authMode),
             onItemClick: () => {
-              let currentIdx: number = this.settings.networkMode === 'direct' ? 0 :
-                this.settings.networkMode === 'bypass' ? 1 : 2
-              this.showQualityPicker('网络模式', this.networkModeOptions, currentIdx,
+              this.showQualityPicker('认证方式', this.networkModeOptions, this.modeIndex(this.settings.authMode),
                 (v: number) => {
-                  let modes: string[] = ['direct', 'bypass', 'proxy']
-                  userSettingStore.setNetworkMode(modes[v])
+                  userSettingStore.setAuthMode(this.networkModeValues[v])
+                  hoster.init()
+                  hoster.refreshAll()
+                  localProxyServer.start()
                   this.refresh()
                 })
             }
           })
+          SettingItem({
+            title: 'API 方式',
+            value: this.modeLabel(this.settings.apiMode),
+            onItemClick: () => {
+              this.showQualityPicker('API 方式', this.networkModeOptions, this.modeIndex(this.settings.apiMode),
+                (v: number) => {
+                  userSettingStore.setApiMode(this.networkModeValues[v])
+                  hoster.init()
+                  hoster.refreshAll()
+                  localProxyServer.start()
+                  this.refresh()
+                })
+            }
+          })
+
+          Text('兼容=直连 Pixiv 真实 IP 且不发送 SNI（bypass sni + DoH）；增强=ECH（当前版本等价于兼容）；标准=直连')
+            .fontSize(12)
+            .fontColor('#999999')
+            .width('100%')
+            .padding({ left: 16, right: 16, top: 4, bottom: 8 })
+
+          SettingItem({
+            title: '图床',
+            value: this.imageHostLabel(this.settings.imageHostType),
+            onItemClick: () => {
+              this.showQualityPicker('图床', this.imageHostOptions, this.imageHostIndex(this.settings.imageHostType),
+                (v: number) => {
+                  userSettingStore.setImageHostType(this.imageHostValues[v])
+                  this.refresh()
+                })
+            }
+          })
+          if (this.settings.imageHostType === 'custom') {
+            TextInputItem({
+              title: '自定义图床',
+              placeholder: '如 i.pixiv.re',
+              value: this.settings.imageHostCustom,
+              onTextChange: (text: string) => {
+                userSettingStore.setImageHostCustom(text)
+              }
+            })
+          }
         }
         .width('100%')
         .padding({ top: 8, bottom: 8 })

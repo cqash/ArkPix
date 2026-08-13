@@ -1,6 +1,5 @@
 import { common } from '@kit.AbilityKit';
 import { http } from '@kit.NetworkKit';
-import { rcp } from '@kit.RemoteCommunicationKit';
 import { fileIo, fileUri } from '@kit.CoreFileKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { getDbService, DatabaseService } from './DatabaseService';
@@ -9,7 +8,6 @@ import { imageExifService, ExifInfo, ExifTag } from './ImageExifService';
 import { Illust, Tag } from '../models/Illust';
 import { userSettingStore } from '../stores/UserSettingStore';
 import { preferenceService } from './PreferenceService';
-import { hoster } from '../network/Hoster';
 import { apiService } from '../network/ApiService';
 
 interface IllustDetailResponse {
@@ -253,7 +251,12 @@ export class DownloadService {
 
   private async downloadToCache(url: string, illust: Illust, pageIndex: number): Promise<string> {
     let taskId = illust.id + '_' + pageIndex
-    let proxyUrl = Constants.applyProxy(url)
+    let imageHostType = preferenceService.getString('image_host_type', 'default')
+    let imageHostCustom = preferenceService.getString('image_host_custom', 'i.pximg.net')
+    let hostUrl = Constants.applyImageHost(Constants.applyProxy(url), imageHostType, imageHostCustom)
+    let originalHost = Constants.extractHost(hostUrl)
+    let requestUrl = Constants.applyDirectIp(hostUrl)
+    let useDirectIp = requestUrl !== hostUrl
     let db = await getDbService()
 
     try {
@@ -273,22 +276,23 @@ export class DownloadService {
       let basePath = cacheDir + '/' + baseName
       let tempPath = shouldEmbedExif ? (cacheDir + '/temp_' + taskId + '.' + ext) : (basePath + '.' + ext)
 
-      let networkMode = preferenceService.getString('network_mode', 'direct')
-      if (networkMode === 'bypass') {
-        let bypassResult = await this.downloadBypass(url, tempPath, basePath, ext, taskId, db, shouldEmbedExif, illust, pageIndex)
-        this.notifyTaskChanged()
-        return bypassResult
-      }
-
       let httpClient = http.createHttp()
+      let headers: Record<string, string> = this.buildDownloadHeaders()
+      if (useDirectIp && originalHost.length > 0) {
+        headers['Host'] = originalHost
+      }
+      let reqOptions: http.HttpRequestOptions = {
+        method: http.RequestMethod.GET,
+        expectDataType: http.HttpDataType.ARRAY_BUFFER,
+        connectTimeout: 30000,
+        readTimeout: 30000,
+        header: headers
+      }
+      if (useDirectIp) {
+        reqOptions.remoteValidation = 'skip'
+      }
       let response = await new Promise<http.HttpResponse>((resolve, reject) => {
-        httpClient.request(proxyUrl, {
-          method: http.RequestMethod.GET,
-          expectDataType: http.HttpDataType.ARRAY_BUFFER,
-          connectTimeout: 30000,
-          readTimeout: 30000,
-          header: this.buildDownloadHeaders()
-        }, (err, data) => {
+        httpClient.request(requestUrl, reqOptions, (err, data) => {
           if (err) { reject(err) } else { resolve(data) }
         })
       })
@@ -305,39 +309,6 @@ export class DownloadService {
       await db.updateDownloadStatus(taskId, 'failed', 0, '')
       this.notifyTaskChanged()
       console.error('Download failed: ' + e)
-    }
-    return ''
-  }
-
-  private async downloadBypass(url: string, tempPath: string, basePath: string, ext: string, taskId: string,
-    db: DatabaseService, shouldEmbedExif: boolean, illust: Illust, pageIndex: number): Promise<string> {
-    let session: rcp.Session = rcp.createSession({
-      requestConfiguration: {
-        dns: {
-          dnsRules: (host: string, port: number): string[] => {
-            return hoster.resolveIps(host)
-          }
-        },
-        transfer: {
-          timeout: { connectMs: 30000, transferMs: 30000 }
-        }
-      }
-    })
-    try {
-      let request: rcp.Request = new rcp.Request(url, 'GET')
-      request.headers = this.buildDownloadHeaders()
-      let response: rcp.Response = await session.fetch(request)
-      if (response.statusCode === 200 && response.body) {
-        let file = fileIo.openSync(tempPath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE)
-        fileIo.writeSync(file.fd, response.body)
-        fileIo.closeSync(file)
-        return await this.finalizeDownload(tempPath, basePath, ext, shouldEmbedExif, illust, pageIndex, taskId, db)
-      }
-    } catch (e) {
-      console.error('Download bypass failed: ' + e)
-      await db.updateDownloadStatus(taskId, 'failed', 0, '')
-    } finally {
-      session.close()
     }
     return ''
   }
