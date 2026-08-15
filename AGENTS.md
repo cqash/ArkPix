@@ -11,11 +11,13 @@ HarmonyOS ArkTS Stage Model 应用（单模块 `entry`），API 12+ / SDK 6.1.0(
 
 ## 入口与导航
 
-- `EntryAbility` → `AppStorage.setOrCreate('context', this.context)` + `hoster.init()` + `hoster.refreshAll()`（DoH 主机解析）+ `localProxyServer.start()`（本地中继，供 WebView 走绕过）→ 加载 `pages/splash/SplashPage`
+- `EntryAbility` → `AppStorage.setOrCreate('context', this.context)` + `webview.WebviewController.customizeSchemes(['pixiv'])`（注册 pixiv 自定义协议到 Web 内核，**必须在任何 Web 组件初始化之前**，否则 OAuth 完成跳 pixiv:// 会被系统 AppLinking 吞掉拿不到 code）+ `hoster.init()` + `hoster.refreshAll()`（DoH 主机解析）+ `localProxyServer.start()`（本地中继，供 WebView 走绕过）→ 加载 `pages/splash/SplashPage`
 - `SplashPage` 等 1.5s → `router.replaceUrl` 到 `HomePage`（已登录）或 `LoginPage`（`needsRelogin` 时先 toast 提示重新登录）
 - `HomePage` = `Tabs` 容器（RecomPage、FollowPage、RankPage、SearchPage、SettingsPage）
 - 深层页用 `router.pushUrl` / `router.replaceUrl`（非 Navigation）。路由上限 32 页。
 - 子登录页（WebViewLogin/TokenLogin）成功回调：`router.clear()` 清栈 + `router.replaceUrl` 到 HomePage（LoginPage 用 pushUrl 压底，仅 replace 换栈顶仍会退回登录页）
+- WebViewLoginPage 的 code 捕获**双通道**：`onLoadIntercept`（https 回调）+ `WebSchemeHandler`（pixiv:// 自定义协议——onLoadIntercept 收不到它，须 `customizeSchemes` 注册 + `onControllerAttached` 里 `controller.setWebSchemeHandler('pixiv', handler)`，handler 内返回空 200 响应并 doLogin）
+- TokenLoginPage：`extractToken` 兼容粘贴 JSON 导出内容（refreshToken/refresh_token 字段）并去内部空白；`accountStore.loginWithRefreshToken` 返回错误描述字符串（''=成功），区分凭证失效（含 refresh_token 轮换提醒）与网络错误，同 user.id 账号去重更新而非重复堆叠
 - 所有注册页面在 `main_pages.json`：Index、Splash、Login、WebViewLogin、TokenLogin、Home、IllustDetail、ImageViewer、TagSearch、Bookmark、Download、FilenameTemplate、ExifTemplate、ExifTagConfig、About、Mute、History、Comment、UserProfile
 
 ## 架构（entry/src/main/ets/）
@@ -45,7 +47,9 @@ utils/       — Constants（containsCjk/isAsciiOnly/filterTranslatedName、appl
 
 - 使用 `@kit.NetworkKit` 的 `http` 模块（兼容模式走 `http` 直连 IP；OAuth token 接口走 `@ohos.net.socket` 的 `TLSSocket` 手写 no-SNI POST）。`HttpClient` 单例包装 + 拦截器链。
 - **网络模式三档（对齐 pixez）**：`standard`（标准直连）/ `compatible`（兼容：直连 Pixiv 真实 IP + 不发 SNI + 跳过证书校验，绕过 GFW SNI 封锁）/ `ech`（增强：ECH，鸿蒙无原生支持，行为等价 compatible）。认证与 API 服务各一个独立开关（`authMode`/`apiMode`），旧值 `sni`/`doh`/`bypass` 经 `Constants.normalizeMode()` 归一化为 `compatible`。
-- 兼容模式实现：`Constants.applyDirectIp(url)` 把 Pixiv 域名改写为直连 IP（app-api/oauth→`210.140.139.155`，i.pximg/s.pximg→`210.140.139.133`），`Constants.extractHost()` 提取原域名写入 `Host` 头，`http` 请求加 `remoteValidation:'skip'` + `sniHostName:''`。`http` 模块对 IP URL 仍发 SNI，导致 oauth 走 http 会 421，故 OAuth token 接口（`OAuthService.doNoSniPost`）改用 `TLSSocket` 直连 IP 手写 no-SNI POST。
+- **OAuth token 接口按 auth_mode 三档分流**（`OAuthService.postToken`）：`standard` → `postTokenStandard`（正常 `http` 模块 HTTPS，走系统 DNS/VPN/代理，开 VPN 时必须用这档）；`compatible`/`ech` → `postTokenNoSni`（`TLSSocket` 手写 no-SNI POST：先 `bind 0.0.0.0:0` 再 connect——不修会报 2303600 No bind socket；IP 优先取 `hoster.resolveIps` 的 DoH 结果而非硬编码常量；connect timeout 15s + 20s 兜底定时器防挂起卡死）；`relay` → `postTokenViaRelay`
+- **X-Client-Time / X-Client-Hash 必须用同一次 `CryptoUtils.getIsoDate()`**（精度到秒，分两次取跨秒即不匹配 → Pixiv 400 → 被误判 CredentialInvalidError 误登出，这是历史"容易掉登录"根因）；refresh_token 拼表单须 `encodeURIComponent`
+- 兼容模式实现（API/图片 `http` 请求）：`Constants.applyDirectIp(url)` 把 Pixiv 域名改写为直连 IP（app-api/oauth→`210.140.139.155`，i.pximg/s.pximg→`210.140.139.133`），`Constants.extractHost()` 提取原域名写入 `Host` 头，`http` 请求加 `remoteValidation:'skip'` + `sniHostName:''`
 - 图片（`ImageCacheService`/`DownloadService`）：`applyImageHost`（图床 default/optional/custom 域名切换）→ `applyDirectIp`（直连 IP）→ `Host` 头 + `remoteValidation:'skip'`。
 - 拦截器顺序：AuthInterceptor → RetryInterceptor → LogInterceptor（无 CacheInterceptor）
 - `AuthInterceptor`：注入 `Authorization: Bearer` + `Accept-Language: zh-CN`；鉴权错误（401，或 400 且错误体含 invalid access token / invalid_grant 等 OAuth 错误，见 `isAuthErrorResponse()`）自动 refresh token + 队列化并发请求 + 120s 刷新节流 + 重放后用同一宽判定最终校验
@@ -69,8 +73,9 @@ utils/       — Constants（containsCjk/isAsciiOnly/filterTranslatedName、appl
 
 ## 下载与 EXIF
 
-- `DownloadService` 单例：下载到 `cacheDir/downloads/`，可选写入相册（`photoAccessHelper`）
-- **多任务并发调度层**：公开入口 `enqueue(url, illust, pageIndex)`（fire-and-forget）：先写 DB `pending` 记录入内存 FIFO 队列，`activeCount < 上限` 立即执行否则排队，任务结束补位；上限每次调度时读 `userSettingStore.getSettings().downloadConcurrency`（1-5 默认 3，配置即时生效，进行中任务不受影响）；`downloadToCache`/`applyToGallery` 已转 private，任务体=下载+finalize+写相册+状态落库+notifyTaskChanged；`retryAllFailed` 内部走 enqueue（started=入队数，succeeded/failed 不再同步统计）；`inflightTaskIds` 在途去重防止同一页并发重复入队；下载时自动收藏（autoBookmarkOnDownload）在入队时触发（非完成时）；应用重启后残留 pending/downloading 按既有规则重置 failed，不自动恢复排队
+- `DownloadService` 单例：下载到 `cacheDir/downloads/`，写图库走双通道（见下）
+- **写图库双通道（勿回退）**：`WRITE_IMAGEVIDEO` 是 ACL 白名单权限（普通签名装不上，安装报 9568289），`WRITE_MEDIA/READ_MEDIA` 声明对媒体库无效。①**静默通道**：`applySilentToGallery`（`MediaAssetChangeRequest.createImageAssetRequest` + `applyChanges`）——仅在 **SaveButton 安全控件点击后的临时授权窗口内**可用（首次点击 SaveButton 系统弹一次授权，之后不弹；API≤19 窗口 10s，API≥20 窗口 1 分钟）；②**兜底通道**：静默失败的路径攒入 `pendingGalleryPaths`，队列排空后 `flushGalleryIfIdle` 一次 `showAssetsCreationDialog` 批量系统确认弹窗——**该弹窗只创建目标 uri，必须用 `fileIo.copyFile` 把沙箱内容拷入**，否则媒体库是空壳不显示（历史"保存成功但图库无图"根因）
+- **多任务并发调度层**：公开入口 `enqueue(url, illust, pageIndex)`（fire-and-forget）：先写 DB `pending` 记录入内存 FIFO 队列，`activeCount < 上限` 立即执行否则排队，任务结束补位；上限每次调度时读 `userSettingStore.getSettings().downloadConcurrency`（1-5 默认 3，配置即时生效，进行中任务不受影响）；`downloadToCache` 已转 private，任务体=下载+finalize+静默写图库（失败攒批）+状态落库+notifyTaskChanged；`retryAllFailed` 内部走 enqueue（started=入队数，succeeded/failed 不再同步统计）；`inflightTaskIds` 在途去重防止同一页并发重复入队；下载时自动收藏（autoBookmarkOnDownload）在入队时触发（非完成时）；应用重启后残留 pending/downloading 按既有规则重置 failed，不自动恢复排队；完成/失败有 toast（showToastSafe：已保存到图库 / 已保存 N 张到图库 / 下载失败）
 - 下载任务状态：`pending`（排队中）/ `downloading` / `completed` / `failed`，DownloadPage 列表展示"排队中"
 - 文件名模板：默认 `{illust_id}_p{part}`，支持 `{user_id}`、`{user_name}`、`{title}`。模板在 `FilenameTemplatePage` 配置。
 - `ImageExifService`：嵌入 EXIF 元数据（ImageDescription=`{title} | PID:{id}`、Artist=`{userName} (UID:{id})`、UserComment=模板渲染、Copyright='Pixiv'），另写 XMP 旁挂（JPEG APP1 / PNG iTXt），字段值超 120 UTF-8 字节时截断（`clampExifField`）。按格式分流：JPEG 保留 JPEG（系统 API 重打包或字节级注入不重编码）、PNG 保留 PNG（`embedPng` 系统 API EXIF + iTXt XMP 双载体，失败降级纯 XMP）、GIF 不嵌入。
@@ -162,7 +167,7 @@ Pixiv API 在 `Accept-Language: zh-CN` 时会将 CJK tag "翻译"成英文（爱
 - 图片长按菜单（bindContextMenu）：保存当前页 / 保存全部页——仅多页作品长按才弹菜单；单页作品长按直接保存，不弹菜单
 - 合并对话框：输入主 tag 名 → `addExifMergeRule`；输入框带补全建议（本地 exifMergedTags mainTag/fromTags + 本作品 tag 即时前缀匹配去重，仅本地零匹配且停顿 ≥300ms 才调 getAutoComplete API，点选回填；纯函数在 `utils/MergeSuggest.ets`）
 - InfoRow 展示 `PID: {id}`，长按复制到剪贴板（ClipboardUtils + toast）；统计区含发布日期行（`formatCreateDate(illust.createDate)` 本地时区 yyyy-MM-dd HH:mm，空串不渲染该行）
-- 操作区 = 根 Stack（BottomEnd）右下角双 FAB：收藏 FAB（bookmarkState() 驱动——未收藏=Text('♡') 浅灰 #999999、已收藏=Text('❤') 红 #FF4081、请求中灰色，点按 toggleBookmark，长按公开/私密菜单）+ 下载 FAB（蓝底 #0096FA + 白色 Text('↓')；单击=handleSaveAll()（多页）/handleSavePage(0)（单页），长按仅多页=打开选页弹窗）；EXIF Picker/合并审查/合并对话框/选页弹窗任一打开时隐藏 FAB；原 InfoRow 按钮区已移除
+- 操作区 = 根 Stack（BottomEnd）右下角双 FAB：收藏 FAB（bookmarkState() 驱动——未收藏=Text('♡') 浅灰 #999999、已收藏=Text('❤') 红 #FF4081、请求中灰色，点按 toggleBookmark，长按公开/私密菜单）+ 下载 FAB（**SaveButton 安全控件**，Circle 图标+蓝底 #0096FA，点击授权成功后单击=handleSaveAll()（多页）/handleSavePage(0)（单页），长按手势挂在外层 Stack 上仅多页=打开选页弹窗；安全控件不支持深度自定义，勿换成普通按钮——普通按钮拿不到图库临时授权，静默保存会失效回退到系统确认弹窗）；EXIF Picker/合并审查/合并对话框/选页弹窗任一打开时隐藏 FAB；原 InfoRow 按钮区已移除
 - **选页弹窗**（IllustDetailPage 内联覆盖层，半透明遮罩+底部弹层）：4 列缩略图网格（CachedImage squareMedium 方图 + 勾选角标 + 页码角标，防社死页纯色遮罩不揭示），全选/清空，取消/确定下载(N)（空选择不发起）；多选交互=单击单格切换 + 长按≥300ms 激活拖选（起始格定方向、PanGesture 滑动按经过格区间批量置目标状态、拖前快照重算）；Grid 用 `.priorityGesture(PanGesture(PanGestureOptions))` + 动态 distance（普通 10000vp 让位滚动，拖选 1vp 即触）+ `onDidScroll` 累计滚动偏移换算触点格索引；确认走 `handleSavePages(selected)`（合并审查预检→EXIF Picker 续走 `exifPickerPendingPages`→`store.savePages`）；EXIF Picker 续走状态为 `exifPickerPendingPages: number[]`（单页=[i]、全集、子集三分支 resumeSaveAfterPicker）
 - "查看评论"= tag 云之后、相关作品之前的居中小号文字按钮 → CommentPage `{ illustId, illustTitle }`
 
@@ -218,7 +223,7 @@ Pixiv API 在 `Accept-Language: zh-CN` 时会将 CJK tag "翻译"成英文（爱
 
 ## 权限（module.json5）
 
-`INTERNET`、`GET_NETWORK_INFO`、`WRITE_MEDIA`、`READ_MEDIA`
+`INTERNET`、`GET_NETWORK_INFO`、`WRITE_MEDIA`、`READ_MEDIA`（后两者对媒体库写入无实际效力，写图库靠 SaveButton 临时授权 / showAssetsCreationDialog，见"下载与 EXIF"节；`WRITE_IMAGEVIDEO` 为 ACL 白名单权限，勿声明——会导致安装失败 9568289）
 
 ## 常见陷阱
 

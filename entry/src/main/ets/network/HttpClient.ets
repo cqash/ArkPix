@@ -2,6 +2,7 @@ import { http } from '@kit.NetworkKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { Constants } from '../utils/Constants';
 import { preferenceService } from '../services/PreferenceService';
+import { relayClient, RelayRequestInput } from './RelayClient';
 
 export interface HttpRequestOptions {
   url: string
@@ -57,8 +58,22 @@ export class HttpClient {
   }
 
   private async doRequest(options: HttpRequestOptions): Promise<http.HttpResponse> {
-    let httpClient = http.createHttp()
     let mode = this.resolveMode(options.url)
+
+    // relay 分流：跳过 applyDirectIp/remoteValidation:'skip'，委派 RelayClient 包装/解包。
+    // Pixiv Authorization 头已由 AuthInterceptor 注入 options.header，进入包装体 headers 白名单；
+    // 解包后还原原始 status/body，Pixiv 401 语义仍由 AuthInterceptor 处理。
+    if (Constants.isRelayMode(mode)) {
+      let relayInput: RelayRequestInput = {
+        url: options.url,
+        method: options.method,
+        header: options.header,
+        body: options.body
+      }
+      return relayClient.relayRequest(relayInput)
+    }
+
+    let httpClient = http.createHttp()
     let isCompatible = (mode === Constants.MODE_COMPATIBLE || mode === Constants.MODE_ECH)
 
     let requestUrl = options.url

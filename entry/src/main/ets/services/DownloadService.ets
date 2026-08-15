@@ -1,4 +1,5 @@
 import { common } from '@kit.AbilityKit';
+import { promptAction } from '@kit.ArkUI';
 import { http } from '@kit.NetworkKit';
 import { fileIo, fileUri } from '@kit.CoreFileKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
@@ -9,6 +10,7 @@ import { Illust, Tag } from '../models/Illust';
 import { userSettingStore } from '../stores/UserSettingStore';
 import { preferenceService } from './PreferenceService';
 import { apiService } from '../network/ApiService';
+import { relayClient } from '../network/RelayClient';
 
 interface IllustDetailResponse {
   illust: Object
@@ -41,6 +43,9 @@ export class DownloadService {
   private activeCount: number = 0
   /** 排队中+执行中的 taskId 集合：并发重复下载防护（isDownloaded 只查 completed，管不到在途任务） */
   private inflightTaskIds: string[] = []
+  /** 已落盘待写图库的路径：攒批到队列排空后一次系统弹窗保存，避免每张图弹一次确认 */
+  private pendingGalleryPaths: string[] = []
+  private galleryFlushing: boolean = false
 
   private constructor() {}
 
@@ -228,18 +233,29 @@ export class DownloadService {
   private onTaskSettled(): void {
     this.activeCount--
     this.scheduleNext()
+    this.flushGalleryIfIdle()
   }
 
-  /** 任务体 = 等待 pending 落库 → 下载落盘 → finalize → applyToGallery（状态落库与 notifyTaskChanged 在下载链路内完成） */
+  /** 任务体 = 等待 pending 落库 → 下载落盘 → finalize → 攒批写图库（状态落库与 notifyTaskChanged 在下载链路内完成） */
   private async runTask(task: QueuedDownloadTask): Promise<void> {
     try {
       await task.dbReady
       let localPath = await this.downloadToCache(task.url, task.illust, task.pageIndex)
-      if (localPath.length > 0) {
-        let ctx = AppStorage.get<common.Context>('context')
-        if (ctx) {
-          await this.applyToGallery(localPath, ctx)
-        }
+      if (localPath.length === 0) {
+        this.showToastSafe('下载失败: ' + task.illust.title)
+        return
+      }
+      // 优先静默写图库：SaveButton 点击后的临时授权窗口内（API≥20 为 1 分钟）applyChanges 可用；
+      // 窗口外静默失败则攒批走系统保存确认弹窗
+      let ctx = AppStorage.get<common.Context>('context')
+      let silentSaved = false
+      if (ctx) {
+        silentSaved = await this.applySilentToGallery(localPath, ctx)
+      }
+      if (silentSaved) {
+        this.showToastSafe('已保存到图库')
+      } else {
+        this.pendingGalleryPaths.push(localPath)
       }
     } finally {
       let idx = this.inflightTaskIds.indexOf(task.taskId)
@@ -249,14 +265,65 @@ export class DownloadService {
     }
   }
 
+  /** 队列排空后统一写图库：一次系统确认弹窗保存本批全部图片 */
+  private flushGalleryIfIdle(): void {
+    if (this.galleryFlushing || this.activeCount > 0 || this.queue.length > 0 ||
+      this.pendingGalleryPaths.length === 0) {
+      return
+    }
+    let paths = this.pendingGalleryPaths.slice()
+    this.pendingGalleryPaths = []
+    let ctx = AppStorage.get<common.Context>('context')
+    if (!ctx) {
+      this.showToastSafe('下载完成 ' + paths.length + ' 张，已保存到缓存目录（未写入图库）')
+      return
+    }
+    this.galleryFlushing = true
+    this.applyBatchToGallery(paths, ctx)
+      .then((saved: boolean) => {
+        if (saved) {
+          this.showToastSafe('已保存 ' + paths.length + ' 张到图库')
+        } else {
+          this.showToastSafe('已保存到缓存目录（图库保存被取消或失败）')
+        }
+      })
+      .catch((e: Object) => {
+        console.error('Flush gallery failed: ' + e)
+        this.showToastSafe('写入图库失败，已保存到缓存目录')
+      })
+      .finally(() => {
+        this.galleryFlushing = false
+        // 弹窗期间可能有新任务完成，继续补刷
+        this.flushGalleryIfIdle()
+      })
+  }
+
+  private showToastSafe(message: string): void {
+    try {
+      promptAction.showToast({ message: message, duration: 2500 })
+    } catch (e) {
+      console.error('Toast failed: ' + e)
+    }
+  }
+
   private async downloadToCache(url: string, illust: Illust, pageIndex: number): Promise<string> {
     let taskId = illust.id + '_' + pageIndex
-    let imageHostType = preferenceService.getString('image_host_type', 'default')
-    let imageHostCustom = preferenceService.getString('image_host_custom', 'i.pximg.net')
-    let hostUrl = Constants.applyImageHost(Constants.applyProxy(url), imageHostType, imageHostCustom)
-    let originalHost = Constants.extractHost(hostUrl)
-    let requestUrl = Constants.applyDirectIp(hostUrl)
-    let useDirectIp = requestUrl !== hostUrl
+    let apiMode = Constants.normalizeMode(preferenceService.getString('api_mode', Constants.MODE_STANDARD))
+    let isRelay = Constants.isRelayMode(apiMode)
+    let requestUrl = ''
+    let originalHost = ''
+    let useDirectIp = false
+    if (isRelay) {
+      // relay 模式：URL 包装为 /img/v1/fetch?url=，跳过 applyImageHost/applyDirectIp/Host 头/证书跳过
+      requestUrl = relayClient.buildImageUrl(url)
+    } else {
+      let imageHostType = preferenceService.getString('image_host_type', 'default')
+      let imageHostCustom = preferenceService.getString('image_host_custom', 'i.pximg.net')
+      let hostUrl = Constants.applyImageHost(Constants.applyProxy(url), imageHostType, imageHostCustom)
+      originalHost = Constants.extractHost(hostUrl)
+      requestUrl = Constants.applyDirectIp(hostUrl)
+      useDirectIp = requestUrl !== hostUrl
+    }
     let db = await getDbService()
 
     try {
@@ -277,9 +344,15 @@ export class DownloadService {
       let tempPath = shouldEmbedExif ? (cacheDir + '/temp_' + taskId + '.' + ext) : (basePath + '.' + ext)
 
       let httpClient = http.createHttp()
-      let headers: Record<string, string> = this.buildDownloadHeaders()
-      if (useDirectIp && originalHost.length > 0) {
-        headers['Host'] = originalHost
+      let headers: Record<string, string> = {}
+      if (isRelay) {
+        // relay 模式仅注入服务级 Bearer，不注入 Referer/User-Agent
+        headers = await relayClient.buildImageAuthHeader()
+      } else {
+        headers = this.buildDownloadHeaders()
+        if (useDirectIp && originalHost.length > 0) {
+          headers['Host'] = originalHost
+        }
       }
       let reqOptions: http.HttpRequestOptions = {
         method: http.RequestMethod.GET,
@@ -305,6 +378,8 @@ export class DownloadService {
         this.notifyTaskChanged()
         return finalPath
       }
+      // 非 ArrayBuffer（如错误页文本）不能静默跳过，否则状态永远停在 downloading
+      throw new Error('Unexpected response: code=' + response.responseCode)
     } catch (e) {
       await db.updateDownloadStatus(taskId, 'failed', 0, '')
       this.notifyTaskChanged()
@@ -313,14 +388,60 @@ export class DownloadService {
     return ''
   }
 
-  private async applyToGallery(localPath: string, context: common.Context): Promise<boolean> {
+  /** 静默写图库（需 SaveButton 临时授权窗口内才可用，否则抛错返回 false） */
+  private async applySilentToGallery(localPath: string, context: common.Context): Promise<boolean> {
     try {
       let ph = photoAccessHelper.getPhotoAccessHelper(context)
       let srcUri = fileUri.getUriFromPath(localPath)
-      let assetChangeRequest: photoAccessHelper.MediaAssetChangeRequest =
-        photoAccessHelper.MediaAssetChangeRequest.createImageAssetRequest(context, srcUri)
-      await ph.applyChanges(assetChangeRequest)
+      let req = photoAccessHelper.MediaAssetChangeRequest.createImageAssetRequest(context, srcUri)
+      await ph.applyChanges(req)
       return true
+    } catch (e) {
+      console.info('Silent gallery save unavailable: ' + e)
+      return false
+    }
+  }
+
+  /** 批量写图库：showAssetsCreationDialog 免权限（WRITE_IMAGEVIDEO 为 ACL 受限权限装不上），系统弹一次保存确认 */
+  private async applyBatchToGallery(paths: string[], context: common.Context): Promise<boolean> {
+    try {
+      let ph = photoAccessHelper.getPhotoAccessHelper(context)
+      let srcUris: string[] = []
+      let configs: photoAccessHelper.PhotoCreationConfig[] = []
+      for (let i = 0; i < paths.length; i++) {
+        let ext = 'jpg'
+        let dot = paths[i].lastIndexOf('.')
+        if (dot >= 0) {
+          ext = paths[i].substring(dot + 1)
+        }
+        srcUris.push(fileUri.getUriFromPath(paths[i]))
+        let config: photoAccessHelper.PhotoCreationConfig = {
+          fileNameExtension: ext,
+          photoType: photoAccessHelper.PhotoType.IMAGE
+        }
+        configs.push(config)
+      }
+      let uris = await ph.showAssetsCreationDialog(srcUris, configs)
+      if (uris.length === 0) {
+        console.info('applyBatchToGallery: user cancelled, 0/' + paths.length)
+        return false
+      }
+      // 弹窗只创建目标 uri，内容必须自行拷入，否则媒体库里是空壳不显示
+      let copied = 0
+      for (let i = 0; i < uris.length && i < paths.length; i++) {
+        try {
+          let srcFile = fileIo.openSync(paths[i], fileIo.OpenMode.READ_ONLY)
+          let desFile = fileIo.openSync(uris[i], fileIo.OpenMode.WRITE_ONLY)
+          await fileIo.copyFile(srcFile.fd, desFile.fd)
+          fileIo.closeSync(srcFile)
+          fileIo.closeSync(desFile)
+          copied++
+        } catch (e) {
+          console.error('Copy to gallery uri failed: ' + paths[i] + ' -> ' + uris[i] + ': ' + e)
+        }
+      }
+      console.info('applyBatchToGallery result: saved=' + copied + '/' + paths.length)
+      return copied > 0
     } catch (e) {
       console.error('Apply to gallery failed: ' + e)
       return false

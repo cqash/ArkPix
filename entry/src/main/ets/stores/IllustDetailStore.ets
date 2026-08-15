@@ -1,5 +1,5 @@
 import { promptAction } from '@kit.ArkUI';
-import { apiService } from '../network/ApiService';
+import { apiService, HttpStatusError } from '../network/ApiService';
 import { getDbService } from '../services/DatabaseService';
 import { downloadService } from '../services/DownloadService';
 import { Illust, Tag } from '../models/Illust';
@@ -8,12 +8,26 @@ import { bookmarkStateStore, BOOKMARK_LOADING, BOOKMARK_DONE } from './BookmarkS
 import { MuteFilter } from '../utils/MuteFilter';
 import { pickDetailUrl } from '../utils/ImageUrlUtils';
 import { parseIllustListPage } from '../components/illust/IllustWaterfall';
+import { relayClient } from '../network/RelayClient';
+import { recoverService, RecoverPollToken, RECOVER_STATUS_CANCELLED } from '../services/RecoverService';
+import {
+  BookmarkSnapshot,
+  bookmarkSnapshotFromJsonString,
+  RecoverPage,
+  RECOVER_STATUS_READY
+} from '../models/RelayModels';
 import {
   ExifTag,
   ExifInfo,
   filterTagsForExif,
   isCommentOverLimit
 } from '../services/ImageExifService';
+
+/** 恢复流程状态机 */
+export const RECOVER_STATE_IDLE: string = 'idle'
+export const RECOVER_STATE_POLLING: string = 'polling'
+export const RECOVER_STATE_READY: string = 'ready'
+export const RECOVER_STATE_FAILED: string = 'failed'
 
 /** 详情页行模型：image 行×pageCount + info 行 + related_header/related 行 */
 export interface DetailRow {
@@ -43,11 +57,23 @@ export class IllustDetailStore {
   relatedNextUrl: string = ''
   relatedLoading: boolean = false
   errorMessage: string = ''
+  /** 404 且命中本地收藏快照时非空，页面走快照兜底分支 */
+  deletedSnapshot: BookmarkSnapshot | null = null
+  /** 恢复状态机：idle / polling / ready / failed */
+  recoverState: string = RECOVER_STATE_IDLE
+  recoverProgressText: string = ''
+  /** 恢复成功后的图片 URL 列表（页面据此跳查看器） */
+  recoveredImageUrls: string[] = []
+  private recoverToken: RecoverPollToken | null = null
   /** 由宿主页面注入，用于下载重复检测确认弹窗；未注入时降级为直接下载 */
   uiContext: UIContext | undefined = undefined
 
   async load(illustId: number, forceRefresh: boolean = false): Promise<boolean> {
     this.errorMessage = ''
+    this.deletedSnapshot = null
+    this.recoverState = RECOVER_STATE_IDLE
+    this.recoverProgressText = ''
+    this.recoveredImageUrls = []
     let db = await getDbService()
     let hasCache = false
     try {
@@ -95,11 +121,88 @@ export class IllustDetailStore {
       }
       return true
     } catch (e) {
+      // 404（作品已删除）且无可用缓存：检查本地/同步收藏快照，命中则走兜底态
+      if (!hasCache && e instanceof HttpStatusError && e.statusCode === 404) {
+        let snapshot = await this.findSnapshot(illustId)
+        if (snapshot !== null) {
+          this.deletedSnapshot = snapshot
+          return false
+        }
+      }
       if (!hasCache) {
         this.errorMessage = '加载失败: ' + e
       }
       console.error('Load detail failed: ' + e)
       return hasCache
+    }
+  }
+
+  /** 查本地收藏快照（deleted=0 的活跃快照才用于兜底展示） */
+  private async findSnapshot(illustId: number): Promise<BookmarkSnapshot | null> {
+    try {
+      let db = await getDbService()
+      let row = await db.getBookmarkSnapshot(illustId)
+      if (row !== null && row.deleted === 0 && row.data.length > 0) {
+        return bookmarkSnapshotFromJsonString(row.data)
+      }
+    } catch (e) {
+      console.error('Find bookmark snapshot failed: ' + e)
+    }
+    return null
+  }
+
+  /** 恢复能力是否可用（已注册中继 + 服务端 capabilities 含 recover） */
+  canRecover(): boolean {
+    return relayClient.isRegistered() && relayClient.hasCapability('recover')
+  }
+
+  /**
+   * 尝试从第三方恢复：编排 RecoverService 轮询（retryAfterSec 间隔，≤30 次，可取消）。
+   * 成功置 recoverState=ready 并填充 recoveredImageUrls；not_found/超时置 failed + toast；取消回 idle。
+   */
+  async startRecover(onProgress?: (text: string) => void): Promise<void> {
+    let snapshot = this.deletedSnapshot
+    if (snapshot === null || this.recoverState === RECOVER_STATE_POLLING) {
+      return
+    }
+    if (!this.canRecover()) {
+      this.showToast('中继恢复能力不可用，请先在设置页配置并注册中继服务器')
+      return
+    }
+    this.recoverState = RECOVER_STATE_POLLING
+    this.recoverProgressText = ''
+    let token = new RecoverPollToken()
+    this.recoverToken = token
+    try {
+      let result = await recoverService.pollUntilReady(snapshot.illustId, (attempt: number, retryAfterSec: number) => {
+        this.recoverProgressText = '正在从第三方恢复（第 ' + attempt + ' 次查询，约 ' + retryAfterSec + ' 秒后重试）'
+        if (onProgress !== undefined) {
+          onProgress(this.recoverProgressText)
+        }
+      }, 30, token)
+      if (result.status === RECOVER_STATUS_READY && result.pages.length > 0) {
+        this.recoveredImageUrls = result.pages.map((p: RecoverPage) => p.url)
+        this.recoverState = RECOVER_STATE_READY
+      } else if (result.status === RECOVER_STATUS_CANCELLED) {
+        this.recoverState = RECOVER_STATE_IDLE
+        this.recoverProgressText = ''
+      } else {
+        this.recoverState = RECOVER_STATE_FAILED
+        this.showToast('暂无法从第三方恢复该作品')
+      }
+    } catch (e) {
+      this.recoverState = RECOVER_STATE_FAILED
+      this.showToast('恢复查询失败: ' + (e instanceof Error ? e.message : String(e)))
+    } finally {
+      this.recoverToken = null
+    }
+  }
+
+  /** 取消轮询（页面退出/用户点取消）；恢复出的图片可用来跳查看器 */
+  cancelRecover(): void {
+    if (this.recoverToken !== null) {
+      this.recoverToken.cancel()
+      this.recoverToken = null
     }
   }
 

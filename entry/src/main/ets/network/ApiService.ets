@@ -5,6 +5,17 @@ import { authInterceptor } from './AuthInterceptor';
 import { retryInterceptor } from './RetryInterceptor';
 import { logInterceptor } from './LogInterceptor';
 
+/** 携带 HTTP 状态码的错误（ensureSuccess 抛出），供调用方按状态码分流（如详情页识别 404） */
+export class HttpStatusError extends Error {
+  readonly statusCode: number
+
+  constructor(statusCode: number, message: string) {
+    super(message)
+    this.name = 'HttpStatusError'
+    this.statusCode = statusCode
+  }
+}
+
 export class ApiService {
   private static instance: ApiService
   private httpClient: HttpClient
@@ -37,7 +48,7 @@ export class ApiService {
       if (bodySnippet.length > 0) {
         message += ' | body: ' + bodySnippet
       }
-      throw new Error(message)
+      throw new HttpStatusError(response.responseCode, message)
     }
   }
 

@@ -154,7 +154,58 @@ export struct IllustCard {
     .borderRadius(8)
   }
 
+  /** 已删除作品灰色占位卡片（收藏快照构造）：标题 + "已删除"角标，点击进详情走 404 兜底流程 */
+  @Builder
+  DeletedPlaceholderCard() {
+    Column() {
+      Stack({ alignContent: Alignment.TopEnd }) {
+        Column() {
+          Text('已删除')
+            .fontSize(13)
+            .fontColor('#999999')
+        }
+        .width('100%')
+        .aspectRatio(this.imageRatio())
+        .justifyContent(FlexAlign.Center)
+        .backgroundColor('#E0E0E0')
+        .borderRadius(8)
+        Text('已删除')
+          .fontSize(10)
+          .fontColor('#FFFFFF')
+          .backgroundColor('rgba(0, 0, 0, 0.45)')
+          .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+          .borderRadius(8)
+          .margin(6)
+      }
+      .width('100%')
+
+      Text(this.illust.title)
+        .fontSize(12)
+        .fontColor('#999999')
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .margin({ top: 4 })
+      Text(this.illust.user.name)
+        .fontSize(10)
+        .fontColor('#BBBBBB')
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .width('100%')
+    .padding(4)
+    .onClick(() => { this.onCardClick(this.illust) })
+  }
+
   build() {
+    if (this.illust.isDeletedPlaceholder) {
+      this.DeletedPlaceholderCard()
+    } else {
+      this.NormalCard()
+    }
+  }
+
+  @Builder
+  NormalCard() {
     Column() {
       Stack({ alignContent: Alignment.TopEnd }) {
         if (this.appSettings.antiSocialDeath && this.isR18()) {

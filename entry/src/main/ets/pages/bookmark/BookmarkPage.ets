@@ -2,6 +2,8 @@ import { router } from '@kit.ArkUI';
 import { apiService } from '../../network/ApiService';
 import { accountStore } from '../../stores/AccountStore';
 import { Illust } from '../../models/Illust';
+import { getDbService } from '../../services/DatabaseService';
+import { bookmarkSnapshotFromJsonString, BookmarkSnapshot } from '../../models/RelayModels';
 import {
   IllustWaterfall,
   IllustListPage,
@@ -34,7 +36,49 @@ struct BookmarkPage {
       throw new Error('未登录，无法查看收藏')
     }
     let response = await apiService.getUserBookmarks(userId, this.restrict)
-    return parseIllustListPage(response)
+    let page = parseIllustListPage(response)
+    let placeholders = await this.buildDeletedPlaceholders(page.illusts)
+    if (placeholders.length > 0) {
+      // 已删除作品占位卡片按收藏时间倒序置于列表头部（API 列表无收藏时间戳，无法真实混排）
+      page.illusts = placeholders.concat(page.illusts)
+    }
+    return page
+  }
+
+  /** 收藏快照存在但不在 API 收藏列表首页 → 视为已删除作品，构造灰色占位伪 Illust */
+  private async buildDeletedPlaceholders(apiIllusts: Illust[]): Promise<Illust[]> {
+    let out: Illust[] = []
+    try {
+      let db = await getDbService()
+      let rows = await db.getAliveBookmarkSnapshots()
+      if (rows.length === 0) {
+        return out
+      }
+      let apiIds: number[] = apiIllusts.map((item: Illust) => item.id)
+      for (let i = 0; i < rows.length; i++) {
+        if (apiIds.includes(rows[i].illust_id)) {
+          continue
+        }
+        let snapshot: BookmarkSnapshot | null = bookmarkSnapshotFromJsonString(rows[i].data)
+        if (snapshot === null) {
+          continue
+        }
+        out.push(new Illust({
+          id: snapshot.illustId,
+          title: snapshot.title,
+          pageCount: snapshot.pageCount,
+          width: snapshot.width,
+          height: snapshot.height,
+          isBookmarked: true,
+          isDeletedPlaceholder: true,
+          user: { id: snapshot.userId, name: snapshot.userName }
+        }))
+      }
+      // rows 已按收藏时间（updated_at）倒序，保持该顺序
+    } catch (e) {
+      console.error('Build deleted placeholders failed: ' + e)
+    }
+    return out
   }
 
   switchRestrict(restrict: string) {

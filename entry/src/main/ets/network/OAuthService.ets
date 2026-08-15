@@ -1,9 +1,13 @@
 import { socket } from '@kit.NetworkKit';
+import { http } from '@kit.NetworkKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { PixivEndpoints } from './PixivEndpoints';
 import { Constants } from '../utils/Constants';
 import { CryptoUtils } from '../utils/CryptoUtils';
 import { authInterceptor } from './AuthInterceptor';
+import { relayClient, RelayRequestInput } from './RelayClient';
+import { preferenceService } from '../services/PreferenceService';
+import { hoster } from './Hoster';
 
 /** 凭证失效：服务端明确拒绝 refresh token，必须重新登录 */
 export class CredentialInvalidError extends Error {
@@ -87,7 +91,7 @@ export class OAuthService {
       '&client_secret=' + Constants.CLIENT_SECRET +
       '&redirect_uri=' + encodeURIComponent(Constants.REDIRECT_URI)
 
-    let response = await this.postTokenNoSni(body)
+    let response = await this.postToken(body)
     if (response.code !== 200) {
       throw new Error('exchange token failed: ' + response.code + ' ' + response.body)
     }
@@ -101,14 +105,14 @@ export class OAuthService {
     // 刷新必须使用与签发时相同的 client 凭证（exchangeToken 用 CLIENT_ID），
     // 否则服务端按 invalid_client 返回 400，导致刷新永远失败（历史"掉登录"根因）
     let body = 'grant_type=refresh_token' +
-      '&refresh_token=' + refreshToken +
+      '&refresh_token=' + encodeURIComponent(refreshToken) +
       '&client_id=' + Constants.CLIENT_ID +
       '&client_secret=' + Constants.CLIENT_SECRET
 
     // 网络层异常（超时/断网）归类为临时错误，不做登出处理
     let response: NoSniResponse
     try {
-      response = await this.postTokenNoSni(body)
+      response = await this.postToken(body)
     } catch (e) {
       throw new NetworkError('刷新 token 网络请求失败: ' + e)
     }
@@ -143,15 +147,83 @@ export class OAuthService {
     return result
   }
 
+  private async postToken(body: string): Promise<NoSniResponse> {
+    let authMode = Constants.normalizeMode(preferenceService.getString('auth_mode', Constants.MODE_STANDARD))
+    if (Constants.isRelayMode(authMode)) {
+      // relay 模式：旁路 TLSSocket no-SNI 路径，token 请求经中继转发。
+      // 直接调 RelayClient 而非 HttpClient：避免 AuthInterceptor 向 token 端点注入
+      // 过期 Pixiv Bearer 后把 4xx 误判为鉴权错误触发递归刷新。
+      return this.postTokenViaRelay(body)
+    }
+    if (authMode === Constants.MODE_STANDARD) {
+      // 标准模式：正常 HTTPS（走系统 DNS/VPN/代理），不用直连 IP hack
+      return this.postTokenStandard(body)
+    }
+    return this.postTokenNoSni(body)
+  }
+
+  private async postTokenStandard(body: string): Promise<NoSniResponse> {
+    let clientTime = CryptoUtils.getIsoDate()
+    let header: Record<string, string> = {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': Constants.USER_AGENT,
+      'X-Client-Time': clientTime,
+      'X-Client-Hash': CryptoUtils.md5(clientTime + Constants.HASH_SALT)
+    }
+    let req = http.createHttp()
+    try {
+      let resp = await req.request(Constants.BASE_OAUTH_URL + '/auth/token', {
+        method: http.RequestMethod.POST,
+        header: header,
+        extraData: body,
+        expectDataType: http.HttpDataType.STRING,
+        connectTimeout: 15000,
+        readTimeout: 20000
+      })
+      let out: NoSniResponse = { code: resp.responseCode, body: String(resp.result) }
+      return out
+    } finally {
+      req.destroy()
+    }
+  }
+
+  private async postTokenViaRelay(body: string): Promise<NoSniResponse> {
+    let clientTime = CryptoUtils.getIsoDate()
+    let header: Record<string, string> = {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': Constants.USER_AGENT,
+      'X-Client-Time': clientTime,
+      'X-Client-Hash': CryptoUtils.md5(clientTime + Constants.HASH_SALT)
+    }
+    let input: RelayRequestInput = {
+      url: Constants.BASE_OAUTH_URL + '/auth/token',
+      method: http.RequestMethod.POST,
+      header: header,
+      body: body
+    }
+    let resp = await relayClient.relayRequest(input)
+    let out: NoSniResponse = { code: resp.responseCode, body: String(resp.result) }
+    return out
+  }
+
   private async postTokenNoSni(body: string): Promise<NoSniResponse> {
+    // 时间戳必须只取一次：time 与 hash 分两次取若跨秒会不一致，
+    // Pixiv 校验失败返回 400，被误判为凭证失效导致误登出
+    let clientTime = CryptoUtils.getIsoDate()
     let headerStr = 'Host: oauth.secure.pixiv.net\r\n' +
       'Content-Type: application/x-www-form-urlencoded\r\n' +
       'User-Agent: ' + Constants.USER_AGENT + '\r\n' +
-      'X-Client-Time: ' + CryptoUtils.getIsoDate() + '\r\n' +
-      'X-Client-Hash: ' + CryptoUtils.md5(CryptoUtils.getIsoDate() + Constants.HASH_SALT) + '\r\n' +
+      'X-Client-Time: ' + clientTime + '\r\n' +
+      'X-Client-Hash: ' + CryptoUtils.md5(clientTime + Constants.HASH_SALT) + '\r\n' +
       'Content-Length: ' + body.length + '\r\n' +
       'Connection: close'
-    return this.doNoSniPost(Constants.DIRECT_IP_OAUTH, '/auth/token', headerStr, body)
+    // 优先用 Hoster 的 DoH 解析结果（与 LocalProxyServer 一致），硬编码 IP 可能已被运营商封锁
+    let ip = Constants.DIRECT_IP_OAUTH
+    let ips = hoster.resolveIps('oauth.secure.pixiv.net')
+    if (ips.length > 0 && ips[0].length > 0) {
+      ip = ips[0]
+    }
+    return this.doNoSniPost(ip, '/auth/token', headerStr, body)
   }
 
   private doNoSniPost(ip: string, path: string, headerStr: string, body: string): Promise<NoSniResponse> {
@@ -160,6 +232,23 @@ export class OAuthService {
       let acc = new Uint8Array(0)
       let settled = false
       let reqStr = 'POST ' + path + ' HTTP/1.1\r\n' + headerStr + '\r\n\r\n' + body
+      // 兜底超时：直连 IP 被静默丢包时 connect/read 都会挂起，必须主动拒绝避免卡在"登录中"
+      let timer = setTimeout(() => {
+        if (settled) {
+          return
+        }
+        settled = true
+        try {
+          tls.close()
+        } catch (e) {
+          console.error('tls close on timeout failed: ' + e)
+        }
+        reject(new Error('TLS request timeout'))
+      }, 20000)
+      let settle = (fn: () => void) => {
+        clearTimeout(timer)
+        fn()
+      }
       tls.on('message', (info: socket.SocketMessageInfo) => {
         acc = this.concatBytesLocal(acc, new Uint8Array(info.message))
       })
@@ -168,24 +257,31 @@ export class OAuthService {
           return
         }
         settled = true
-        resolve(this.parseHttpResponse(acc))
+        settle(() => resolve(this.parseHttpResponse(acc)))
       })
       tls.on('error', (err: BusinessError) => {
         if (settled) {
           return
         }
         settled = true
-        reject(new Error('TLS error: ' + JSON.stringify(err)))
+        settle(() => reject(new Error('TLS error: ' + JSON.stringify(err))))
       })
-      tls.connect({
-        address: { address: ip, family: 1, port: 443 },
-        secureOptions: {}
+      // 部分设备上 TLSSocket 未显式 bind 直接 connect 会报 2303600 No bind socket，
+      // 先绑定本地通配地址（端口 0 由系统分配）再连接
+      let bindAddr: socket.NetAddress = { address: '0.0.0.0', family: 1, port: 0 }
+      tls.bind(bindAddr).then(() => {
+        return tls.connect({
+          address: { address: ip, family: 1, port: 443 },
+          secureOptions: {},
+          timeout: 15000
+        })
       }).then(() => {
         return tls.send(reqStr)
       }).catch((e: Object) => {
         if (!settled) {
           settled = true
-          reject(new Error('TLS connect/send failed: ' + e))
+          let err = e as BusinessError
+          settle(() => reject(new Error('TLS connect/send failed: code=' + err.code + ' msg=' + err.message)))
         }
       })
     })

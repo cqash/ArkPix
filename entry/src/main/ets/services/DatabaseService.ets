@@ -36,6 +36,14 @@ export interface DownloadTaskItem {
   timestamp: number
 }
 
+/** 收藏快照行（data 为 BookmarkSnapshot JSON 串；deleted=1 为墓碑） */
+export interface BookmarkSnapshotItem {
+  illust_id: number
+  data: string
+  updated_at: number
+  deleted: number
+}
+
 export class DatabaseService {
   private static instance: DatabaseService
   private db: relationalStore.RdbStore
@@ -63,6 +71,7 @@ export class DatabaseService {
       await db.execute('CREATE TABLE IF NOT EXISTS recommend_cache (id INTEGER PRIMARY KEY, data TEXT, timestamp INTEGER)')
       await db.execute('CREATE TABLE IF NOT EXISTS ranking_cache (id INTEGER PRIMARY KEY, mode TEXT, date TEXT, data TEXT, timestamp INTEGER)')
       await db.execute('CREATE TABLE IF NOT EXISTS illust_detail_cache (id INTEGER PRIMARY KEY, illust_id INTEGER, data TEXT, timestamp INTEGER)')
+      await db.execute('CREATE TABLE IF NOT EXISTS bookmark_snapshots (illust_id INTEGER PRIMARY KEY, data TEXT, updated_at INTEGER, deleted INTEGER DEFAULT 0)')
       DatabaseService.instance = new DatabaseService(db)
       // 应用重启后，残留的 downloading/pending 任务不可能继续，重置为 failed
       await db.execute('UPDATE download_tasks SET status = ?, progress = ? WHERE status = ? OR status = ?',
@@ -76,6 +85,7 @@ export class DatabaseService {
     await this.db.execute('DELETE FROM history WHERE illust_id = ?', [illustId])
     await this.db.execute('INSERT INTO history (illust_id, title, image_url, user_name, timestamp) VALUES (?, ?, ?, ?, ?)',
       [illustId, title, imageUrl, userName, Date.now()])
+    notifySyncWrite('history')
   }
 
   async getHistory(limit: number = 500): Promise<HistoryItem[]> {
@@ -100,7 +110,42 @@ export class DatabaseService {
   }
 
   async clearHistory(): Promise<void> {
+    // 清空前收集全部 key 作为同步墓碑（删除传播到其他设备）
+    let tombstoneKeys: string[] = []
+    let resultSet = await this.db.querySql('SELECT DISTINCT illust_id FROM history')
+    while (resultSet.goToNextRow()) {
+      tombstoneKeys.push(Number(resultSet.getValue(resultSet.getColumnIndex('illust_id'))).toString())
+    }
+    resultSet.close()
     await this.db.execute('DELETE FROM history')
+    notifySyncWrite('history', tombstoneKeys)
+  }
+
+  // ---------------- 同步 applier 辅助（history） ----------------
+
+  /** 指定作品的本地历史时间戳（无记录返回 0），供 viewed_at LWW 比较 */
+  async getHistoryTimestamp(illustId: number): Promise<number> {
+    let resultSet = await this.db.querySql('SELECT MAX(timestamp) AS ts FROM history WHERE illust_id = ?', [illustId])
+    let ts = 0
+    if (resultSet.goToNextRow()) {
+      let val = resultSet.getValue(resultSet.getColumnIndex('ts'))
+      if (val !== null) {
+        ts = Number(val)
+      }
+    }
+    resultSet.close()
+    return ts
+  }
+
+  /** 同步下行写入：携带远端时间戳（先删后插，与 addHistory 去重语义一致） */
+  async upsertHistory(illustId: number, title: string, imageUrl: string, userName: string, timestamp: number): Promise<void> {
+    await this.db.execute('DELETE FROM history WHERE illust_id = ?', [illustId])
+    await this.db.execute('INSERT INTO history (illust_id, title, image_url, user_name, timestamp) VALUES (?, ?, ?, ?, ?)',
+      [illustId, title, imageUrl, userName, timestamp])
+  }
+
+  async deleteHistory(illustId: number): Promise<void> {
+    await this.db.execute('DELETE FROM history WHERE illust_id = ?', [illustId])
   }
 
   /** 按 keyword+search_type 去重：search_history 表无 UNIQUE 约束，INSERT OR REPLACE 不去重，先删后插 */
@@ -108,6 +153,7 @@ export class DatabaseService {
     await this.db.execute('DELETE FROM search_history WHERE keyword = ? AND search_type = ?', [keyword, searchType])
     await this.db.execute('INSERT INTO search_history (keyword, search_type, timestamp) VALUES (?, ?, ?)',
       [keyword, searchType, Date.now()])
+    notifySyncWrite('search_history')
   }
 
   async getSearchHistory(limit: number = 50): Promise<SearchHistoryItem[]> {
@@ -127,7 +173,45 @@ export class DatabaseService {
   }
 
   async clearSearchHistory(): Promise<void> {
+    // 清空前收集全部 key（search_type:keyword，与同步 collector 的 key 格式一致）作为墓碑
+    let tombstoneKeys: string[] = []
+    let resultSet = await this.db.querySql('SELECT DISTINCT keyword, search_type FROM search_history')
+    while (resultSet.goToNextRow()) {
+      let keyword = String(resultSet.getValue(resultSet.getColumnIndex('keyword')))
+      let searchType = String(resultSet.getValue(resultSet.getColumnIndex('search_type')))
+      tombstoneKeys.push(searchType + ':' + keyword)
+    }
+    resultSet.close()
     await this.db.execute('DELETE FROM search_history')
+    notifySyncWrite('search_history', tombstoneKeys)
+  }
+
+  // ---------------- 同步 applier 辅助（search_history） ----------------
+
+  /** 指定 keyword+search_type 的本地时间戳（无记录返回 0），供 LWW 比较 */
+  async getSearchHistoryTimestamp(keyword: string, searchType: string): Promise<number> {
+    let resultSet = await this.db.querySql(
+      'SELECT MAX(timestamp) AS ts FROM search_history WHERE keyword = ? AND search_type = ?', [keyword, searchType])
+    let ts = 0
+    if (resultSet.goToNextRow()) {
+      let val = resultSet.getValue(resultSet.getColumnIndex('ts'))
+      if (val !== null) {
+        ts = Number(val)
+      }
+    }
+    resultSet.close()
+    return ts
+  }
+
+  /** 同步下行写入：携带远端时间戳（先删后插，与 addSearchHistory 去重语义一致） */
+  async upsertSearchHistory(keyword: string, searchType: string, timestamp: number): Promise<void> {
+    await this.db.execute('DELETE FROM search_history WHERE keyword = ? AND search_type = ?', [keyword, searchType])
+    await this.db.execute('INSERT INTO search_history (keyword, search_type, timestamp) VALUES (?, ?, ?)',
+      [keyword, searchType, timestamp])
+  }
+
+  async deleteSearchHistory(keyword: string, searchType: string): Promise<void> {
+    await this.db.execute('DELETE FROM search_history WHERE keyword = ? AND search_type = ?', [keyword, searchType])
   }
 
   async addMute(type: string, value: string, userId: number = 0): Promise<void> {
@@ -289,6 +373,76 @@ export class DatabaseService {
   async clearImageCache(): Promise<void> {
     await this.db.execute('DELETE FROM image_cache')
   }
+
+  // ---------------- bookmark_snapshots（收藏快照：待上行暂存 + 404 兜底 + 收藏页占位） ----------------
+
+  async upsertBookmarkSnapshot(illustId: number, data: string, updatedAt: number, deleted: boolean): Promise<void> {
+    await this.db.execute('INSERT OR REPLACE INTO bookmark_snapshots (illust_id, data, updated_at, deleted) VALUES (?, ?, ?, ?)',
+      [illustId, data, updatedAt, deleted ? 1 : 0])
+  }
+
+  async getBookmarkSnapshot(illustId: number): Promise<BookmarkSnapshotItem | null> {
+    let resultSet = await this.db.querySql('SELECT * FROM bookmark_snapshots WHERE illust_id = ?', [illustId])
+    let item: BookmarkSnapshotItem | null = null
+    if (resultSet.goToNextRow()) {
+      let found: BookmarkSnapshotItem = {
+        illust_id: Number(resultSet.getValue(resultSet.getColumnIndex('illust_id'))),
+        data: String(resultSet.getValue(resultSet.getColumnIndex('data'))),
+        updated_at: Number(resultSet.getValue(resultSet.getColumnIndex('updated_at'))),
+        deleted: Number(resultSet.getValue(resultSet.getColumnIndex('deleted')))
+      }
+      item = found
+    }
+    resultSet.close()
+    return item
+  }
+
+  /** 未删除（deleted=0）的全部快照，按收藏时间（updated_at）倒序 */
+  async getAliveBookmarkSnapshots(): Promise<BookmarkSnapshotItem[]> {
+    let resultSet = await this.db.querySql('SELECT * FROM bookmark_snapshots WHERE deleted = 0 ORDER BY updated_at DESC')
+    let results: BookmarkSnapshotItem[] = []
+    while (resultSet.goToNextRow()) {
+      let item: BookmarkSnapshotItem = {
+        illust_id: Number(resultSet.getValue(resultSet.getColumnIndex('illust_id'))),
+        data: String(resultSet.getValue(resultSet.getColumnIndex('data'))),
+        updated_at: Number(resultSet.getValue(resultSet.getColumnIndex('updated_at'))),
+        deleted: Number(resultSet.getValue(resultSet.getColumnIndex('deleted')))
+      }
+      results.push(item)
+    }
+    resultSet.close()
+    return results
+  }
+
+  /** 覆盖式更新某域快照集合（同步全量重建用）：先清空再批量写入 */
+  async replaceBookmarkSnapshots(items: BookmarkSnapshotItem[]): Promise<void> {
+    await this.db.execute('DELETE FROM bookmark_snapshots')
+    for (let i = 0; i < items.length; i++) {
+      await this.upsertBookmarkSnapshot(items[i].illust_id, items[i].data, items[i].updated_at, items[i].deleted !== 0)
+    }
+  }
+
+  /** 全量快照行（含墓碑），同步 push collector 用 */
+  async getAllBookmarkSnapshotRows(): Promise<BookmarkSnapshotItem[]> {
+    let resultSet = await this.db.querySql('SELECT * FROM bookmark_snapshots')
+    let results: BookmarkSnapshotItem[] = []
+    while (resultSet.goToNextRow()) {
+      let item: BookmarkSnapshotItem = {
+        illust_id: Number(resultSet.getValue(resultSet.getColumnIndex('illust_id'))),
+        data: String(resultSet.getValue(resultSet.getColumnIndex('data'))),
+        updated_at: Number(resultSet.getValue(resultSet.getColumnIndex('updated_at'))),
+        deleted: Number(resultSet.getValue(resultSet.getColumnIndex('deleted')))
+      }
+      results.push(item)
+    }
+    resultSet.close()
+    return results
+  }
+
+  async markBookmarkSnapshotDeleted(illustId: number): Promise<void> {
+    await this.db.execute('UPDATE bookmark_snapshots SET deleted = ?, updated_at = ? WHERE illust_id = ?',
+      [1, Date.now(), illustId])
+  }
 }
 
 let dbServiceInstance: DatabaseService | null = null
@@ -297,4 +451,24 @@ export async function getDbService(): Promise<DatabaseService> {
     dbServiceInstance = await DatabaseService.getInstance()
   }
   return dbServiceInstance
+}
+
+// ---------------- 同步写入 hook（模块级回调，避免 DatabaseService 反向 import SyncService 成环） ----------------
+
+export type SyncWriteHook = (domain: string, tombstoneKeys: string[]) => void
+
+let syncWriteHook: SyncWriteHook | null = null
+
+export function setSyncWriteHook(hook: SyncWriteHook): void {
+  syncWriteHook = hook
+}
+
+function notifySyncWrite(domain: string, tombstoneKeys: string[] = []): void {
+  if (syncWriteHook !== null) {
+    try {
+      syncWriteHook(domain, tombstoneKeys)
+    } catch (e) {
+      console.error('Sync write hook failed: ' + e)
+    }
+  }
 }

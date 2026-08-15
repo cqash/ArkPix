@@ -2,6 +2,27 @@ import { preferenceService } from '../services/PreferenceService';
 import { AppSettings, AppSettingsOptions, ExifTagMergeRule } from '../models/AppSettings';
 import { Constants } from '../utils/Constants';
 
+// ---------------- 同步写入 hook（模块级回调，避免 UserSettingStore 反向 import SyncService 成环） ----------------
+// domain：'mute' / 'exif_config' / 'settings'；tombstoneKeys：被移除项的同步 key（删除传播用）
+
+export type SettingsWriteHook = (domain: string, tombstoneKeys: string[]) => void
+
+let settingsWriteHook: SettingsWriteHook | null = null
+
+export function setSettingsWriteHook(hook: SettingsWriteHook): void {
+  settingsWriteHook = hook
+}
+
+function notifySettingsWrite(domain: string, tombstoneKeys: string[] = []): void {
+  if (settingsWriteHook !== null) {
+    try {
+      settingsWriteHook(domain, tombstoneKeys)
+    } catch (e) {
+      console.error('Settings write hook failed: ' + e)
+    }
+  }
+}
+
 export class UserSettingStore {
   private static instance: UserSettingStore
   private settings: AppSettings = new AppSettings()
@@ -56,7 +77,12 @@ export class UserSettingStore {
       proxyPassword: preferenceService.getString('proxy_password', ''),
       imageHostType: preferenceService.getString('image_host_type', 'default'),
       imageHostCustom: preferenceService.getString('image_host_custom', 'i.pximg.net'),
-      sniHost: preferenceService.getString('sni_host', '')
+      sniHost: preferenceService.getString('sni_host', ''),
+      relayServerUrl: preferenceService.getString('relay_server_url', ''),
+      syncEnabled: preferenceService.getBoolean('sync_enabled', false),
+      autoSyncForeground: preferenceService.getBoolean('auto_sync_foreground', true),
+      prevAuthMode: preferenceService.getString('prev_auth_mode', 'standard'),
+      prevApiMode: preferenceService.getString('prev_api_mode', 'standard')
     }
     this.settings = new AppSettings(opts)
     AppStorage.setOrCreate('appSettings', this.settings)
@@ -99,6 +125,11 @@ export class UserSettingStore {
     preferenceService.setString('image_host_type', this.settings.imageHostType)
     preferenceService.setString('image_host_custom', this.settings.imageHostCustom)
     preferenceService.setString('sni_host', this.settings.sniHost)
+    preferenceService.setString('relay_server_url', this.settings.relayServerUrl)
+    preferenceService.setBoolean('sync_enabled', this.settings.syncEnabled)
+    preferenceService.setBoolean('auto_sync_foreground', this.settings.autoSyncForeground)
+    preferenceService.setString('prev_auth_mode', this.settings.prevAuthMode)
+    preferenceService.setString('prev_api_mode', this.settings.prevApiMode)
     let newSettings: AppSettings = this.getSettings()
     this.settings = newSettings
     AppStorage.setOrCreate('appSettings', newSettings)
@@ -143,53 +174,67 @@ export class UserSettingStore {
       proxyPassword: this.settings.proxyPassword,
       imageHostType: this.settings.imageHostType,
       imageHostCustom: this.settings.imageHostCustom,
-      sniHost: this.settings.sniHost
+      sniHost: this.settings.sniHost,
+      relayServerUrl: this.settings.relayServerUrl,
+      syncEnabled: this.settings.syncEnabled,
+      autoSyncForeground: this.settings.autoSyncForeground,
+      prevAuthMode: this.settings.prevAuthMode,
+      prevApiMode: this.settings.prevApiMode
     })
   }
 
   setPictureQuality(value: number): void {
     this.settings.pictureQuality = value
     this.saveSettings()
+    notifySettingsWrite('settings')
   }
 
   setMangaQuality(value: number): void {
     this.settings.mangaQuality = value
     this.saveSettings()
+    notifySettingsWrite('settings')
   }
 
   setPreviewQuality(value: number): void {
     this.settings.previewQuality = value
     this.saveSettings()
+    notifySettingsWrite('settings')
   }
 
   setDetailQuality(value: number): void {
     this.settings.detailQuality = value
     this.saveSettings()
+    notifySettingsWrite('settings')
   }
 
   setFullScreenQuality(value: number): void {
     this.settings.fullScreenQuality = value
     this.saveSettings()
+    notifySettingsWrite('settings')
   }
 
   setDownloadQuality(value: number): void {
     this.settings.downloadQuality = value
     this.saveSettings()
+    notifySettingsWrite('settings')
   }
 
   setDownloadConcurrency(value: number): void {
     this.settings.downloadConcurrency = value
     this.saveSettings()
+    notifySettingsWrite('settings')
   }
 
   setAutoBookmarkOnDownload(value: boolean): void {
     this.settings.autoBookmarkOnDownload = value
     this.saveSettings()
+    notifySettingsWrite('settings')
   }
 
   setFilenameTemplate(value: string): void {
     this.settings.filenameTemplate = value
     this.saveSettings()
+    notifySettingsWrite('settings')
   }
 
   setEmbedExifMetadata(value: boolean): void {
@@ -200,31 +245,37 @@ export class UserSettingStore {
   setExifCommentTemplate(value: string): void {
     this.settings.exifCommentTemplate = value
     this.saveSettings()
+    notifySettingsWrite('exif_config')
   }
 
   setShowTranslatedTags(value: boolean): void {
     this.settings.showTranslatedTags = value
     this.saveSettings()
+    notifySettingsWrite('settings')
   }
 
   setShowR18Rank(value: boolean): void {
     this.settings.showR18Rank = value
     this.saveSettings()
+    notifySettingsWrite('settings')
   }
 
   setAntiSocialDeath(value: boolean): void {
     this.settings.antiSocialDeath = value
     this.saveSettings()
+    notifySettingsWrite('settings')
   }
 
   setTheme(value: string): void {
     this.settings.theme = value
     this.saveSettings()
+    notifySettingsWrite('settings')
   }
 
   setLanguage(value: string): void {
     this.settings.language = value
     this.saveSettings()
+    notifySettingsWrite('settings')
   }
 
   setAuthMode(value: string): void {
@@ -240,17 +291,20 @@ export class UserSettingStore {
   setCrossCount(value: number): void {
     this.settings.crossCount = value
     this.saveSettings()
+    notifySettingsWrite('settings')
   }
 
   setIsTopMode(value: boolean): void {
     this.settings.isTopMode = value
     this.saveSettings()
+    notifySettingsWrite('settings')
   }
 
   addMuteTag(tag: string): void {
     if (!this.settings.muteTags.includes(tag)) {
       this.settings.muteTags.push(tag)
       this.saveSettings()
+      notifySettingsWrite('mute')
     }
   }
 
@@ -259,6 +313,7 @@ export class UserSettingStore {
     if (index >= 0) {
       this.settings.muteTags.splice(index, 1)
       this.saveSettings()
+      notifySettingsWrite('mute', ['tag:' + tag])
     }
   }
 
@@ -266,6 +321,7 @@ export class UserSettingStore {
     if (!this.settings.muteUsers.includes(userId)) {
       this.settings.muteUsers.push(userId)
       this.saveSettings()
+      notifySettingsWrite('mute')
     }
   }
 
@@ -274,23 +330,40 @@ export class UserSettingStore {
     if (index >= 0) {
       this.settings.muteUsers.splice(index, 1)
       this.saveSettings()
+      notifySettingsWrite('mute', ['user:' + userId.toString()])
     }
   }
 
   setAiFilter(value: boolean): void {
     this.settings.aiFilter = value
     this.saveSettings()
+    notifySettingsWrite('mute')
+  }
+
+  /** 同步 applier 用：整体替换屏蔽标签/用户列表 */
+  setMuteTags(tags: string[]): void {
+    this.settings.muteTags = tags.slice()
+    this.saveSettings()
+    notifySettingsWrite('mute')
+  }
+
+  setMuteUsers(users: number[]): void {
+    this.settings.muteUsers = users.slice()
+    this.saveSettings()
+    notifySettingsWrite('mute')
   }
 
   setSaveFormat(value: string): void {
     this.settings.saveFormat = value
     this.saveSettings()
+    notifySettingsWrite('settings')
   }
 
   addExifMutedTag(tag: string): void {
     if (!this.settings.exifMutedTags.includes(tag)) {
       this.settings.exifMutedTags.push(tag)
       this.saveSettings()
+      notifySettingsWrite('exif_config')
     }
   }
 
@@ -299,12 +372,14 @@ export class UserSettingStore {
     if (index >= 0) {
       this.settings.exifMutedTags.splice(index, 1)
       this.saveSettings()
+      notifySettingsWrite('exif_config')
     }
   }
 
   setExifMutedTags(tags: string[]): void {
     this.settings.exifMutedTags = tags.slice()
     this.saveSettings()
+    notifySettingsWrite('exif_config')
   }
 
   addExifMergeRule(mainTag: string, fromTags: string[]): void {
@@ -342,6 +417,7 @@ export class UserSettingStore {
       this.settings.exifMergedTags.push(newRule)
     }
     this.saveSettings()
+    notifySettingsWrite('exif_config')
   }
 
   removeExifMergeRule(mainTag: string): void {
@@ -352,6 +428,7 @@ export class UserSettingStore {
       }
     }
     this.saveSettings()
+    notifySettingsWrite('exif_config')
   }
 
   setExifMergedTags(rules: ExifTagMergeRule[]): void {
@@ -359,11 +436,13 @@ export class UserSettingStore {
       (rule: ExifTagMergeRule) => new ExifTagMergeRule({ mainTag: rule.mainTag, fromTags: rule.fromTags.slice() })
     )
     this.saveSettings()
+    notifySettingsWrite('exif_config')
   }
 
   setExifTagPriority(priority: string[]): void {
     this.settings.exifTagPriority = priority.slice()
     this.saveSettings()
+    notifySettingsWrite('exif_config')
   }
 
   updateExifTagPriority(confirmedTags: string[]): void {
@@ -382,6 +461,7 @@ export class UserSettingStore {
     }
     this.settings.exifTagPriority = result
     this.saveSettings()
+    notifySettingsWrite('exif_config')
   }
 
   setAutoMergeTranslatedTags(value: boolean): void {
@@ -417,15 +497,45 @@ export class UserSettingStore {
   setImageHostType(value: string): void {
     this.settings.imageHostType = value
     this.saveSettings()
+    notifySettingsWrite('settings')
   }
 
   setImageHostCustom(value: string): void {
     this.settings.imageHostCustom = value
     this.saveSettings()
+    notifySettingsWrite('settings')
   }
 
   setSniHost(value: string): void {
     this.settings.sniHost = value
+    this.saveSettings()
+  }
+
+  setRelayServerUrl(value: string): void {
+    this.settings.relayServerUrl = value.trim()
+    this.saveSettings()
+    notifySettingsWrite('settings')
+  }
+
+  setSyncEnabled(value: boolean): void {
+    this.settings.syncEnabled = value
+    this.saveSettings()
+    notifySettingsWrite('settings')
+  }
+
+  /** 设备本地开关：不触发 settings 域上行（同 prevAuthMode/prevApiMode 处理） */
+  setAutoSyncForeground(value: boolean): void {
+    this.settings.autoSyncForeground = value
+    this.saveSettings()
+  }
+
+  setPrevAuthMode(value: string): void {
+    this.settings.prevAuthMode = value
+    this.saveSettings()
+  }
+
+  setPrevApiMode(value: string): void {
+    this.settings.prevApiMode = value
     this.saveSettings()
   }
 }

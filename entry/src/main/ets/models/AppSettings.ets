@@ -51,6 +51,11 @@ export interface AppSettingsOptions {
   imageHostType?: string
   imageHostCustom?: string
   sniHost?: string
+  relayServerUrl?: string
+  syncEnabled?: boolean
+  autoSyncForeground?: boolean
+  prevAuthMode?: string
+  prevApiMode?: string
 }
 
 export class AppSettings {
@@ -90,6 +95,12 @@ export class AppSettings {
   imageHostType: string = 'default'
   imageHostCustom: string = 'i.pximg.net'
   sniHost: string = ''
+  relayServerUrl: string = ''
+  syncEnabled: boolean = false
+  /** 回到前台时自动补偿同步（设备本地开关，不随 settings 域同步） */
+  autoSyncForeground: boolean = true
+  prevAuthMode: string = 'standard'
+  prevApiMode: string = 'standard'
 
   constructor(options?: AppSettingsOptions) {
     if (options) {
@@ -131,6 +142,11 @@ export class AppSettings {
       this.imageHostType = options.imageHostType ?? 'default'
       this.imageHostCustom = options.imageHostCustom ?? 'i.pximg.net'
       this.sniHost = options.sniHost ?? ''
+      this.relayServerUrl = options.relayServerUrl ?? ''
+      this.syncEnabled = options.syncEnabled ?? false
+      this.autoSyncForeground = options.autoSyncForeground ?? true
+      this.prevAuthMode = options.prevAuthMode ?? 'standard'
+      this.prevApiMode = options.prevApiMode ?? 'standard'
     }
   }
 }

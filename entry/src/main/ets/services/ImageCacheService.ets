@@ -4,6 +4,7 @@ import { fileIo } from '@kit.CoreFileKit';
 import { getDbService } from './DatabaseService';
 import { Constants } from '../utils/Constants';
 import { preferenceService } from './PreferenceService';
+import { relayClient } from '../network/RelayClient';
 
 export class ImageCacheService {
   private static instance: ImageCacheService
@@ -112,12 +113,22 @@ export class ImageCacheService {
     if (memory && this.fileExists(memory)) {
       return memory
     }
-    let imageHostType = preferenceService.getString('image_host_type', 'default')
-    let imageHostCustom = preferenceService.getString('image_host_custom', 'i.pximg.net')
-    let hostUrl = Constants.applyImageHost(Constants.applyProxy(url), imageHostType, imageHostCustom)
-    let originalHost = Constants.extractHost(hostUrl)
-    let requestUrl = Constants.applyDirectIp(hostUrl)
-    let useDirectIp = requestUrl !== hostUrl
+    let apiMode = Constants.normalizeMode(preferenceService.getString('api_mode', Constants.MODE_STANDARD))
+    let isRelay = Constants.isRelayMode(apiMode)
+    let requestUrl = ''
+    let originalHost = ''
+    let useDirectIp = false
+    if (isRelay) {
+      // relay 模式：URL 包装为 /img/v1/fetch?url=，跳过 applyImageHost/applyDirectIp/Host 头/证书跳过
+      requestUrl = relayClient.buildImageUrl(url)
+    } else {
+      let imageHostType = preferenceService.getString('image_host_type', 'default')
+      let imageHostCustom = preferenceService.getString('image_host_custom', 'i.pximg.net')
+      let hostUrl = Constants.applyImageHost(Constants.applyProxy(url), imageHostType, imageHostCustom)
+      originalHost = Constants.extractHost(hostUrl)
+      requestUrl = Constants.applyDirectIp(hostUrl)
+      useDirectIp = requestUrl !== hostUrl
+    }
     let db = await getDbService()
     let cached = await db.getImageCache(url)
     if (cached && this.fileExists(cached)) {
@@ -128,12 +139,16 @@ export class ImageCacheService {
 
     try {
       let httpClient = http.createHttp()
-      let headers: Record<string, string> = {
-        'Referer': 'https://app-api.pixiv.net/',
-        'User-Agent': Constants.IMAGE_USER_AGENT
-      }
-      if (useDirectIp && originalHost.length > 0) {
-        headers['Host'] = originalHost
+      let headers: Record<string, string> = {}
+      if (isRelay) {
+        // relay 模式仅注入服务级 Bearer，不注入 Referer/User-Agent
+        headers = await relayClient.buildImageAuthHeader()
+      } else {
+        headers['Referer'] = 'https://app-api.pixiv.net/'
+        headers['User-Agent'] = Constants.IMAGE_USER_AGENT
+        if (useDirectIp && originalHost.length > 0) {
+          headers['Host'] = originalHost
+        }
       }
       let reqOptions: http.HttpRequestOptions = {
         method: http.RequestMethod.GET,

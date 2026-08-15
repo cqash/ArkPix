@@ -15,10 +15,11 @@ export class Constants {
   static readonly LOCAL_PROXY_HOST: string = '127.0.0.1'
   static readonly LOCAL_PROXY_PORT: number = 10809
 
-  // 网络绕过模式（认证 / API 服务，对齐 pixez 三档：标准 / 兼容 / 增强）
+  // 网络绕过模式（认证 / API 服务，对齐 pixez 三档：标准 / 兼容 / 增强 + 中继）
   static readonly MODE_STANDARD: string = 'standard'
   static readonly MODE_COMPATIBLE: string = 'compatible'
   static readonly MODE_ECH: string = 'ech'
+  static readonly MODE_RELAY: string = 'relay'
 
   // 图床
   static readonly IMAGE_HOST_DEFAULT: string = 'i.pximg.net'
@@ -101,7 +102,7 @@ export class Constants {
     return rest
   }
 
-  /** 归一化网络模式：兼容旧值（sni/doh/bypass → compatible） */
+  /** 归一化网络模式：兼容旧值（sni/doh/bypass → compatible），relay 原样放行 */
   static normalizeMode(mode: string): string {
     if (mode === Constants.MODE_STANDARD) {
       return Constants.MODE_STANDARD
@@ -112,7 +113,15 @@ export class Constants {
     if (mode === Constants.MODE_ECH) {
       return Constants.MODE_ECH
     }
+    if (mode === Constants.MODE_RELAY) {
+      return Constants.MODE_RELAY
+    }
     return Constants.MODE_COMPATIBLE
+  }
+
+  /** 是否为中继模式（API/OAuth/图片全部经 Relay Server 中转） */
+  static isRelayMode(mode: string): boolean {
+    return mode === Constants.MODE_RELAY
   }
 
   static applyProxy(url: string): string {

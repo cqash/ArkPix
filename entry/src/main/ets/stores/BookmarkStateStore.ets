@@ -13,6 +13,9 @@ export const BOOKMARK_NONE: number = 0
 export const BOOKMARK_LOADING: number = 1
 export const BOOKMARK_DONE: number = 2
 
+/** 收藏变更回调（star/unstar 成功后触发，供 SyncService 生成快照/墓碑，避免反向依赖成环） */
+export type BookmarkChangeListener = (illust: Illust, bookmarked: boolean) => void
+
 /**
  * 全局收藏状态注册表（跨页同步收藏状态）。
  * 内存态 Map<illustId, 0|1|2>，每次变更以新 Map 引用写入
@@ -21,6 +24,7 @@ export const BOOKMARK_DONE: number = 2
 export class BookmarkStateStore {
   private static instance: BookmarkStateStore
   private states: Map<number, number> = new Map<number, number>()
+  private bookmarkChangeListeners: BookmarkChangeListener[] = []
 
   protected constructor() {
     AppStorage.setOrCreate('bookmarkStates', new Map<number, number>())
@@ -31,6 +35,28 @@ export class BookmarkStateStore {
       BookmarkStateStore.instance = new BookmarkStateStore()
     }
     return BookmarkStateStore.instance
+  }
+
+  registerBookmarkChangeListener(listener: BookmarkChangeListener): void {
+    this.bookmarkChangeListeners.push(listener)
+  }
+
+  unregisterBookmarkChangeListener(listener: BookmarkChangeListener): void {
+    let idx = this.bookmarkChangeListeners.indexOf(listener)
+    if (idx >= 0) {
+      this.bookmarkChangeListeners.splice(idx, 1)
+    }
+  }
+
+  private notifyBookmarkChanged(illust: Illust, bookmarked: boolean): void {
+    let snapshot = this.bookmarkChangeListeners.slice()
+    for (let i = 0; i < snapshot.length; i++) {
+      try {
+        snapshot[i](illust, bookmarked)
+      } catch (e) {
+        console.error('Bookmark change listener failed: ' + e)
+      }
+    }
   }
 
   private syncToAppStorage(): void {
@@ -101,6 +127,7 @@ export class BookmarkStateStore {
       this.setState(illust.id, BOOKMARK_DONE)
       await this.invalidateDetailCache(illust.id)
       this.showToast(restrict === 'private' ? '已私密收藏' : '已收藏')
+      this.notifyBookmarkChanged(illust, true)
       return true
     } catch (e) {
       console.error('Bookmark failed: ' + e)
@@ -121,6 +148,7 @@ export class BookmarkStateStore {
       this.setState(illust.id, BOOKMARK_NONE)
       await this.invalidateDetailCache(illust.id)
       this.showToast('已取消收藏')
+      this.notifyBookmarkChanged(illust, false)
       return true
     } catch (e) {
       console.error('Unbookmark failed: ' + e)

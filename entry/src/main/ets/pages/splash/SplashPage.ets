@@ -1,5 +1,6 @@
 import { router, promptAction } from '@kit.ArkUI';
 import { accountStore } from '../../stores/AccountStore';
+import { syncService } from '../../services/SyncService';
 
 @Entry
 @Component
@@ -7,6 +8,16 @@ struct SplashPage {
   @State isReady: boolean = false
 
   aboutToAppear() {
+    // 启动后约 5 秒空闲触发一次全域同步 pull（内部判 syncEnabled + 已注册中继账号）；
+    // 挂载在此而非 EntryAbility：页面模块在 context 入 AppStorage 之后才加载，
+    // 模块级 Store 单例可安全访问 PreferenceService
+    setTimeout(() => {
+      syncService.startupPull()
+        .catch((e: Object) => {
+          console.error('Startup sync pull failed: ' + JSON.stringify(e))
+        });
+    }, 5000)
+
     setTimeout(() => {
       this.isReady = true
       if (accountStore.getIsLoggedIn()) {

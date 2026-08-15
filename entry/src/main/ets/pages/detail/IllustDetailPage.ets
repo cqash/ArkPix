@@ -7,7 +7,9 @@ import { Illust, Tag } from '../../models/Illust';
 import { AppSettings } from '../../models/AppSettings';
 import { userSettingStore } from '../../stores/UserSettingStore';
 import { BOOKMARK_LOADING, BOOKMARK_DONE } from '../../stores/BookmarkStateStore';
-import { IllustDetailStore, DetailRow } from '../../stores/IllustDetailStore';
+import { IllustDetailStore, DetailRow, RECOVER_STATE_IDLE, RECOVER_STATE_POLLING, RECOVER_STATE_READY }
+  from '../../stores/IllustDetailStore';
+import { BookmarkSnapshot } from '../../models/RelayModels';
 import { Constants } from '../../utils/Constants';
 import { copyText } from '../../utils/ClipboardUtils';
 import { formatCreateDate } from '../../utils/DateUtils';
@@ -58,6 +60,9 @@ struct IllustDetailPage {
   @State isLoading: boolean = false
   @State errorMessage: string = ''
   @State illustId: number = 0
+  @State deletedSnapshot: BookmarkSnapshot | null = null
+  @State recoverState: string = RECOVER_STATE_IDLE
+  @State recoverProgressText: string = ''
   @State userAvatarPath: string = ''
   @State revealedR18: boolean = false
   @State bookmarkMenuShown: boolean = false
@@ -108,11 +113,17 @@ struct IllustDetailPage {
     }
   }
 
+  aboutToDisappear() {
+    // 页面退出：停止恢复轮询，不残留后台任务
+    this.store.cancelRecover()
+  }
+
   async loadDetail(id: number, forceRefresh: boolean = false) {
     if (this.rows.length === 0) {
       this.isLoading = true
     }
     this.errorMessage = ''
+    this.deletedSnapshot = null
     let ok = await this.store.load(id, forceRefresh)
     if (ok || this.store.illust.id > 0) {
       this.illust = this.store.illust
@@ -123,10 +134,58 @@ struct IllustDetailPage {
       }).catch((e: Object) => {
         console.error('Load related failed: ' + e)
       })
+    } else if (this.store.deletedSnapshot !== null) {
+      // 404 + 有收藏快照：快照兜底分支（不显示普通错误页）
+      this.deletedSnapshot = this.store.deletedSnapshot
+      this.recoverState = RECOVER_STATE_IDLE
+      this.recoverProgressText = ''
     } else {
       this.errorMessage = this.store.errorMessage || '加载失败'
     }
     this.isLoading = false
+  }
+
+  /** 点击"尝试从第三方恢复"：轮询编排交 store，状态镜像回页面 */
+  private startRecover(): void {
+    this.recoverState = RECOVER_STATE_POLLING
+    this.store.startRecover((text: string) => {
+      this.recoverProgressText = text
+    }).then(() => {
+      this.recoverState = this.store.recoverState
+      if (this.store.recoverState === RECOVER_STATE_READY && this.store.recoveredImageUrls.length > 0) {
+        this.openRecoveredViewer(this.store.recoveredImageUrls)
+      }
+    }).catch((e: Object) => {
+      console.error('Recover failed: ' + e)
+      this.recoverState = this.store.recoverState
+    })
+  }
+
+  private cancelRecover(): void {
+    this.store.cancelRecover()
+    this.recoverState = RECOVER_STATE_IDLE
+    this.recoverProgressText = ''
+  }
+
+  /** 恢复成功：用快照元数据构造 Illust 跳查看器（图片 URL 直接可用） */
+  private openRecoveredViewer(urls: string[]): void {
+    let snapshot = this.deletedSnapshot
+    let recovered: Illust = new Illust()
+    if (snapshot !== null) {
+      recovered = new Illust({
+        id: snapshot.illustId,
+        title: snapshot.title,
+        pageCount: snapshot.pageCount,
+        width: snapshot.width,
+        height: snapshot.height,
+        createDate: snapshot.createDate,
+        user: { id: snapshot.userId, name: snapshot.userName }
+      })
+    }
+    router.pushUrl({
+      url: 'pages/detail/ImageViewerPage',
+      params: { urls: urls, downloadUrls: urls, illust: recovered, pageIndex: 0 }
+    })
   }
 
   private rebuildRows(): void {
@@ -1084,24 +1143,30 @@ struct IllustDetailPage {
         onDisappear: () => { this.bookmarkMenuShown = false }
       })
 
-      // 下载 FAB：蓝底白↓；单击多页=保存全部、单页=保存该页；长按仅多页=选页弹窗
+      // 下载 FAB：SaveButton 安全控件（点击获 1 分钟临时图库写权限，实现静默保存；
+      // 首次点击系统弹一次授权，之后不再弹）；长按仅多页=选页弹窗
       Stack({ alignContent: Alignment.Center }) {
-        Text('↓')
-          .fontSize(22)
-          .fontColor('#FFFFFF')
+        SaveButton({ icon: SaveIconStyle.FULL_FILLED, buttonType: ButtonType.Circle })
+          .width(52)
+          .height(52)
+          .backgroundColor('#0096FA')
+          .onClick((event: ClickEvent, result: SaveButtonOnClickResult) => {
+            if (result === SaveButtonOnClickResult.SUCCESS) {
+              if (this.illust.pageCount > 1) {
+                this.handleSaveAll()
+              } else {
+                this.handleSavePage(0)
+              }
+            } else {
+              this.getUIContext().getPromptAction().showToast({ message: '保存授权被取消' })
+            }
+          })
       }
       .width(52)
       .height(52)
       .borderRadius(26)
       .backgroundColor('#0096FA')
       .shadow({ radius: 8, color: 'rgba(0, 0, 0, 0.2)', offsetY: 2 })
-      .onClick(() => {
-        if (this.illust.pageCount > 1) {
-          this.handleSaveAll()
-        } else {
-          this.handleSavePage(0)
-        }
-      })
       .gesture(
         LongPressGesture({ duration: 500 })
           .onAction(() => {
@@ -1350,10 +1415,98 @@ struct IllustDetailPage {
     })
   }
 
+  /** 404 快照兜底卡片：快照元数据（标题/作者/页数/标签）+ 恢复入口 + 轮询进度/取消 */
+  @Builder
+  DeletedSnapshotCard(snapshot: BookmarkSnapshot) {
+    Column() {
+      Text('该作品已被删除或不可访问')
+        .fontSize(14)
+        .fontColor('#999999')
+        .margin({ bottom: 12 })
+      Column() {
+        Text(snapshot.title)
+          .fontSize(16)
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#333333')
+          .width('100%')
+          .margin({ bottom: 8 })
+        Text('作者：' + snapshot.userName + '（UID:' + snapshot.userId + '）')
+          .fontSize(13)
+          .fontColor('#666666')
+          .width('100%')
+          .margin({ bottom: 4 })
+        Text('共 ' + snapshot.pageCount + ' 页 · PID: ' + snapshot.illustId)
+          .fontSize(13)
+          .fontColor('#666666')
+          .width('100%')
+          .margin({ bottom: 4 })
+        if (snapshot.tags.length > 0) {
+          Text(snapshot.tags.join(' / '))
+            .fontSize(12)
+            .fontColor('#0096FA')
+            .width('100%')
+            .margin({ bottom: 4 })
+        }
+        if (snapshot.createDate.length > 0) {
+          Text('发布于 ' + formatCreateDate(snapshot.createDate))
+            .fontSize(12)
+            .fontColor('#999999')
+            .width('100%')
+        }
+      }
+      .width('85%')
+      .padding(16)
+      .backgroundColor('#FFFFFF')
+      .borderRadius(12)
+      .margin({ bottom: 16 })
+
+      if (this.recoverState === RECOVER_STATE_POLLING) {
+        Text(this.recoverProgressText.length > 0 ? this.recoverProgressText : '正在查询第三方源…')
+          .fontSize(13)
+          .fontColor('#666666')
+          .margin({ bottom: 8 })
+        Text('取消')
+          .fontSize(14)
+          .fontColor('#0096FA')
+          .padding({ left: 24, right: 24, top: 8, bottom: 8 })
+          .onClick(() => {
+            this.cancelRecover()
+          })
+      } else if (this.store.canRecover()) {
+        Text('尝试从第三方恢复')
+          .fontSize(14)
+          .fontColor('#FFFFFF')
+          .backgroundColor('#0096FA')
+          .borderRadius(8)
+          .padding({ left: 24, right: 24, top: 8, bottom: 8 })
+          .onClick(() => {
+            this.startRecover()
+          })
+      } else {
+        Text('在设置页配置并注册中继服务器后，可尝试从第三方恢复')
+          .fontSize(12)
+          .fontColor('#999999')
+      }
+      Text('重试加载')
+        .fontSize(13)
+        .fontColor('#999999')
+        .margin({ top: 16 })
+        .onClick(() => {
+          this.loadDetail(this.illustId, true)
+        })
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .backgroundColor('#F5F5F5')
+  }
+
   build() {
     Stack({ alignContent: Alignment.BottomEnd }) {
       Column() {
-        if (this.errorMessage && this.rows.length === 0) {
+        if (this.deletedSnapshot !== null && this.rows.length === 0) {
+          this.DeletedSnapshotCard(this.deletedSnapshot)
+        } else if (this.errorMessage && this.rows.length === 0) {
           ErrorView({ message: this.errorMessage, onRetry: () => { this.loadDetail(this.illustId) } })
         } else if (this.isLoading && this.rows.length === 0) {
           LoadingView()

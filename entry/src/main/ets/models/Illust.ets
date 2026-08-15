@@ -184,6 +184,8 @@ export interface IllustOptions {
   restrict?: string
   xRestrict?: number
   illustAIType?: number
+  /** 收藏页"已删除作品"占位卡片标记（由收藏快照构造的伪 Illust） */
+  isDeletedPlaceholder?: boolean
 }
 
 interface RawIllust {
@@ -230,6 +232,8 @@ export class Illust {
   restrict: string = ''
   xRestrict: number = 0
   illustAIType: number = 0
+  /** 收藏页"已删除作品"占位卡片标记（由收藏快照构造的伪 Illust） */
+  isDeletedPlaceholder: boolean = false
 
   constructor(options?: IllustOptions) {
     if (options) {
@@ -253,6 +257,7 @@ export class Illust {
       this.restrict = options.restrict ?? ''
       this.xRestrict = options.xRestrict ?? 0
       this.illustAIType = options.illustAIType ?? 0
+      this.isDeletedPlaceholder = options.isDeletedPlaceholder ?? false
     }
   }
 
