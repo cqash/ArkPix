@@ -1,6 +1,10 @@
 import { router } from '@kit.ArkUI';
-import { oauthService } from '../../network/OAuthService';
 import { accountStore } from '../../stores/AccountStore';
+
+interface RawTokenExport {
+  refreshToken?: string
+  refresh_token?: string
+}
 
 @Entry
 @Component
@@ -9,21 +13,37 @@ struct TokenLoginPage {
   @State isLoading: boolean = false
   @State errorMessage: string = ''
 
+  private extractToken(input: string): string {
+    let trimmed = input.trim()
+    if (trimmed.startsWith('{')) {
+      // 兼容粘贴 JSON 导出文件内容（本应用导出用 refreshToken，其他客户端可能用 refresh_token）
+      try {
+        let parsed = JSON.parse(trimmed) as RawTokenExport
+        return parsed.refreshToken ?? parsed.refresh_token ?? ''
+      } catch (e) {
+        return ''
+      }
+    }
+    // 去除内部空白，防止复制时带入换行/空格
+    return trimmed.replace(/\s+/g, '')
+  }
+
   async doLogin() {
-    if (this.tokenInput.trim().length === 0) {
-      this.errorMessage = '请输入 Refresh Token'
+    let token = this.extractToken(this.tokenInput)
+    if (token.length === 0) {
+      this.errorMessage = '请输入有效的 Refresh Token'
       return
     }
     this.isLoading = true
     this.errorMessage = ''
     try {
-      let success = await accountStore.loginWithRefreshToken(this.tokenInput.trim())
-      if (success) {
+      let error = await accountStore.loginWithRefreshToken(token)
+      if (error.length === 0) {
         // 清空返回栈（LoginPage 用 pushUrl 压底，仅 replace 换栈顶仍会退回登录页）再进首页
         router.clear()
         router.replaceUrl({ url: 'pages/home/HomePage' })
       } else {
-        this.errorMessage = '登录失败，请检查 Token 是否有效'
+        this.errorMessage = error
       }
     } catch (e) {
       this.errorMessage = '登录出错: ' + e

@@ -146,7 +146,8 @@ export class AccountStore {
     }
   }
 
-  async loginWithRefreshToken(refreshToken: string): Promise<boolean> {
+  /** 成功返回空串，失败返回错误描述 */
+  async loginWithRefreshToken(refreshToken: string): Promise<string> {
     try {
       let tokens = await oauthService.refreshToken(refreshToken)
       let accountOpts: AccountOptions = {
@@ -158,16 +159,25 @@ export class AccountStore {
         avatarUrl: tokens.user.profile_image_urls?.px_170x170 ?? tokens.user.profile_image_urls?.px_50x50 ?? ''
       }
       let account = new Account(accountOpts)
-      this.accounts.push(account)
-      this.currentIndex = this.accounts.length - 1
+      let existing = this.accounts.findIndex((a: Account) => a.id === account.id)
+      if (existing >= 0) {
+        this.accounts[existing] = account
+        this.currentIndex = existing
+      } else {
+        this.accounts.push(account)
+        this.currentIndex = this.accounts.length - 1
+      }
       this.isLoggedIn = true
       this.saveAccounts()
       authInterceptor.setTokens(tokens.access_token, tokens.refresh_token)
       AppStorage.setOrCreate('isLoggedIn', true)
-      return true
+      return ''
     } catch (e) {
       console.error('Token login failed: ' + e)
-      return false
+      if (e instanceof CredentialInvalidError) {
+        return 'Token 无效或已失效。注意：Refresh Token 为轮换制，若 pixez 在您导出后又运行过，导出的 Token 已被作废，请重新导出后立即使用'
+      }
+      return '网络请求失败，请检查网络后重试'
     }
   }
 

@@ -22,12 +22,42 @@ struct WebViewLoginPage {
   @State codeChallenge: string = ''
   @State loginUrl: string = ''
   private proxyApplied: boolean = false
+  private controller: webview.WebviewController = new webview.WebviewController()
+  private schemeHandler: webview.WebSchemeHandler = new webview.WebSchemeHandler()
 
   aboutToAppear() {
     this.codeVerifier = this.generateCodeVerifier()
     this.codeChallenge = CryptoUtils.base64urlEncode(CryptoUtils.sha256(this.codeVerifier))
     this.loginUrl = oauthService.getAuthUrl(this.codeChallenge)
+    this.setupSchemeHandler()
     this.applyProxyIfNeeded()
+  }
+
+  // OAuth 完成后页面跳 pixiv:// 自定义协议，onLoadIntercept 收不到（被系统 AppLinking 接管），
+  // 必须用 WebSchemeHandler 拦截才能拿到 code
+  private setupSchemeHandler(): void {
+    this.schemeHandler.onRequestStart((request: webview.WebSchemeHandlerRequest, handler: webview.WebResourceHandler) => {
+      let url = request.getRequestUrl()
+      let code = this.extractCode(url)
+      if (code.length === 0) {
+        return false
+      }
+      try {
+        let response = new webview.WebSchemeHandlerResponse()
+        response.setUrl(url)
+        response.setStatus(200)
+        response.setStatusText('OK')
+        response.setMimeType('text/html')
+        response.setEncoding('utf-8')
+        handler.didReceiveResponse(response)
+        handler.didReceiveResponseBody(new ArrayBuffer(0))
+        handler.didFinish()
+      } catch (e) {
+        console.error('respond pixiv scheme failed: ' + e)
+      }
+      this.doLogin(code)
+      return true
+    })
   }
 
   aboutToDisappear() {
@@ -92,9 +122,16 @@ struct WebViewLoginPage {
 
   build() {
     Column() {
-      Web({ src: this.loginUrl, controller: new webview.WebviewController() })
+      Web({ src: this.loginUrl, controller: this.controller })
         .width('100%')
         .height('100%')
+        .onControllerAttached(() => {
+          try {
+            this.controller.setWebSchemeHandler('pixiv', this.schemeHandler)
+          } catch (e) {
+            console.error('setWebSchemeHandler failed: ' + e)
+          }
+        })
         .onLoadIntercept((event: LoadInterceptEvent) => {
           let url: string = ''
           try {
