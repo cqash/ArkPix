@@ -11,28 +11,30 @@ HarmonyOS ArkTS Stage Model 应用（单模块 `entry`），API 12+ / SDK 6.1.0(
 
 ## 入口与导航
 
-- `EntryAbility` → `AppStorage.setOrCreate('context', this.context)` + `webview.WebviewController.customizeSchemes(['pixiv'])`（注册 pixiv 自定义协议到 Web 内核，**必须在任何 Web 组件初始化之前**，否则 OAuth 完成跳 pixiv:// 会被系统 AppLinking 吞掉拿不到 code）+ `hoster.init()` + `hoster.refreshAll()`（DoH 主机解析）+ `localProxyServer.start()`（本地中继，供 WebView 走绕过）→ 加载 `pages/splash/SplashPage`
+- `EntryAbility` → `AppStorage.setOrCreate('context', this.context)` + `webview.WebviewController.customizeSchemes(['pixiv'])`（注册 pixiv 自定义协议到 Web 内核，**必须在任何 Web 组件初始化之前**，否则 OAuth 完成跳 pixiv:// 会被系统 AppLinking 吞掉拿不到 code）+ `hoster.init()` + `hoster.refreshAll()`（DoH 主机解析）+ `localProxyServer.start()`（本地中继，供 WebView 走绕过）→ 加载 `pages/splash/SplashPage`；`onForeground` 经 **`import lazy`** 调 `syncService.onAppForeground()` 做回前台补偿同步（lazy 首次访问才加载模块，规避 onCreate 前模块求值闪退，见"常见陷阱"）
 - `SplashPage` 等 1.5s → `router.replaceUrl` 到 `HomePage`（已登录）或 `LoginPage`（`needsRelogin` 时先 toast 提示重新登录）
+- `LoginPage` 右上角「设置」入口 → pushUrl 设置首页（登录前配置网络/中继；SettingsPage 同时是 @Entry 路由页与 HomePage Tab 子组件，两用法兼容）
 - `HomePage` = `Tabs` 容器（RecomPage、FollowPage、RankPage、SearchPage、SettingsPage）
 - 深层页用 `router.pushUrl` / `router.replaceUrl`（非 Navigation）。路由上限 32 页。
 - 子登录页（WebViewLogin/TokenLogin）成功回调：`router.clear()` 清栈 + `router.replaceUrl` 到 HomePage（LoginPage 用 pushUrl 压底，仅 replace 换栈顶仍会退回登录页）
 - WebViewLoginPage 的 code 捕获**双通道**：`onLoadIntercept`（https 回调）+ `WebSchemeHandler`（pixiv:// 自定义协议——onLoadIntercept 收不到它，须 `customizeSchemes` 注册 + `onControllerAttached` 里 `controller.setWebSchemeHandler('pixiv', handler)`，handler 内返回空 200 响应并 doLogin）
 - TokenLoginPage：`extractToken` 兼容粘贴 JSON 导出内容（refreshToken/refresh_token 字段）并去内部空白；`accountStore.loginWithRefreshToken` 返回错误描述字符串（''=成功），区分凭证失效（含 refresh_token 轮换提醒）与网络错误，同 user.id 账号去重更新而非重复堆叠
-- 所有注册页面在 `main_pages.json`：Index、Splash、Login、WebViewLogin、TokenLogin、Home、IllustDetail、ImageViewer、TagSearch、Bookmark、Download、FilenameTemplate、ExifTemplate、ExifTagConfig、About、Mute、History、Comment、UserProfile
+- 所有注册页面在 `main_pages.json`（28 个，上限 32）：Index、Splash、Login、WebViewLogin、TokenLogin、Home、IllustDetail、ImageViewer、TagSearch、Bookmark、**Settings + 7 个设置分类子页（Browse/Download/Filter/Network/Relay/General/Account）**、Download、FilenameTemplate、ExifTemplate、ExifTagConfig、About、Mute、History、Comment、UserProfile
 
 ## 架构（entry/src/main/ets/）
 
 ```
 pages/       — 页面（splash、login、home/*、search/*、detail/*、user/*、bookmark/*、settings/*；novel/NovelPage 未注册进 main_pages.json、无引用，是死代码占位）
+             settings/ = 分类聚合结构：SettingsPage（首页 7 分类入口+摘要）+ SettingWidgets（共享行组件/Picker/选项数组/labelOf）+ 7 个分类子页（Browse/Download/Filter/Network/Relay/General/AccountSettingsPage）+ 既有功能页（DownloadPage/MutePage/HistoryPage 等）
 components/  — 可复用组件
   common/    — CachedImage（@Watch('onUrlChange') 支持自定义 ratio/fit + 模块级导出函数 prefetchCachedImage 预取）、CommonViews（Loading/Error/Empty）、TagExifPicker（@CustomDialog，已无任何引用，死代码——实际 EXIF Picker 是 IllustDetailPage 内联弹层）
   illust/    — IllustCard（@Reusable 公共卡片：宽高比/角标/红心/长按菜单）、IllustWaterfall（瀑布流容器：分页/刷新/过滤/可选 compareFn 排序）
   viewer/    — ZoomableImage（PanGestureOptions.setDistance 动态 distance + .priorityGesture 优先级提升）
 stores/      — AccountStore、UserSettingStore、BookmarkStateStore（收藏注册表单例）、IllustDetailStore（详情页编排，非单例）、CommentStore（评论页编排，非单例，主楼/回复楼双模式）
-network/     — HttpClient + 拦截器链 + ApiService / OAuthService / PixivEndpoints + Hoster（DoH 主机解析）+ LocalProxyServer（本地 TCP 中继，WebView 用）
-services/    — PreferenceService（KV）、DatabaseService（relationalStore）、ImageCacheService、DownloadService、ImageExifService
-models/      — Illust、User、Novel、Comment、Bookmark、SearchHistory、MuteItem、DownloadTask、AppSettings、DohResponse
-utils/       — Constants（containsCjk/isAsciiOnly/filterTranslatedName、applyDirectIp/extractHost/normalizeMode/applyImageHost/isOauthUrl/isApiUrl/isImageUrl/直连 IP 常量）、CryptoUtils、MuteFilter（屏蔽过滤纯函数）、ImageUrlUtils（画质选档/整组页 URL）、ClipboardUtils（copyText 剪贴板复制，pasteboard，无需权限）、HistoryExport（历史导出内容构建纯函数）、MergeSuggest（合并对话框补全候选纯函数）、DateUtils（formatCreateDate：ISO→本地时区 yyyy-MM-dd HH:mm，失败返回 ''）
+network/     — HttpClient + 拦截器链 + ApiService / OAuthService / PixivEndpoints + Hoster（DoH 主机解析）+ LocalProxyServer（本地 TCP 中继，WebView 用）+ RelayClient（自托管中继：register/refresh/relayRequest/buildImageUrl + 401 自刷新 + 502 回落）
+services/    — PreferenceService（KV）、DatabaseService（relationalStore）、ImageCacheService、DownloadService、ImageExifService、SyncService（六域同步 LWW+墓碑）、RecoverService（已删作品恢复轮询）、RelaySelfTestService（六端点自检）
+models/      — Illust、User、Novel、Comment、Bookmark、SearchHistory、MuteItem、DownloadTask、AppSettings、DohResponse、RelayModels
+utils/       — Constants（containsCjk/isAsciiOnly/filterTranslatedName、applyDirectIp/extractHost/normalizeMode/applyImageHost/isOauthUrl/isApiUrl/isImageUrl/直连 IP 常量）、CryptoUtils、MuteFilter（屏蔽过滤纯函数）、ImageUrlUtils（画质选档/整组页 URL）、ClipboardUtils（copyText 复制 + pasteText 读取，读取须在 PasteButton 临时授权窗口内）、HistoryExport（历史导出内容构建纯函数）、MergeSuggest（合并对话框补全候选纯函数）、DateUtils（formatCreateDate：ISO→本地时区 yyyy-MM-dd HH:mm，失败返回 ''）
 ```
 
 ## 状态管理
@@ -147,6 +149,13 @@ Pixiv API 在 `Accept-Language: zh-CN` 时会将 CJK tag "翻译"成英文（爱
 - 查看/编辑合并规则、屏蔽列表、优先级排序
 - 导入/导出（JSON 格式）
 
+## Relay 与数据同步
+
+- 中继设置页（RelaySettingsPage）：服务器地址/注册登录、数据同步开关、**自动同步开关**（`autoSyncForeground` 默认开，设备本地不同步上行；回前台经 SyncService `onAppForeground` 5 分钟节流补偿 pull+flush push）、立即同步、**导入/导出同步账号**（导入=PasteButton 剪贴板/DocumentSelectPicker 文件，兼容纯文本 key 与 `arkpix-sync-account.json`；导出=复制/文件双通道）、后端自检、注销
+- 自检探针目标：API 中继打 `app-api.pixiv.net/v1/walkthrough/illusts`（勿用 www.pixiv.net——经代理出口易被 Cloudflare 拦出 500）；图片中继用 `s.pximg.net/common/images/no_profile.png`（novel_bg.png 上游已 404）
+- 导入账号 = `relayClient.register(serverUrl, deviceName, '', accountKey)` 覆盖本机注册并加入既有同步账号，成功后自动触发一轮 syncNow
+- 服务端部署：`.env` 必须 CRLF 换行（`start.bat` 的 `for /f` 解析不了 LF）；`UPSTREAM_PROXY` 配上游代理（Go `http.ProxyURL` 支持 http/socks5，v2rayN 10808 混合端口可直接用）；`IMG_EXTRA_HOSTS` 须声明恢复源镜像域名
+
 ## 弹窗风格约定
 
 - 多选项菜单：`bindContextMenu`
@@ -154,6 +163,7 @@ Pixiv API 在 `Accept-Language: zh-CN` 时会将 CJK tag "翻译"成英文（爱
 - 多值选择：`TextPickerDialog`
 - 不使用 `ActionSheet`（底部大弹窗）。原 `IllustDetailStore.saveAll` 的 showActionSheet 例外已迁移为 AlertDialog，例外清零
 - 弹窗覆盖层内层内容区用 `.onClick(() => {})` 消费点击事件防冒泡关闭；禁止 `.hitTestBehavior(HitTestMode.Block)`（会挡住子组件交互，MergeDialogOverlay 的 Block 例外已移除）
+- 读剪贴板必须走 **PasteButton 安全控件**（点击获临时授权窗口，窗口内调 `ClipboardUtils.pasteText()`；普通读取需 READ_PASTEBOARD 受限权限，勿申请）；写剪贴板 `copyText` 无需权限
 - bindContextMenu 菜单项内若要 toast/弹窗：先 `menuShown=false` 并 `setTimeout(300)` 后再执行（否则 toast 被菜单弹层吞掉）；页面内 toast 优先走 `getUIContext().getPromptAction().showToast()`（HistoryPage 已按此修复）
 
 ## 防社死模式
@@ -237,4 +247,7 @@ Pixiv API 在 `Accept-Language: zh-CN` 时会将 CJK tag "翻译"成英文（爱
 - 模型 JSON 反序列化模式：`fromJson(raw)` → 返回 `*Options` 接口 → `new Model(opts)`。`fromJson` 内用 `as RawXxx`（仅限此内部层）。
 - 应用名 **ArkPix**（bundle 仍为 `com.example.pixez`）。
 - `arkts_check` 对 `@kit.*` 引用固定报 6 条 SDK d.ts 错误，属环境噪音，可忽略。
+- **ForEach 行不刷新陷阱**：`@State` 数组 + 自定义 keyGenerator 时，同 key 子组件复用不重建，普通对象（非 @Observed）属性变化观察不到——行内显示的可变字段必须参与 key 生成（如自检 `name|status|durationMs`、下载任务 `id|status|progress`），或 Service 端替换元素引用而非原地改属性
+- **Scroll 内容居中陷阱**：Scroll 设了高度限制（layoutWeight/height）后内容不足一屏时**默认垂直居中**而非顶部对齐，必须显式 `.align(Alignment.TopStart)`（设置族页面已全部修复）
+- **EntryAbility 不得静态 import 含模块级 Store 单例的模块**（SyncService→UserSettingStore 链）：模块求值早于 onCreate 的 context 注入会冷启动闪退；需要时改用 `import lazy { x }`（API 12+，首次访问才加载）
 - 合并审查弹窗在保存时触发，不在浏览时触发。同义词检测无法覆盖所有语义关联（如 `爱莉希雅（崩坏3）` 与 `爱莉希雅`），需用户手动在 ExifTagConfigPage 管理。

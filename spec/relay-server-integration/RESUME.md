@@ -69,7 +69,14 @@ T001–T024 全部完成，build_project（hvigorw assembleHap）通过。新增
 - 自检第 5 项会向 search_history 域真实 push `__selftest__` 条目再推墓碑清理；若恰在窗口期内客户端 pull，搜索历史可能短暂出现 `__selftest__` 条目（随后墓碑清除）。
 - 非 relay 模式下查看恢复图片：recover 返回的 img URL 指向中继服务器，ImageCacheService 非 relay 分支不注入 relay Bearer → 可能 401（恢复功能本身要求已注册中继，实际使用中通常已切 relay）。
 - 429 RATE_LIMITED 目前按普通错误冒泡（sync 静默下轮重试；recover 按服务端 retryAfterSec 轮询），未单独做退避。
-- 同步为尽力而为：App 未启动期间不产生同步；无 onForeground 补偿 pull。
+- 同步为尽力而为：App 未启动期间不产生同步。**回前台补偿 pull 已实现**（`EntryAbility.onForeground` → `syncService.onAppForeground`，受 `autoSyncForeground` 开关 + 5 分钟节流门控，见 AGENTS.md"Relay 与数据同步"节）。
+
+## 客户端新增功能（设置页聚合重构后）
+
+- 设置入口已重构为分类首页 + 7 个子页（中继设置=RelaySettingsPage）；登录页右上角有"设置"入口可登录前配置网络/中继
+- 中继子页新增：**自动同步开关**（默认开）、**导入同步账号**（PasteButton 剪贴板 / DocumentSelectPicker 文件，覆盖本机注册并自动 syncNow）、导出增加"导出为文件"（arkpix-sync-account.json）
+- 自检探针已更新：API 中继打 `app-api.pixiv.net/v1/walkthrough/illusts`（www.pixiv.net 经代理易 500）；图片用 `no_profile.png`（novel_bg.png 已 404）
+- 服务端联调备忘：`.env` 必须 CRLF 换行；本机联调 `UPSTREAM_PROXY=http://127.0.0.1:10808`（v2rayN 混合端口）
 
 ## 新会话提示词模板（可直接粘贴）
 
