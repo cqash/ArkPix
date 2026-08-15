@@ -19,6 +19,10 @@
     {
       "name": "permission_write_media_reason",
       "value": "Save images to device storage"
+    },
+    {
+      "name": "permission_distributed_datasync_reason",
+      "value": "Sync settings and history across your HarmonyOS devices"
     }
   ]
 }

@@ -7,16 +7,32 @@ import { Constants } from '../utils/Constants';
 
 export type SettingsWriteHook = (domain: string, tombstoneKeys: string[]) => void
 
-let settingsWriteHook: SettingsWriteHook | null = null
+let settingsWriteHooks: SettingsWriteHook[] = []
 
+/** 注册写钩子监听器（多监听 fan-out：Relay SyncService 与 DistributedSyncService 各自注册） */
+export function addSettingsWriteHook(hook: SettingsWriteHook): void {
+  if (!settingsWriteHooks.includes(hook)) {
+    settingsWriteHooks.push(hook)
+  }
+}
+
+export function removeSettingsWriteHook(hook: SettingsWriteHook): void {
+  let index = settingsWriteHooks.indexOf(hook)
+  if (index >= 0) {
+    settingsWriteHooks.splice(index, 1)
+  }
+}
+
+/** 兼容包装：清空后单注册（既有 Relay SyncService 调用点行为不变） */
 export function setSettingsWriteHook(hook: SettingsWriteHook): void {
-  settingsWriteHook = hook
+  settingsWriteHooks = []
+  settingsWriteHooks.push(hook)
 }
 
 function notifySettingsWrite(domain: string, tombstoneKeys: string[] = []): void {
-  if (settingsWriteHook !== null) {
+  for (let i = 0; i < settingsWriteHooks.length; i++) {
     try {
-      settingsWriteHook(domain, tombstoneKeys)
+      settingsWriteHooks[i](domain, tombstoneKeys)
     } catch (e) {
       console.error('Settings write hook failed: ' + e)
     }
@@ -81,6 +97,7 @@ export class UserSettingStore {
       relayServerUrl: preferenceService.getString('relay_server_url', ''),
       syncEnabled: preferenceService.getBoolean('sync_enabled', false),
       autoSyncForeground: preferenceService.getBoolean('auto_sync_foreground', true),
+      deviceSyncEnabled: preferenceService.getBoolean('device_sync_enabled', true),
       prevAuthMode: preferenceService.getString('prev_auth_mode', 'standard'),
       prevApiMode: preferenceService.getString('prev_api_mode', 'standard')
     }
@@ -128,6 +145,7 @@ export class UserSettingStore {
     preferenceService.setString('relay_server_url', this.settings.relayServerUrl)
     preferenceService.setBoolean('sync_enabled', this.settings.syncEnabled)
     preferenceService.setBoolean('auto_sync_foreground', this.settings.autoSyncForeground)
+    preferenceService.setBoolean('device_sync_enabled', this.settings.deviceSyncEnabled)
     preferenceService.setString('prev_auth_mode', this.settings.prevAuthMode)
     preferenceService.setString('prev_api_mode', this.settings.prevApiMode)
     let newSettings: AppSettings = this.getSettings()
@@ -178,6 +196,7 @@ export class UserSettingStore {
       relayServerUrl: this.settings.relayServerUrl,
       syncEnabled: this.settings.syncEnabled,
       autoSyncForeground: this.settings.autoSyncForeground,
+      deviceSyncEnabled: this.settings.deviceSyncEnabled,
       prevAuthMode: this.settings.prevAuthMode,
       prevApiMode: this.settings.prevApiMode
     })
@@ -526,6 +545,12 @@ export class UserSettingStore {
   /** 设备本地开关：不触发 settings 域上行（同 prevAuthMode/prevApiMode 处理） */
   setAutoSyncForeground(value: boolean): void {
     this.settings.autoSyncForeground = value
+    this.saveSettings()
+  }
+
+  /** 设备本地开关（分布式对象同步）：不触发任何写钩子，避免"关同步被同步到对端"悖论 */
+  setDeviceSyncEnabled(value: boolean): void {
+    this.settings.deviceSyncEnabled = value
     this.saveSettings()
   }
 

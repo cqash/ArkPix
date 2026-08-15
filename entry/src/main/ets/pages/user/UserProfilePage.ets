@@ -4,6 +4,8 @@ import { User, ProfileStats, profileStatsFromJson } from '../../models/User';
 import { imageCacheService } from '../../services/ImageCacheService';
 import { ErrorView } from '../../components/common/CommonViews';
 import { IllustWaterfall, IllustListPage, parseIllustListPage } from '../../components/illust/IllustWaterfall';
+import { continuationService } from '../../services/ContinuationService';
+import { ContinuationPayload, CONTINUATION_PAGE_USER_PROFILE } from '../../models/ContinuationPayload';
 
 interface UserRouteParams {
   userId: number
@@ -29,7 +31,17 @@ export struct UserProfilePage {
     if (params && params.userId) {
       this.userId = params.userId
       this.loadProfile(params.userId)
+      // 多端流转：登记当前页面状态（用户主页 = userId）
+      continuationService.setCurrentPageState(new ContinuationPayload({
+        page: CONTINUATION_PAGE_USER_PROFILE,
+        userId: params.userId
+      }))
     }
+  }
+
+  aboutToDisappear() {
+    // 多端流转：清除页面状态登记
+    continuationService.setCurrentPageState(null)
   }
 
   async loadProfile(id: number) {

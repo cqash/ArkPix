@@ -54,11 +54,13 @@ export interface AppSettingsOptions {
   relayServerUrl?: string
   syncEnabled?: boolean
   autoSyncForeground?: boolean
+  deviceSyncEnabled?: boolean
   prevAuthMode?: string
   prevApiMode?: string
 }
 
 export class AppSettings {
+  // 以下 5 个画质字段为设备本地，不参与设备间同步（FR-012：不同设备屏幕尺寸/形态不同）
   pictureQuality: number = 1
   mangaQuality: number = 1
   previewQuality: number = 1
@@ -69,6 +71,7 @@ export class AppSettings {
   language: string = 'zh-CN'
   authMode: string = 'standard'
   apiMode: string = 'standard'
+  // 以下 2 个浏览布局字段为设备本地，不参与设备间同步（FR-012）
   crossCount: number = 2
   isTopMode: boolean = false
   muteTags: string[] = []
@@ -99,6 +102,8 @@ export class AppSettings {
   syncEnabled: boolean = false
   /** 回到前台时自动补偿同步（设备本地开关，不随 settings 域同步） */
   autoSyncForeground: boolean = true
+  /** 设备间同步（分布式数据对象）开关：设备本地，不参与任何同步域，避免"关同步被同步"悖论 */
+  deviceSyncEnabled: boolean = true
   prevAuthMode: string = 'standard'
   prevApiMode: string = 'standard'
 
@@ -145,6 +150,7 @@ export class AppSettings {
       this.relayServerUrl = options.relayServerUrl ?? ''
       this.syncEnabled = options.syncEnabled ?? false
       this.autoSyncForeground = options.autoSyncForeground ?? true
+      this.deviceSyncEnabled = options.deviceSyncEnabled ?? true
       this.prevAuthMode = options.prevAuthMode ?? 'standard'
       this.prevApiMode = options.prevApiMode ?? 'standard'
     }

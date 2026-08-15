@@ -1,10 +1,46 @@
 import { router, promptAction } from '@kit.ArkUI';
 import { imageCacheService } from '../../services/ImageCacheService';
-import { SettingItem } from './SettingWidgets';
+import { distributedSyncService } from '../../services/DistributedSyncService';
+import { userSettingStore } from '../../stores/UserSettingStore';
+import { AppSettings } from '../../models/AppSettings';
+import { SettingItem, SwitchItem, SectionHeader } from './SettingWidgets';
 
 @Entry
 @Component
 export struct GeneralSettingsPage {
+  @State settings: AppSettings = userSettingStore.getSettings()
+  // FR-013：会话状态事件化——DistributedSyncService 在 sessionActive 每次变更时写 AppStorage，
+  // @StorageLink 订阅后入会话成功瞬间 UI 自动更新，无需手动轮询/延时刷新
+  @StorageLink('deviceSyncActive') deviceSyncActive: boolean = false
+
+  aboutToAppear() {
+    // 首开时申请 DISTRIBUTED_DATASYNC 权限并加入同步会话（deviceSyncEnabled 默认开）；
+    // 权限拒绝则 setEnabled 内部回退开关持久化，此处 toast 引导
+    if (this.settings.deviceSyncEnabled && !this.deviceSyncActive) {
+      this.enableDeviceSync()
+    }
+  }
+
+  private enableDeviceSync() {
+    distributedSyncService.setEnabled(true, (success: boolean) => {
+      if (!success) {
+        this.getUIContext().getPromptAction().showToast({ message: '未授权跨设备数据同步，可在系统设置中开启后重试' })
+      }
+      this.refreshSyncState()
+    })
+  }
+
+  private refreshSyncState() {
+    this.settings = userSettingStore.getSettings()
+  }
+
+  private deviceSyncStatusText(): string {
+    if (!this.settings.deviceSyncEnabled) {
+      return '未开启'
+    }
+    return this.deviceSyncActive ? '已加入会话' : '未授权'
+  }
+
   build() {
     Column() {
       // 顶部导航栏
@@ -33,6 +69,26 @@ export struct GeneralSettingsPage {
 
       Scroll() {
         Column() {
+          SectionHeader({ title: '设备间同步' })
+          SwitchItem({
+            title: '设备间同步（设置/屏蔽/历史）',
+            isOn: this.settings.deviceSyncEnabled,
+            onToggle: () => {
+              let next = !this.settings.deviceSyncEnabled
+              if (next) {
+                // 开启：触发权限申请 + 入会话（拒绝时内部回退持久化并回调 toast）
+                this.enableDeviceSync()
+              } else {
+                distributedSyncService.setEnabled(false)
+                this.refreshSyncState()
+              }
+            }
+          })
+          SettingItem({
+            title: '同步状态',
+            value: this.deviceSyncStatusText()
+          })
+          SectionHeader({ title: '通用' })
           SettingItem({
             title: '我的收藏',
             value: '',

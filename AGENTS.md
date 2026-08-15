@@ -11,7 +11,9 @@ HarmonyOS ArkTS Stage Model 应用（单模块 `entry`），API 12+ / SDK 6.1.0(
 
 ## 入口与导航
 
-- `EntryAbility` → `AppStorage.setOrCreate('context', this.context)` + `webview.WebviewController.customizeSchemes(['pixiv'])`（注册 pixiv 自定义协议到 Web 内核，**必须在任何 Web 组件初始化之前**，否则 OAuth 完成跳 pixiv:// 会被系统 AppLinking 吞掉拿不到 code）+ `hoster.init()` + `hoster.refreshAll()`（DoH 主机解析）+ `localProxyServer.start()`（本地中继，供 WebView 走绕过）→ 加载 `pages/splash/SplashPage`；`onForeground` 经 **`import lazy`** 调 `syncService.onAppForeground()` 做回前台补偿同步（lazy 首次访问才加载模块，规避 onCreate 前模块求值闪退，见"常见陷阱"）
+- `EntryAbility` → `AppStorage.setOrCreate('context', this.context)` + `webview.WebviewController.customizeSchemes(['pixiv'])`（注册 pixiv 自定义协议到 Web 内核，**必须在任何 Web 组件初始化之前**，否则 OAuth 完成跳 pixiv:// 会被系统 AppLinking 吞掉拿不到 code）+ `hoster.init()` + `hoster.refreshAll()`（DoH 主机解析）+ `localProxyServer.start()`（本地中继，供 WebView 走绕过）→ 加载 `pages/splash/SplashPage`；`onForeground` 经 **`import lazy`** 调 `syncService.onAppForeground()` 做回前台补偿同步（lazy 首次访问才加载模块，规避 onCreate 前模块求值闪退，见"常见陷阱"）；onCreate 末尾同法 lazy 调 `distributedSyncService.init()`（设备间同步，同样依赖 UserSettingStore 链）
+- **多端流转（应用接续）**：module.json5 `continuable: true`；`onContinue(wantParam)` 版本校验（对端 versionCode < 1000000 返回 MISMATCH）后写入 `continuationService.buildWantParam()`（页面主动登记载荷，键 `continuationPayload`，<200B）；对端 `onCreate`/`onNewWant` 判 `LaunchReason.CONTINUATION` 时 `parseWant` 落 `AppStorage('continuationPayload')`；接续拉起走 **`onWindowStageRestore`**（非 onWindowStageCreate，不使用系统页面栈恢复，自行 loadContent SplashPage）；SplashPage 路由决策最前 `consumePendingPayload()` 一次性消费并按 page 类型 replaceUrl（illust_detail/home{tabIndex}/user_profile，未知回退主页，未登录回退既有逻辑）
+- 页面状态登记（ContinuationService.setCurrentPageState，aboutToAppear 登记/aboutToDisappear 清 null）：IllustDetailPage（illustId）、HomePage（tabIndex，`.onChange` 同步更新；aboutToAppear 读路由参数 tabIndex 并 `tabsController.changeIndex()` 恢复）、UserProfilePage（userId）
 - `SplashPage` 等 1.5s → `router.replaceUrl` 到 `HomePage`（已登录）或 `LoginPage`（`needsRelogin` 时先 toast 提示重新登录）
 - `LoginPage` 右上角「设置」入口 → pushUrl 设置首页（登录前配置网络/中继；SettingsPage 同时是 @Entry 路由页与 HomePage Tab 子组件，两用法兼容）
 - `HomePage` = `Tabs` 容器（RecomPage、FollowPage、RankPage、SearchPage、SettingsPage）
@@ -32,8 +34,8 @@ components/  — 可复用组件
   viewer/    — ZoomableImage（PanGestureOptions.setDistance 动态 distance + .priorityGesture 优先级提升）
 stores/      — AccountStore、UserSettingStore、BookmarkStateStore（收藏注册表单例）、IllustDetailStore（详情页编排，非单例）、CommentStore（评论页编排，非单例，主楼/回复楼双模式）
 network/     — HttpClient + 拦截器链 + ApiService / OAuthService / PixivEndpoints + Hoster（DoH 主机解析）+ LocalProxyServer（本地 TCP 中继，WebView 用）+ RelayClient（自托管中继：register/refresh/relayRequest/buildImageUrl + 401 自刷新 + 502 回落）
-services/    — PreferenceService（KV）、DatabaseService（relationalStore）、ImageCacheService、DownloadService、ImageExifService、SyncService（六域同步 LWW+墓碑）、RecoverService（已删作品恢复轮询）、RelaySelfTestService（六端点自检）
-models/      — Illust、User、Novel、Comment、Bookmark、SearchHistory、MuteItem、DownloadTask、AppSettings、DohResponse、RelayModels
+services/    — PreferenceService（KV）、DatabaseService（relationalStore）、ImageCacheService、DownloadService、ImageExifService、SyncService（六域同步 LWW+墓碑）、RecoverService（已删作品恢复轮询）、RelaySelfTestService（六端点自检）、ContinuationService（接续页面状态登记+载荷构建/解析，纯内存+AppStorage 可静态 import）、DistributedSyncService（分布式数据对象设备间同步，EntryAbility 须 lazy import）
+models/      — Illust、User、Novel、Comment、Bookmark、SearchHistory、MuteItem、DownloadTask、AppSettings、DohResponse、RelayModels、ContinuationPayload（接续/同步载荷模型+序列化解析纯函数，as 断言收敛于此）
 utils/       — Constants（containsCjk/isAsciiOnly/filterTranslatedName、applyDirectIp/extractHost/normalizeMode/applyImageHost/isOauthUrl/isApiUrl/isImageUrl/直连 IP 常量）、CryptoUtils、MuteFilter（屏蔽过滤纯函数）、ImageUrlUtils（画质选档/整组页 URL）、ClipboardUtils（copyText 复制 + pasteText 读取，读取须在 PasteButton 临时授权窗口内）、HistoryExport（历史导出内容构建纯函数）、MergeSuggest（合并对话框补全候选纯函数）、DateUtils（formatCreateDate：ISO→本地时区 yyyy-MM-dd HH:mm，失败返回 ''）
 ```
 
@@ -151,6 +153,9 @@ Pixiv API 在 `Accept-Language: zh-CN` 时会将 CJK tag "翻译"成英文（爱
 
 ## Relay 与数据同步
 
+- **写钩子多监听 fan-out**：UserSettingStore/DatabaseService 写钩子已升级为监听器数组（`addSettingsWriteHook`/`removeSettingsWriteHook`、`addSyncWriteHook`/`removeSyncWriteHook`；`setXxxWriteHook` 保留为"清空后单注册"兼容包装）。Relay SyncService 与 DistributedSyncService 均用 add 语义注册，互不覆盖（注意 init 顺序：Distributed 在 EntryAbility onCreate，SyncService.init 在其方法内惰性触发——若用 set 语义后者会清掉前者的钩子）
+- **设备间同步（DistributedSyncService，分布式数据对象通道）**：与 Relay SyncService 双通道共存互不耦合。单 distributedDataObject，根属性 = `settingsJson`/`historyJson`/`searchHistoryJson`/`metaJson` 四个 JSON 字符串 + `updatedAt`（复杂类型仅根属性变更触发同步，载荷必须保持根属性 JSON 字符串设计）；固定 sessionId `arkpix_device_sync`。设置域载荷含 AppSettings 可同步字段（含 muteTags/muteUsers/exifMutedTags/exifMergedTags/exifTagPriority），排除 deviceSyncEnabled/autoSyncForeground/syncEnabled/relayServerUrl/prevAuthMode/prevApiMode 设备本地字段；浏览相关设置（picture/manga/preview/detail/fullScreen 画质 + crossCount + isTopMode）亦为设备本地（因屏幕尺寸差异），分布式与 Relay 双通道均不同步（FR-012 全通道排除，Relay 侧接口无声明天然跳过旧残留字段）；历史裁剪最近 100 条浏览 + 50 条搜索。冲突复用 LWW：设置整体按 metaJson.updatedAt 严格大于才应用（本地已应用时间存偏好 `distributed_sync_applied_settings_at`，metaJson.deviceId 识别自身回声）；历史条目级走 hook-free `upsertHistory`/`upsertSearchHistory`（内部 getXxxTimestamp 判新，无回声）。下行应用期间 `applyingRemote` suppress 本地写钩子防回声。DataObject 根属性读写经 `Reflect.get/set`（ArkTS 禁动态索引，DataObject 接口无字段声明）。权限 `ohos.permission.DISTRIBUTED_DATASYNC`（module.json5 已声明）：首开 GeneralSettingsPage 开关时 `abilityAccessCtrl.requestPermissionsFromUser` 运行时申请，拒绝则开关回退 + toast；init 时仅尝试入会话不弹窗（201 静默降级纯本地）
+- `AppSettings.deviceSyncEnabled`（默认 true）：设备本地开关，不参与任何同步域、不触发写钩子（避免"关同步被同步到对端"悖论）；GeneralSettingsPage 顶部"设备间同步"分组（开关 + 状态文字 未开启/未授权/已加入会话）
 - 中继设置页（RelaySettingsPage）：服务器地址/注册登录、数据同步开关、**自动同步开关**（`autoSyncForeground` 默认开，设备本地不同步上行；回前台经 SyncService `onAppForeground` 5 分钟节流补偿 pull+flush push）、立即同步、**导入/导出同步账号**（导入=PasteButton 剪贴板/DocumentSelectPicker 文件，兼容纯文本 key 与 `arkpix-sync-account.json`；导出=复制/文件双通道）、后端自检、注销
 - 自检探针目标：API 中继打 `app-api.pixiv.net/v1/walkthrough/illusts`（勿用 www.pixiv.net——经代理出口易被 Cloudflare 拦出 500）；图片中继用 `s.pximg.net/common/images/no_profile.png`（novel_bg.png 上游已 404）
 - 导入账号 = `relayClient.register(serverUrl, deviceName, '', accountKey)` 覆盖本机注册并加入既有同步账号，成功后自动触发一轮 syncNow
@@ -233,7 +238,7 @@ Pixiv API 在 `Accept-Language: zh-CN` 时会将 CJK tag "翻译"成英文（爱
 
 ## 权限（module.json5）
 
-`INTERNET`、`GET_NETWORK_INFO`、`WRITE_MEDIA`、`READ_MEDIA`（后两者对媒体库写入无实际效力，写图库靠 SaveButton 临时授权 / showAssetsCreationDialog，见"下载与 EXIF"节；`WRITE_IMAGEVIDEO` 为 ACL 白名单权限，勿声明——会导致安装失败 9568289）
+`INTERNET`、`GET_NETWORK_INFO`、`WRITE_MEDIA`、`READ_MEDIA`、`DISTRIBUTED_DATASYNC`（设备间同步，运行时申请，见"Relay 与数据同步"节；WRITE_MEDIA/READ_MEDIA 对媒体库写入无实际效力，写图库靠 SaveButton 临时授权 / showAssetsCreationDialog，见"下载与 EXIF"节；`WRITE_IMAGEVIDEO` 为 ACL 白名单权限，勿声明——会导致安装失败 9568289）
 
 ## 常见陷阱
 

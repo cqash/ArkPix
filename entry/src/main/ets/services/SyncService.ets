@@ -1,7 +1,7 @@
 import { http } from '@kit.NetworkKit';
 import { preferenceService } from './PreferenceService';
-import { getDbService, DatabaseService, setSyncWriteHook } from './DatabaseService';
-import { userSettingStore, setSettingsWriteHook } from '../stores/UserSettingStore';
+import { getDbService, DatabaseService, addSyncWriteHook } from './DatabaseService';
+import { userSettingStore, addSettingsWriteHook } from '../stores/UserSettingStore';
 import { ExifTagMergeRule } from '../models/AppSettings';
 import { Illust } from '../models/Illust';
 import { bookmarkStateStore } from '../stores/BookmarkStateStore';
@@ -115,18 +115,16 @@ interface RawExifConfigSyncData {
   exifCommentTemplate?: string
 }
 
-/** settings 域上行子集（非敏感字段；token 类凭据本就不在 AppSettings 内，此处再兜底剔除） */
+/**
+ * settings 域上行子集（非敏感字段；token 类凭据本就不在 AppSettings 内，此处再兜底剔除）
+ * FR-012 全通道排除：浏览相关设置（picture/manga/preview/detail/fullScreen 画质 + crossCount + isTopMode）
+ * 为设备本地字段（因屏幕尺寸差异，各设备各自配置），分布式与 Relay 双通道均不同步；
+ * 服务器/旧版本载荷中残留的这些字段因接口无声明而天然跳过，无需迁移。
+ */
 interface RawSettingsSyncData {
-  pictureQuality?: number
-  mangaQuality?: number
-  previewQuality?: number
-  detailQuality?: number
-  fullScreenQuality?: number
   downloadQuality?: number
   theme?: string
   language?: string
-  crossCount?: number
-  isTopMode?: boolean
   saveFormat?: string
   autoBookmarkOnDownload?: boolean
   filenameTemplate?: string
@@ -167,7 +165,8 @@ export class SyncService {
     bookmarkStateStore.registerBookmarkChangeListener((illust: Illust, bookmarked: boolean) => {
       this.onBookmarkChanged(illust, bookmarked)
     })
-    setSyncWriteHook((domain: string, tombstoneKeys: string[]) => {
+    // add 语义注册（非 set）：与 DistributedSyncService 的钩子监听共存，互不覆盖
+    addSyncWriteHook((domain: string, tombstoneKeys: string[]) => {
       if (this.applyingRemote) {
         // 下行应用/全量重建期间的本地写入不回传（防回声；清库不产生墓碑）
         return
@@ -177,7 +176,7 @@ export class SyncService {
       }
       this.schedulePush(domain)
     })
-    setSettingsWriteHook((domain: string, tombstoneKeys: string[]) => {
+    addSettingsWriteHook((domain: string, tombstoneKeys: string[]) => {
       if (this.applyingRemote) {
         return
       }
@@ -675,17 +674,11 @@ export class SyncService {
       return []
     }
     let s = userSettingStore.getSettings()
+    // FR-012：浏览相关设置（5 画质 + crossCount + isTopMode）设备本地，不上行（downloadQuality 保留同步）
     let data: Record<string, Object> = {
-      'pictureQuality': s.pictureQuality,
-      'mangaQuality': s.mangaQuality,
-      'previewQuality': s.previewQuality,
-      'detailQuality': s.detailQuality,
-      'fullScreenQuality': s.fullScreenQuality,
       'downloadQuality': s.downloadQuality,
       'theme': s.theme,
       'language': s.language,
-      'crossCount': s.crossCount,
-      'isTopMode': s.isTopMode,
       'saveFormat': s.saveFormat,
       'autoBookmarkOnDownload': s.autoBookmarkOnDownload,
       'filenameTemplate': s.filenameTemplate,
@@ -894,21 +887,8 @@ export class SyncService {
     }
     try {
       let raw = JSON.parse(item.data) as RawSettingsSyncData
-      if (raw?.pictureQuality !== undefined) {
-        userSettingStore.setPictureQuality(raw.pictureQuality)
-      }
-      if (raw?.mangaQuality !== undefined) {
-        userSettingStore.setMangaQuality(raw.mangaQuality)
-      }
-      if (raw?.previewQuality !== undefined) {
-        userSettingStore.setPreviewQuality(raw.previewQuality)
-      }
-      if (raw?.detailQuality !== undefined) {
-        userSettingStore.setDetailQuality(raw.detailQuality)
-      }
-      if (raw?.fullScreenQuality !== undefined) {
-        userSettingStore.setFullScreenQuality(raw.fullScreenQuality)
-      }
+      // FR-012：浏览相关设置（5 画质 + crossCount + isTopMode）设备本地不应用；
+      // 旧载荷残留字段因接口无声明、此处无分支而天然跳过
       if (raw?.downloadQuality !== undefined) {
         userSettingStore.setDownloadQuality(raw.downloadQuality)
       }
@@ -917,12 +897,6 @@ export class SyncService {
       }
       if (raw?.language !== undefined) {
         userSettingStore.setLanguage(raw.language)
-      }
-      if (raw?.crossCount !== undefined) {
-        userSettingStore.setCrossCount(raw.crossCount)
-      }
-      if (raw?.isTopMode !== undefined) {
-        userSettingStore.setIsTopMode(raw.isTopMode)
       }
       if (raw?.saveFormat !== undefined) {
         userSettingStore.setSaveFormat(raw.saveFormat)

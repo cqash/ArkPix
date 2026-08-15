@@ -457,16 +457,32 @@ export async function getDbService(): Promise<DatabaseService> {
 
 export type SyncWriteHook = (domain: string, tombstoneKeys: string[]) => void
 
-let syncWriteHook: SyncWriteHook | null = null
+let syncWriteHooks: SyncWriteHook[] = []
 
+/** 注册写钩子监听器（多监听 fan-out：Relay SyncService 与 DistributedSyncService 各自注册） */
+export function addSyncWriteHook(hook: SyncWriteHook): void {
+  if (!syncWriteHooks.includes(hook)) {
+    syncWriteHooks.push(hook)
+  }
+}
+
+export function removeSyncWriteHook(hook: SyncWriteHook): void {
+  let index = syncWriteHooks.indexOf(hook)
+  if (index >= 0) {
+    syncWriteHooks.splice(index, 1)
+  }
+}
+
+/** 兼容包装：清空后单注册（既有 Relay SyncService 调用点行为不变） */
 export function setSyncWriteHook(hook: SyncWriteHook): void {
-  syncWriteHook = hook
+  syncWriteHooks = []
+  syncWriteHooks.push(hook)
 }
 
 function notifySyncWrite(domain: string, tombstoneKeys: string[] = []): void {
-  if (syncWriteHook !== null) {
+  for (let i = 0; i < syncWriteHooks.length; i++) {
     try {
-      syncWriteHook(domain, tombstoneKeys)
+      syncWriteHooks[i](domain, tombstoneKeys)
     } catch (e) {
       console.error('Sync write hook failed: ' + e)
     }

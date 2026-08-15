@@ -12,6 +12,8 @@ import { IllustDetailStore, DetailRow, RECOVER_STATE_IDLE, RECOVER_STATE_POLLING
 import { BookmarkSnapshot } from '../../models/RelayModels';
 import { Constants } from '../../utils/Constants';
 import { copyText } from '../../utils/ClipboardUtils';
+import { continuationService } from '../../services/ContinuationService';
+import { ContinuationPayload, CONTINUATION_PAGE_ILLUST_DETAIL } from '../../models/ContinuationPayload';
 import { formatCreateDate } from '../../utils/DateUtils';
 import { buildPageUrls } from '../../utils/ImageUrlUtils';
 import { CachedImage } from '../../components/common/CachedImage';
@@ -110,12 +112,19 @@ struct IllustDetailPage {
     if (params && params.illustId) {
       this.illustId = params.illustId
       this.loadDetail(params.illustId)
+      // 多端流转：登记当前页面状态（供 onContinue 构建接续载荷）
+      continuationService.setCurrentPageState(new ContinuationPayload({
+        page: CONTINUATION_PAGE_ILLUST_DETAIL,
+        illustId: params.illustId
+      }))
     }
   }
 
   aboutToDisappear() {
     // 页面退出：停止恢复轮询，不残留后台任务
     this.store.cancelRecover()
+    // 多端流转：清除页面状态登记
+    continuationService.setCurrentPageState(null)
   }
 
   async loadDetail(id: number, forceRefresh: boolean = false) {
