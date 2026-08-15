@@ -1,416 +1,141 @@
-import { router, promptAction } from '@kit.ArkUI';
-import { common } from '@kit.AbilityKit';
-import { picker, fileIo } from '@kit.CoreFileKit';
-import { accountStore } from '../../stores/AccountStore';
-import { AppSettings } from '../../models/AppSettings'
-import { imageCacheService } from '../../services/ImageCacheService';
+import { router } from '@kit.ArkUI';
+import { accountStore, Account } from '../../stores/AccountStore';
+import { AppSettings } from '../../models/AppSettings';
 import { userSettingStore } from '../../stores/UserSettingStore';
-import { copyText } from '../../utils/ClipboardUtils';
-import { hoster } from '../../network/Hoster';
-import { localProxyServer } from '../../network/LocalProxyServer';
+import { relayClient } from '../../network/RelayClient';
+import {
+  SettingItem,
+  labelOf,
+  PREVIEW_QUALITY_OPTIONS,
+  DETAIL_QUALITY_OPTIONS,
+  networkModeLabel
+} from './SettingWidgets';
 
-interface TokenExportData {
-  version: number
-  appName: string
-  type: string
-  userId: number
-  userName: string
-  account: string
-  refreshToken: string
-  exportedAt: string
-}
-
-@Component
-struct SettingItem {
-  @Prop title: string = ''
-  @Prop value: string = ''
-  onItemClick: (() => void) | null = null
-
-  build() {
-    Row() {
-      Text(this.title)
-        .fontSize(14)
-        .fontColor('#333333')
-      Row() {
-        Text(this.value)
-          .fontSize(14)
-          .fontColor('#0096FA')
-        if (this.onItemClick) {
-          Text(' >')
-            .fontSize(16)
-            .fontColor('#999999')
-        }
-      }
-      .justifyContent(FlexAlign.End)
-    }
-    .width('100%')
-    .height(48)
-    .justifyContent(FlexAlign.SpaceBetween)
-    .padding({ left: 16, right: 16 })
-    .backgroundColor('#FFFFFF')
-    .stateStyles({
-      pressed: {
-        .backgroundColor('#F0F0F0')
-      }
-    })
-    .onClick(() => {
-      if (this.onItemClick) {
-        this.onItemClick()
-      }
-    })
-  }
-}
-
-@Component
-struct SwitchItem {
-  @Prop title: string = ''
-  @Prop isOn: boolean = false
-  onToggle: (() => void) | null = null
-
-  build() {
-    Row() {
-      Text(this.title)
-        .fontSize(14)
-        .fontColor('#333333')
-      Toggle({ type: ToggleType.Switch, isOn: this.isOn })
-        .selectedColor('#0096FA')
-        .onChange((isOn: boolean) => {
-          if (this.onToggle) {
-            this.onToggle()
-          }
-        })
-    }
-    .width('100%')
-    .height(48)
-    .justifyContent(FlexAlign.SpaceBetween)
-    .padding({ left: 16, right: 16 })
-    .backgroundColor('#FFFFFF')
-  }
-}
-
-@Component
-struct SectionHeader {
-  @Prop title: string = ''
-
-  build() {
-    Text(this.title)
-      .fontSize(12)
-      .fontColor('#999999')
-      .width('100%')
-      .padding({ left: 16, bottom: 4 })
-  }
-}
-
-@Component
-struct TextInputItem {
-  @Prop title: string = ''
-  @Prop placeholder: string = ''
-  @Prop value: string = ''
-  @State inputValue: string = ''
-  isPassword: boolean = false
-  onTextChange: ((text: string) => void) | null = null
-
-  aboutToAppear() {
-    this.inputValue = this.value
-  }
-
-  build() {
-    Row() {
-      Text(this.title)
-        .fontSize(14)
-        .fontColor('#333333')
-      TextInput({ text: this.inputValue, placeholder: this.placeholder })
-        .type(this.isPassword ? InputType.Password : InputType.Normal)
-        .fontSize(14)
-        .fontColor('#333333')
-        .textAlign(TextAlign.End)
-        .layoutWeight(1)
-        .backgroundColor(Color.Transparent)
-        .onChange((text: string) => {
-          this.inputValue = text
-          if (this.onTextChange) {
-            this.onTextChange(text)
-          }
-        })
-    }
-    .width('100%')
-    .height(48)
-    .justifyContent(FlexAlign.SpaceBetween)
-    .padding({ left: 16, right: 16 })
-    .backgroundColor('#FFFFFF')
-  }
-}
-
-interface QualityOption {
-  label: string
-  value: number
-}
-
+/**
+ * 设置首页：仅呈现 7 个分类入口，点击进入独立路由二级子页。
+ * 全部设置项已平移至 BrowseSettingsPage/DownloadSettingsPage/FilterSettingsPage/
+ * NetworkSettingsPage/RelaySettingsPage/GeneralSettingsPage/AccountSettingsPage。
+ * @Entry：同时作为 HomePage 的 Tab 子组件与独立路由页（登录页"设置"入口 pushUrl 进入）。
+ */
+@Entry
 @Component
 export struct SettingsPage {
   @State settings: AppSettings = userSettingStore.getSettings()
 
-  // 多值选项：用 TextPickerDialog 选择，防止误触直接切换
-  private showQualityPicker(title: string, options: QualityOption[], currentValue: number, onSelect: (value: number) => void): void {
-    let labels: string[] = []
-    let selectedIndex: number = 0
-    for (let i = 0; i < options.length; i++) {
-      labels.push(options[i].label)
-      if (options[i].value === currentValue) {
-        selectedIndex = i
-      }
-    }
-    TextPickerDialog.show({
-      range: labels,
-      selected: selectedIndex,
-      onAccept: (result: TextPickerResult) => {
-        let idx: number | number[] = result.index
-        let index: number = 0
-        if (typeof idx === 'number') {
-          index = idx
-        }
-        if (index >= 0 && index < options.length && options[index].value !== currentValue) {
-          onSelect(options[index].value)
-        }
-      }
-    })
-  }
+  // 中继状态摘要用（子页返回后 aboutToAppear 重读刷新）
+  @State relayRegistered: boolean = false
+  @State relayServerVersion: string = ''
+  @State accountName: string = ''
 
-  private previewQualityOptions: QualityOption[] = [
-    { label: '缩略图', value: 0 },
-    { label: '中图', value: 1 },
-    { label: '大图', value: 2 }
-  ]
-
-  private detailQualityOptions: QualityOption[] = [
-    { label: '大图', value: 0 },
-    { label: '原图', value: 1 }
-  ]
-
-  private illustMangaQualityOptions: QualityOption[] = [
-    { label: '中', value: 0 },
-    { label: '大', value: 1 },
-    { label: '原图', value: 2 }
-  ]
-
-  private networkModeOptions: QualityOption[] = [
-    { label: '标准', value: 0 },
-    { label: '兼容', value: 1 },
-    { label: '增强', value: 2 }
-  ]
-
-  private networkModeValues: string[] = ['standard', 'compatible', 'ech']
-
-  private imageHostOptions: QualityOption[] = [
-    { label: '默认 (i.pximg.net)', value: 0 },
-    { label: '可选 (i.pixiv.re)', value: 1 },
-    { label: '自定义', value: 2 }
-  ]
-
-  private imageHostValues: string[] = ['default', 'optional', 'custom']
-
-  private proxyTypeOptions: QualityOption[] = [
-    { label: 'HTTP', value: 0 },
-    { label: 'SOCKS5', value: 1 }
-  ]
-
-  private downloadConcurrencyOptions: QualityOption[] = [
-    { label: '1 线程', value: 1 },
-    { label: '2 线程', value: 2 },
-    { label: '3 线程', value: 3 },
-    { label: '4 线程', value: 4 },
-    { label: '5 线程', value: 5 }
-  ]
-
-  private refresh(): void {
+  aboutToAppear(): void {
     this.settings = userSettingStore.getSettings()
+    this.relayRegistered = relayClient.isRegistered()
+    this.relayServerVersion = relayClient.getServerVersion()
+    let account: Account | null = accountStore.getCurrentAccount()
+    this.accountName = account ? account.name : ''
   }
 
-  private modeLabel(mode: string): string {
-    for (let i = 0; i < this.networkModeValues.length; i++) {
-      if (this.networkModeValues[i] === mode) {
-        return this.networkModeOptions[i].label
-      }
-    }
-    return ''
+  private browseSummary(): string {
+    return '预览:' + labelOf(PREVIEW_QUALITY_OPTIONS, this.settings.previewQuality) +
+      ' · 网格:' + this.settings.crossCount + '列'
   }
 
-  private modeIndex(mode: string): number {
-    for (let i = 0; i < this.networkModeValues.length; i++) {
-      if (this.networkModeValues[i] === mode) {
-        return i
-      }
-    }
-    return 0
+  private downloadSummary(): string {
+    return labelOf(DETAIL_QUALITY_OPTIONS, this.settings.downloadQuality) +
+      ' · ' + this.settings.downloadConcurrency + '线程'
   }
 
-  private imageHostLabel(hostType: string): string {
-    for (let i = 0; i < this.imageHostValues.length; i++) {
-      if (this.imageHostValues[i] === hostType) {
-        return this.imageHostOptions[i].label
-      }
-    }
-    return ''
+  private filterSummary(): string {
+    return 'AI过滤:' + (this.settings.aiFilter ? '开' : '关')
   }
 
-  private imageHostIndex(hostType: string): number {
-    for (let i = 0; i < this.imageHostValues.length; i++) {
-      if (this.imageHostValues[i] === hostType) {
-        return i
-      }
-    }
-    return 0
+  private networkSummary(): string {
+    return '认证:' + networkModeLabel(this.settings.authMode) +
+      ' · API:' + networkModeLabel(this.settings.apiMode)
   }
 
-  // ===== 导出 Token =====
-  private showExportTokenDialog(): void {
-    let account = accountStore.getCurrentAccount()
-    if (!account || account.refreshToken.length === 0) {
-      promptAction.showToast({ message: '无可用 token' })
-      return
+  private relaySummary(): string {
+    let status: string
+    if (this.settings.relayServerUrl.trim().length === 0) {
+      status = '未配置'
+    } else if (!this.relayRegistered) {
+      status = '未注册'
+    } else {
+      status = '已连接' + (this.relayServerVersion.length > 0 ? ' v' + this.relayServerVersion : '')
     }
-    this.getUIContext().showAlertDialog({
-      title: '导出 Token',
-      message: 'Token 等同于登录凭证，泄露后他人可直接登录你的账号。请仅在可信环境使用，导出后妥善保管。',
-      autoCancel: true,
-      primaryButton: {
-        value: '复制到剪贴板',
-        action: () => { this.copyToken() }
-      },
-      secondaryButton: {
-        value: '导出为文件',
-        action: () => { this.exportTokenFile() }
-      }
-    })
+    return status + ' · 同步:' + (this.settings.syncEnabled ? '开' : '关')
   }
 
-  private async copyToken(): Promise<void> {
-    let account = accountStore.getCurrentAccount()
-    if (!account || account.refreshToken.length === 0) {
-      promptAction.showToast({ message: '无可用 token' })
-      return
-    }
-    let ok = await copyText(account.refreshToken)
-    promptAction.showToast({ message: ok ? '已复制 refresh token 到剪贴板' : '复制失败' })
-  }
-
-  private async exportTokenFile(): Promise<void> {
-    let account = accountStore.getCurrentAccount()
-    if (!account || account.refreshToken.length === 0) {
-      promptAction.showToast({ message: '无可用 token' })
-      return
-    }
-    let exportData: TokenExportData = {
-      version: 1,
-      appName: 'ArkPix',
-      type: 'token',
-      userId: account.id,
-      userName: account.name,
-      account: account.account,
-      refreshToken: account.refreshToken,
-      exportedAt: new Date().toISOString()
-    }
-    let json = JSON.stringify(exportData, null, 2)
-    try {
-      let ctx = AppStorage.get<common.Context>('context')
-      if (!ctx) {
-        promptAction.showToast({ message: '导出失败：无法获取上下文' })
-        return
-      }
-      let options = new picker.DocumentSaveOptions()
-      options.newFileNames = ['arkpix-token.json']
-      let docPicker = new picker.DocumentViewPicker(ctx)
-      let uris: Array<string> = await docPicker.save(options)
-      if (uris.length === 0) {
-        return
-      }
-      let file = fileIo.openSync(uris[0], fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE)
-      fileIo.writeSync(file.fd, json)
-      fileIo.closeSync(file)
-      promptAction.showToast({ message: '导出成功' })
-    } catch (e) {
-      promptAction.showToast({ message: '导出失败: ' + e })
-    }
+  private accountSummary(): string {
+    return this.accountName
   }
 
   build() {
-    List() {
-      // ===== 浏览 =====
-      ListItem() {
+    Column() {
+      // 标题
+      Row() {
+        Text('设置')
+          .fontSize(18)
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#333333')
+          .layoutWeight(1)
+          .textAlign(TextAlign.Center)
+      }
+      .width('100%')
+      .height(56)
+      .padding({ left: 16, right: 16 })
+      .alignItems(VerticalAlign.Center)
+      .backgroundColor('#FFFFFF')
+
+      Scroll() {
         Column() {
-          SectionHeader({ title: '浏览' })
           SettingItem({
-            title: '预览图质量',
-            value: this.qualityLabel(this.previewQualityOptions, this.settings.previewQuality),
+            title: '浏览与显示',
+            value: this.browseSummary(),
             onItemClick: () => {
-              this.showQualityPicker('预览图质量', this.previewQualityOptions, this.settings.previewQuality,
-                (v: number) => { userSettingStore.setPreviewQuality(v); this.refresh() })
+              router.pushUrl({ url: 'pages/settings/BrowseSettingsPage' })
             }
           })
           SettingItem({
-            title: '详情页质量',
-            value: this.qualityLabel(this.detailQualityOptions, this.settings.detailQuality),
+            title: '下载与元数据',
+            value: this.downloadSummary(),
             onItemClick: () => {
-              this.showQualityPicker('详情页质量', this.detailQualityOptions, this.settings.detailQuality,
-                (v: number) => { userSettingStore.setDetailQuality(v); this.refresh() })
+              router.pushUrl({ url: 'pages/settings/DownloadSettingsPage' })
             }
           })
           SettingItem({
-            title: '全屏查看质量',
-            value: this.qualityLabel(this.detailQualityOptions, this.settings.fullScreenQuality),
+            title: '屏蔽与过滤',
+            value: this.filterSummary(),
             onItemClick: () => {
-              this.showQualityPicker('全屏查看质量', this.detailQualityOptions, this.settings.fullScreenQuality,
-                (v: number) => { userSettingStore.setFullScreenQuality(v); this.refresh() })
+              router.pushUrl({ url: 'pages/settings/FilterSettingsPage' })
             }
           })
           SettingItem({
-            title: '插画质量',
-            value: this.qualityLabel(this.illustMangaQualityOptions, this.settings.pictureQuality),
+            title: '网络',
+            value: this.networkSummary(),
             onItemClick: () => {
-              this.showQualityPicker('插画质量', this.illustMangaQualityOptions, this.settings.pictureQuality,
-                (v: number) => { userSettingStore.setPictureQuality(v); this.refresh() })
+              router.pushUrl({ url: 'pages/settings/NetworkSettingsPage' })
             }
           })
           SettingItem({
-            title: '漫画质量',
-            value: this.qualityLabel(this.illustMangaQualityOptions, this.settings.mangaQuality),
+            title: '中继服务器与同步',
+            value: this.relaySummary(),
             onItemClick: () => {
-              this.showQualityPicker('漫画质量', this.illustMangaQualityOptions, this.settings.mangaQuality,
-                (v: number) => { userSettingStore.setMangaQuality(v); this.refresh() })
+              router.pushUrl({ url: 'pages/settings/RelaySettingsPage' })
             }
           })
           SettingItem({
-            title: '网格列数',
-            value: this.settings.crossCount.toString(),
+            title: '通用',
+            value: '',
             onItemClick: () => {
-              this.showQualityPicker('网格列数',
-                [{ label: '2 列', value: 2 }, { label: '3 列', value: 3 }],
-                this.settings.crossCount,
-                (v: number) => { userSettingStore.setCrossCount(v); this.refresh() })
+              router.pushUrl({ url: 'pages/settings/GeneralSettingsPage' })
             }
           })
-          SwitchItem({
-            title: '显示翻译标签',
-            isOn: this.settings.showTranslatedTags,
-            onToggle: () => {
-              userSettingStore.setShowTranslatedTags(!this.settings.showTranslatedTags)
-              this.refresh()
-            }
-          })
-          SwitchItem({
-            title: '显示 R18 榜单',
-            isOn: this.settings.showR18Rank,
-            onToggle: () => {
-              userSettingStore.setShowR18Rank(!this.settings.showR18Rank)
-              this.refresh()
-            }
-          })
-          SwitchItem({
-            title: '防社死模式',
-            isOn: this.settings.antiSocialDeath,
-            onToggle: () => {
-              userSettingStore.setAntiSocialDeath(!this.settings.antiSocialDeath)
-              this.refresh()
+          SettingItem({
+            title: '账户',
+            value: this.accountSummary(),
+            onItemClick: () => {
+              router.pushUrl({ url: 'pages/settings/AccountSettingsPage' })
             }
           })
         }
@@ -418,291 +143,13 @@ export struct SettingsPage {
         .padding({ top: 8, bottom: 8 })
       }
       .width('100%')
-
-      // ===== 下载 =====
-      ListItem() {
-        Column() {
-          SectionHeader({ title: '下载' })
-          SettingItem({
-            title: '下载管理',
-            value: '',
-            onItemClick: () => {
-              router.pushUrl({ url: 'pages/settings/DownloadPage' })
-            }
-          })
-          SettingItem({
-            title: '下载图片质量',
-            value: this.qualityLabel(this.detailQualityOptions, this.settings.downloadQuality),
-            onItemClick: () => {
-              this.showQualityPicker('下载图片质量', this.detailQualityOptions, this.settings.downloadQuality,
-                (v: number) => { userSettingStore.setDownloadQuality(v); this.refresh() })
-            }
-          })
-          SettingItem({
-            title: '下载线程数',
-            value: this.qualityLabel(this.downloadConcurrencyOptions, this.settings.downloadConcurrency),
-            onItemClick: () => {
-              this.showQualityPicker('下载线程数', this.downloadConcurrencyOptions, this.settings.downloadConcurrency,
-                (v: number) => { userSettingStore.setDownloadConcurrency(v); this.refresh() })
-            }
-          })
-          SettingItem({
-            title: '文件名模板',
-            value: this.settings.filenameTemplate,
-            onItemClick: () => {
-              router.pushUrl({ url: 'pages/settings/FilenameTemplatePage' })
-            }
-          })
-          SwitchItem({
-            title: '写入图片元数据',
-            isOn: this.settings.embedExifMetadata,
-            onToggle: () => {
-              userSettingStore.setEmbedExifMetadata(!this.settings.embedExifMetadata)
-              this.refresh()
-            }
-          })
-          SettingItem({
-            title: '备注模板',
-            value: this.settings.exifCommentTemplate,
-            onItemClick: () => {
-              router.pushUrl({ url: 'pages/settings/ExifTemplatePage' })
-            }
-          })
-          SettingItem({
-            title: 'EXIF 标签管理',
-            value: '',
-            onItemClick: () => {
-              router.pushUrl({ url: 'pages/settings/ExifTagConfigPage' })
-            }
-          })
-          SwitchItem({
-            title: '自动合并同义标签',
-            isOn: this.settings.autoMergeTranslatedTags,
-            onToggle: () => {
-              userSettingStore.setAutoMergeTranslatedTags(!this.settings.autoMergeTranslatedTags)
-              this.refresh()
-            }
-          })
-          SwitchItem({
-            title: '下载时自动收藏',
-            isOn: this.settings.autoBookmarkOnDownload,
-            onToggle: () => {
-              userSettingStore.setAutoBookmarkOnDownload(!this.settings.autoBookmarkOnDownload)
-              this.refresh()
-            }
-          })
-        }
-        .width('100%')
-        .padding({ top: 8, bottom: 8 })
-      }
-      .width('100%')
-
-      // ===== 屏蔽与过滤 =====
-      ListItem() {
-        Column() {
-          SectionHeader({ title: '屏蔽与过滤' })
-          SettingItem({
-            title: '屏蔽管理',
-            value: this.settings.muteTags.length + this.settings.muteUsers.length > 0 ?
-              (this.settings.muteTags.length + this.settings.muteUsers.length) + ' 条规则' : '',
-            onItemClick: () => {
-              router.pushUrl({ url: 'pages/settings/MutePage' })
-            }
-          })
-          SwitchItem({
-            title: '过滤 AI 作品',
-            isOn: this.settings.aiFilter,
-            onToggle: () => {
-              userSettingStore.setAiFilter(!this.settings.aiFilter)
-              this.refresh()
-            }
-          })
-        }
-        .width('100%')
-        .padding({ top: 8, bottom: 8 })
-      }
-      .width('100%')
-
-      // ===== 网络 =====
-      ListItem() {
-        Column() {
-          SectionHeader({ title: '网络' })
-          SettingItem({
-            title: '认证方式',
-            value: this.modeLabel(this.settings.authMode),
-            onItemClick: () => {
-              this.showQualityPicker('认证方式', this.networkModeOptions, this.modeIndex(this.settings.authMode),
-                (v: number) => {
-                  userSettingStore.setAuthMode(this.networkModeValues[v])
-                  hoster.init()
-                  hoster.refreshAll()
-                  localProxyServer.start()
-                  this.refresh()
-                })
-            }
-          })
-          SettingItem({
-            title: 'API 方式',
-            value: this.modeLabel(this.settings.apiMode),
-            onItemClick: () => {
-              this.showQualityPicker('API 方式', this.networkModeOptions, this.modeIndex(this.settings.apiMode),
-                (v: number) => {
-                  userSettingStore.setApiMode(this.networkModeValues[v])
-                  hoster.init()
-                  hoster.refreshAll()
-                  localProxyServer.start()
-                  this.refresh()
-                })
-            }
-          })
-
-          Text('兼容=直连 Pixiv 真实 IP 且不发送 SNI（bypass sni + DoH）；增强=ECH（当前版本等价于兼容）；标准=直连')
-            .fontSize(12)
-            .fontColor('#999999')
-            .width('100%')
-            .padding({ left: 16, right: 16, top: 4, bottom: 8 })
-
-          SettingItem({
-            title: '图床',
-            value: this.imageHostLabel(this.settings.imageHostType),
-            onItemClick: () => {
-              this.showQualityPicker('图床', this.imageHostOptions, this.imageHostIndex(this.settings.imageHostType),
-                (v: number) => {
-                  userSettingStore.setImageHostType(this.imageHostValues[v])
-                  this.refresh()
-                })
-            }
-          })
-          if (this.settings.imageHostType === 'custom') {
-            TextInputItem({
-              title: '自定义图床',
-              placeholder: '如 i.pixiv.re',
-              value: this.settings.imageHostCustom,
-              onTextChange: (text: string) => {
-                userSettingStore.setImageHostCustom(text)
-              }
-            })
-          }
-        }
-        .width('100%')
-        .padding({ top: 8, bottom: 8 })
-      }
-      .width('100%')
-
-      // ===== 其他 =====
-      ListItem() {
-        Column() {
-          SectionHeader({ title: '其他' })
-          SettingItem({
-            title: '我的收藏',
-            value: '',
-            onItemClick: () => {
-              router.pushUrl({ url: 'pages/bookmark/BookmarkPage' })
-            }
-          })
-          SettingItem({
-            title: '历史记录',
-            value: '',
-            onItemClick: () => {
-              router.pushUrl({ url: 'pages/settings/HistoryPage' })
-            }
-          })
-          SettingItem({
-            title: '清理图片缓存',
-            value: '',
-            onItemClick: () => {
-              this.getUIContext().showAlertDialog({
-                title: '清理缓存',
-                message: '确定要清理所有图片缓存吗？',
-                autoCancel: true,
-                primaryButton: {
-                  value: '取消',
-                  action: () => {}
-                },
-                secondaryButton: {
-                  value: '确定',
-                  action: () => { imageCacheService.clearCache() }
-                }
-              })
-            }
-          })
-          SettingItem({
-            title: '关于 ArkPix',
-            value: 'v1.0.0',
-            onItemClick: () => {
-              router.pushUrl({ url: 'pages/settings/AboutPage' })
-            }
-          })
-        }
-        .width('100%')
-        .padding({ top: 8, bottom: 8 })
-      }
-      .width('100%')
-
-      // ===== 账户 =====
-      ListItem() {
-        Column() {
-          SectionHeader({ title: '账户' })
-          SettingItem({
-            title: '导出 Token',
-            value: '',
-            onItemClick: () => {
-              this.showExportTokenDialog()
-            }
-          })
-          Row() {
-            Text('退出登录')
-              .fontSize(14)
-              .fontColor('#FF4444')
-            Text(' >')
-              .fontSize(16)
-              .fontColor('#999999')
-          }
-          .width('100%')
-          .height(48)
-          .justifyContent(FlexAlign.SpaceBetween)
-          .padding({ left: 16, right: 16 })
-          .backgroundColor('#FFFFFF')
-          .stateStyles({
-            pressed: {
-              .backgroundColor('#F0F0F0')
-            }
-          })
-          .onClick(() => {
-            this.getUIContext().showAlertDialog({
-              title: '退出登录',
-              message: '确定要退出当前账号吗？',
-              autoCancel: true,
-              primaryButton: {
-                value: '取消',
-                action: () => {}
-              },
-              secondaryButton: {
-                value: '退出',
-                action: () => {
-                  accountStore.logout()
-                  router.replaceUrl({ url: 'pages/login/LoginPage' })
-                }
-              }
-            })
-          })
-        }
-        .width('100%')
-        .padding({ top: 8, bottom: 8 })
-      }
-      .width('100%')
+      .layoutWeight(1)
+      // Scroll 限高后内容不足一屏时默认居中，须显式顶部对齐
+      .align(Alignment.TopStart)
+      .backgroundColor('#F5F5F5')
     }
     .width('100%')
     .height('100%')
     .backgroundColor('#F5F5F5')
-  }
-
-  private qualityLabel(options: QualityOption[], currentValue: number): string {
-    for (let i = 0; i < options.length; i++) {
-      if (options[i].value === currentValue) {
-        return options[i].label
-      }
-    }
-    return ''
   }
 }

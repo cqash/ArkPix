@@ -15,3 +15,20 @@ export async function copyText(text: string): Promise<boolean> {
     return false
   }
 }
+
+/**
+ * 读取系统剪贴板纯文本。
+ * 读取剪贴板受权限管控：普通读取需 READ_PASTEBOARD（受限场景才可申请），
+ * 请在 PasteButton 安全控件点击后的临时授权窗口内调用；窗口外/无权限时捕获异常返回 ''。
+ */
+export async function pasteText(): Promise<string> {
+  try {
+    let systemPasteboard = pasteboard.getSystemPasteboard()
+    let data = await systemPasteboard.getData()
+    let text = data.getPrimaryText()
+    return text ?? ''
+  } catch (e) {
+    console.error('Paste from clipboard failed: ' + e)
+    return ''
+  }
+}

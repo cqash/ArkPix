@@ -120,6 +120,7 @@ struct AboutPage {
         }
       }
       .layoutWeight(1)
+      .align(Alignment.TopStart)
     }
     .width('100%')
     .height('100%')

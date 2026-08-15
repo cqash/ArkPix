@@ -13,7 +13,8 @@ struct LoginPage {
   }
 
   build() {
-    Column({ space: 20 }) {
+    Stack({ alignContent: Alignment.TopEnd }) {
+      Column({ space: 20 }) {
       Column({ space: 8 }) {
         Text('PixEz')
           .fontSize(48)
@@ -81,10 +82,22 @@ struct LoginPage {
         .fontColor('#999999')
         .margin({ top: 24 })
         .decoration({ type: TextDecorationType.Underline })
+      }
+      .width('100%')
+      .height('100%')
+      .justifyContent(FlexAlign.Center)
+      .backgroundColor('#FFFFFF')
+
+      // 右上角设置入口：登录前可配置网络/中继（如先开中继再登录）
+      Text('设置')
+        .fontSize(15)
+        .fontColor('#0096FA')
+        .padding({ left: 24, right: 20, top: 16, bottom: 16 })
+        .onClick(() => {
+          router.pushUrl({ url: 'pages/settings/SettingsPage' })
+        })
     }
     .width('100%')
     .height('100%')
-    .justifyContent(FlexAlign.Center)
-    .backgroundColor('#FFFFFF')
   }
 }

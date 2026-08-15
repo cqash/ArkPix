@@ -216,7 +216,9 @@ export struct DownloadPage {
               .backgroundColor('#FFFFFF')
             }
             .width('100%')
-          }, (task: DownloadTaskItem) => task.id)
+            // key 含 status/progress：状态或进度变化即换 key 强制重建该行
+            //（仅 task.id 作 key 时同 key 复用子组件，轮询换的新数组也刷不动行内容）
+          }, (task: DownloadTaskItem) => task.id + '|' + task.status + '|' + task.progress)
         }
         .width('100%')
         .height('100%')
