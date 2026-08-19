@@ -1,24 +1,9 @@
 {
   "app": {
-    "signingConfigs": [
-      {
-        "name": "default",
-        "type": "HarmonyOS",
-        "material": {
-          "certpath": "C:\\Users\\A\\.ohos\\config\\default_pixiv-_***REMOVED***.cer",
-          "keyAlias": "debugKey",
-          "keyPassword": "***REMOVED***",
-          "profile": "C:\\Users\\A\\.ohos\\config\\default_pixiv-_***REMOVED***.p7b",
-          "signAlg": "SHA256withECDSA",
-          "storeFile": "C:\\Users\\A\\.ohos\\config\\default_pixiv-_***REMOVED***.p12",
-          "storePassword": "***REMOVED***"
-        }
-      }
-    ],
+    "signingConfigs": [],
     "products": [
       {
         "name": "default",
-        "signingConfig": "default",
         "targetSdkVersion": "6.1.0(23)",
         "compatibleSdkVersion": "6.1.0(23)",
         "runtimeOS": "HarmonyOS",
