@@ -16,7 +16,7 @@ struct LoginPage {
     Stack({ alignContent: Alignment.TopEnd }) {
       Column({ space: 20 }) {
       Column({ space: 8 }) {
-        Text('PixEz')
+        Text('ArkPix')
           .fontSize(48)
           .fontWeight(FontWeight.Bold)
           .fontColor('#0096FA')
