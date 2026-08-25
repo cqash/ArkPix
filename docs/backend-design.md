@@ -309,6 +309,8 @@ Web 端（PC 浏览器为主，移动端浏览器兜底）复用本文档全部�
 - 本地写入后 10 s 防抖批量 push
 - 设置页提供"立即同步"手动入口与每域最后同步时间展示
 
+**客户端顺序约束（勿回退）**：由于 §7.2 的 syncToken 水位随 push 跳到≈当前时间戳、pull 只返回 `seq > since`，任何 push 前必须已完成一次全量 pull，否则游标会越过后端已有条目且之后增量 pull 永远拉不到。客户端实现：每域偏好 `sync_initial_pulled_<domain>` 记录全量 pull 是否完成；未完成时 push 前重置游标做全量拉取（LWW 合并不清本地）；push 后按 push 前游标补拉一轮捕获窗口期其他设备写入；history/search_history 墓碑 applier 亦走 LWW。
+
 ---
 
 ## 8. 已删除作品恢复（/recover）

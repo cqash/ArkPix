@@ -70,6 +70,7 @@ T001–T024 全部完成，build_project（hvigorw assembleHap）通过。新增
 - 非 relay 模式下查看恢复图片：recover 返回的 img URL 指向中继服务器，ImageCacheService 非 relay 分支不注入 relay Bearer → 可能 401（恢复功能本身要求已注册中继，实际使用中通常已切 relay）。
 - 429 RATE_LIMITED 目前按普通错误冒泡（sync 静默下轮重试；recover 按服务端 retryAfterSec 轮询），未单独做退避。
 - 同步为尽力而为：App 未启动期间不产生同步。**回前台补偿 pull 已实现**（`EntryAbility.onForeground` → `syncService.onAppForeground`，受 `autoSyncForeground` 开关 + 5 分钟节流门控，见 AGENTS.md"Relay 与数据同步"节）。
+- **push/pull 顺序已加固（勿回退）**：曾出现"ArkPix 历史推上去了，但后端已有历史在 ArkPix 拉不下来"——根因是服务端 syncToken 水位随 push 跳到≈当前时间戳、pull 只返回 `seq > since`，设备在首次全量 pull 前 push 导致游标越过后端条目。现已加 `ensureInitialPull`（每域 `sync_initial_pulled_<domain>` 标记，未全量拉取过即重置游标全量拉）+ `pushDomain` 内 push 后按 push 前游标补拉 + 墓碑 LWW 防护（history/search_history）。存量被污染的游标会在下次启动/回前台/立即同步时自动修复。详见 AGENTS.md"Relay 与数据同步"节。
 
 ## 客户端新增功能（设置页聚合重构后）
 

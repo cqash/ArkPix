@@ -145,6 +145,8 @@ export class SyncService {
   private applyingRemote: boolean = false
   private pendingDomains: string[] = []
   private pushTimer: number = -1
+  /** 全量初始 pull 进行中（防止并发 push/startupPull 重复触发全量拉取） */
+  private initialPulling: string[] = []
 
   private constructor() {
   }
@@ -217,6 +219,46 @@ export class SyncService {
 
   private recordLocalWrite(domain: string): void {
     preferenceService.setNumber('sync_local_' + domain, Date.now())
+  }
+
+  /** 该域是否已完成过一次全量 pull（since=''）：全量后才可放心 push，否则 push 会使游标跳过后端已有条目 */
+  private hasInitialPulled(domain: string): boolean {
+    return preferenceService.getBoolean('sync_initial_pulled_' + domain, false)
+  }
+
+  private markInitialPulled(domain: string): void {
+    preferenceService.setBoolean('sync_initial_pulled_' + domain, true)
+  }
+
+  /**
+   * 确保该域完成过全量 pull 后再进行任何 push。
+   * 根因：服务端 syncToken 的 seq 水位随 push 跳到≈当前时间戳（max(上一水位+1, nowMs)），
+   * pull 只返回 seq > since 的条目。若设备在首次全量拉取前就 push（导入账号后 syncNow 先推、
+   * 或新设备首条本地写入防抖推送），游标会直接越过后端已有的其他设备条目，且此后增量 pull
+   * 永远拉不到它们（表现为"历史/屏蔽同步不下来了"）。
+   * 修复：未全量拉取过且已有非空游标（存量被污染的游标）→ 重置为 '' 触发全量 pull，
+   * 不清本地数据（走 LWW 合并，远端新于本地的条目才应用）。
+   */
+  private async ensureInitialPull(domain: string): Promise<void> {
+    if (this.initialPulling.includes(domain)) {
+      return
+    }
+    if (this.hasInitialPulled(domain)) {
+      return
+    }
+    this.initialPulling.push(domain)
+    try {
+      let cursor = this.getCursor(domain)
+      if (cursor.length > 0) {
+        this.setCursor(domain, '')
+      }
+      await this.pullDomain(domain)
+    } finally {
+      let idx = this.initialPulling.indexOf(domain)
+      if (idx >= 0) {
+        this.initialPulling.splice(idx, 1)
+      }
+    }
   }
 
   private pad2(n: number): string {
@@ -329,6 +371,8 @@ export class SyncService {
     }
     for (let i = 0; i < SYNC_DOMAINS.length; i++) {
       try {
+        // 未完成全量 pull 的域先补全量（同时修复被 push 污染、越过后端条目的存量游标）
+        await this.ensureInitialPull(SYNC_DOMAINS[i])
         await this.pullDomain(SYNC_DOMAINS[i])
       } catch (e) {
         console.error('Startup pull failed (' + SYNC_DOMAINS[i] + '): ' + e)
@@ -397,10 +441,16 @@ export class SyncService {
     if (!this.canSync()) {
       return
     }
+    // 首次 push 前必须已完成一次全量 pull：否则 push 使域游标跳到当前水位，
+    // 后端已有但从未拉取的条目（其他设备/Web 端写入的历史等）会被永久跳过
+    await this.ensureInitialPull(domain)
     let items = await this.collectDomain(domain)
     if (items.length === 0) {
       return
     }
+    // push 会推进服务端域水位（≈当前时间戳）；记录 push 前游标，push 后按它补拉一轮，
+    // 捕获本窗口内其他设备的写入，避免游标跳过尚未应用的远端条目
+    let prePushCursor = this.getCursor(domain)
     let offset = 0
     while (offset < items.length) {
       let batch = items.slice(offset, offset + PUSH_BATCH_SIZE)
@@ -428,6 +478,8 @@ export class SyncService {
     }
     this.clearTombstones(domain)
     this.setLastSync(domain, Date.now())
+    // push 后按 push 前游标补拉：刚推的条目 LWW 幂等跳过，远端窗口期内新条目全部应用
+    await this.pullDomain(domain, prePushCursor)
   }
 
   private buildPushBody(domain: string, items: SyncItem[]): string {
@@ -454,14 +506,18 @@ export class SyncService {
 
   // ---------------- pull ----------------
 
-  private async pullDomain(domain: string): Promise<void> {
+  private async pullDomain(domain: string, sinceOverride?: string): Promise<void> {
     if (!this.canSync()) {
       return
     }
-    let since = this.getCursor(domain)
+    let since = sinceOverride !== undefined ? sinceOverride : this.getCursor(domain)
+    let fullPullPerformed: boolean = false
     this.applyingRemote = true
     try {
       while (true) {
+        if (since.length === 0) {
+          fullPullPerformed = true
+        }
         let path = '/sync/v1/pull?domain=' + encodeURIComponent(domain) + '&since=' + encodeURIComponent(since) +
           '&limit=100'
         let resp = await relayClient.authorizedRequest(path, http.RequestMethod.GET)
@@ -486,6 +542,10 @@ export class SyncService {
         if (!result.hasMore) {
           break
         }
+      }
+      if (fullPullPerformed) {
+        // 全量 pull（since=''）成功完成 → 该域游标可信，后续可放心增量拉取与推送
+        this.markInitialPulled(domain)
       }
     } finally {
       this.applyingRemote = false
@@ -739,11 +799,15 @@ export class SyncService {
       return
     }
     let db = await getDbService()
+    let localTs = await db.getHistoryTimestamp(illustId)
     if (item.deleted) {
+      // 墓碑同样走 LWW：本地有更新条目时不因旧墓碑被误删（全量重拉/重复拉取时的关键防护）
+      if (!shouldApplyRemote(localTs, item.updatedAt)) {
+        return
+      }
       await db.deleteHistory(illustId)
       return
     }
-    let localTs = await db.getHistoryTimestamp(illustId)
     if (!shouldApplyRemote(localTs, item.updatedAt)) {
       return
     }
@@ -760,11 +824,15 @@ export class SyncService {
     let searchType = item.key.substring(0, sep)
     let keyword = item.key.substring(sep + 1)
     let db = await getDbService()
+    let localTs = await db.getSearchHistoryTimestamp(keyword, searchType)
     if (item.deleted) {
+      // 墓碑同样走 LWW：本地有更新条目时不因旧墓碑被误删（全量重拉时的关键防护）
+      if (!shouldApplyRemote(localTs, item.updatedAt)) {
+        return
+      }
       await db.deleteSearchHistory(keyword, searchType)
       return
     }
-    let localTs = await db.getSearchHistoryTimestamp(keyword, searchType)
     if (!shouldApplyRemote(localTs, item.updatedAt)) {
       return
     }
