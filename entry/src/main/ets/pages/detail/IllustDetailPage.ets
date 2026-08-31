@@ -31,6 +31,7 @@ import {
   findUnresolvedMergeGroups,
   MergeGroup
 } from '../../services/ImageExifService';
+import { getStr, getStrf } from '../../utils/I18nUtils';
 
 interface RouteParams {
   illustId: number
@@ -149,7 +150,7 @@ struct IllustDetailPage {
       this.recoverState = RECOVER_STATE_IDLE
       this.recoverProgressText = ''
     } else {
-      this.errorMessage = this.store.errorMessage || '加载失败'
+      this.errorMessage = this.store.errorMessage || getStr($r('app.string.common_load_failed'))
     }
     this.isLoading = false
   }
@@ -269,7 +270,7 @@ struct IllustDetailPage {
     this.mergeReviewShown = false
     this.mergeReviewGroups = []
     this.mergeReviewSelected = []
-    promptAction.showToast({ message: '合并规则已保存，请再次点击保存' })
+    promptAction.showToast({ message: $r('app.string.detail_merge_rule_saved') })
   }
 
   private needMask(): boolean {
@@ -367,13 +368,13 @@ struct IllustDetailPage {
   @Builder
   BookmarkMenuBuilder() {
     Column() {
-      Text('公开收藏')
+      Text($r('app.string.detail_bookmark_public'))
         .fontSize(14)
         .fontColor('#333333')
         .width('100%')
         .padding({ left: 16, right: 16, top: 10, bottom: 10 })
         .onClick(() => { this.store.starWithRestrict('public') })
-      Text('私密收藏')
+      Text($r('app.string.detail_bookmark_private'))
         .fontSize(14)
         .fontColor('#333333')
         .width('100%')
@@ -387,14 +388,14 @@ struct IllustDetailPage {
   @Builder
   SaveMenuBuilder() {
     Column() {
-      Text('保存当前页')
+      Text($r('app.string.detail_save_current_page'))
         .fontSize(14)
         .fontColor('#333333')
         .width('100%')
         .padding({ left: 16, right: 16, top: 10, bottom: 10 })
         .onClick(() => { this.handleSavePage(this.saveMenuPageIndex) })
       if (this.illust.pageCount > 1) {
-        Text('保存全部页')
+        Text($r('app.string.detail_save_all_pages'))
           .fontSize(14)
           .fontColor('#333333')
           .width('100%')
@@ -409,7 +410,7 @@ struct IllustDetailPage {
   @Builder
   TagMenuBuilder() {
     Column() {
-      Text('复制标签名')
+      Text($r('app.string.detail_copy_tag'))
         .fontSize(14)
         .fontColor('#333333')
         .width('100%')
@@ -418,7 +419,7 @@ struct IllustDetailPage {
           let data = pasteboard.createPlainTextData(this.tagMenuTarget)
           pasteboard.getSystemPasteboard().setData(data)
         })
-      Text('屏蔽该标签')
+      Text($r('app.string.detail_mute_tag'))
         .fontSize(14)
         .fontColor('#333333')
         .width('100%')
@@ -426,16 +427,16 @@ struct IllustDetailPage {
         .onClick(() => {
           userSettingStore.addMuteTag(this.tagMenuTarget)
         })
-      Text('备注中屏蔽')
+      Text($r('app.string.detail_exif_mute'))
         .fontSize(14)
         .fontColor('#333333')
         .width('100%')
         .padding({ left: 16, right: 16, top: 10, bottom: 10 })
         .onClick(() => {
           userSettingStore.addExifMutedTag(this.tagMenuTarget)
-          promptAction.showToast({ message: '已从EXIF备注中屏蔽: ' + this.tagMenuTarget })
+          promptAction.showToast({ message: getStrf($r('app.string.detail_exif_muted_toast'), this.tagMenuTarget) })
         })
-      Text('备注中合并')
+      Text($r('app.string.detail_exif_merge'))
         .fontSize(14)
         .fontColor('#333333')
         .width('100%')
@@ -776,7 +777,7 @@ struct IllustDetailPage {
     }
   }
 
-  /** TagExifPicker 确认回调：更新 exifMutedTags 和 exifTagPriority 后继续保存 */
+  /** EXIF Picker 确认回调：更新 exifMutedTags 和 exifTagPriority 后继续保存 */
   private onExifPickerConfirm(): void {
     let selectedTags: string[] = []
     let allTagsOrdered: string[] = []
@@ -806,7 +807,7 @@ struct IllustDetailPage {
     this.resumeSaveAfterPicker()
   }
 
-  /** TagExifPicker 跳过回调：直接保存不做过滤 */
+  /** EXIF Picker 跳过回调：直接保存不做过滤 */
   private onExifPickerSkip(): void {
     this.exifPickerShown = false
     this.resumeSaveAfterPicker()
@@ -943,7 +944,7 @@ struct IllustDetailPage {
           Text('🔒')
             .fontSize(28)
             .opacity(0.4)
-          Text('点击显示')
+          Text($r('app.string.detail_tap_to_show'))
             .fontSize(12)
             .fontColor('rgba(255, 255, 255, 0.35)')
             .margin({ top: 8 })
@@ -1029,10 +1030,10 @@ struct IllustDetailPage {
       .onClick(() => { this.goToUserProfile() })
 
       Row() {
-        Text('收藏 ' + this.illust.totalBookmarks)
+        Text(getStrf($r('app.string.detail_stat_bookmarks'), this.illust.totalBookmarks))
           .fontSize(12)
           .fontColor('#999999')
-        Text('浏览 ' + this.illust.totalView)
+        Text(getStrf($r('app.string.detail_stat_views'), this.illust.totalView))
           .fontSize(12)
           .fontColor('#999999')
           .margin({ left: 16 })
@@ -1043,7 +1044,7 @@ struct IllustDetailPage {
       // 发布日期（本地时区 yyyy-MM-dd HH:mm；解析失败返回 '' 不渲染该行）
       if (formatCreateDate(this.illust.createDate).length > 0) {
         Row() {
-          Text('发布于 ' + formatCreateDate(this.illust.createDate))
+          Text(getStrf($r('app.string.detail_published_at'), formatCreateDate(this.illust.createDate)))
             .fontSize(12)
             .fontColor('#999999')
         }
@@ -1059,7 +1060,7 @@ struct IllustDetailPage {
             LongPressGesture({ duration: 500 })
               .onAction(() => {
                 copyText(this.illust.id.toString()).then((ok: boolean) => {
-                  promptAction.showToast({ message: ok ? '已复制 PID' : '复制失败' })
+                  promptAction.showToast({ message: ok ? $r('app.string.detail_pid_copied') : $r('app.string.common_copy_failed') })
                 })
               })
           )
@@ -1076,7 +1077,7 @@ struct IllustDetailPage {
       .padding({ left: 16, right: 16, top: 8 })
 
       // 查看评论：tag 云之后、相关作品之前的居中小号文字按钮（原按钮区已迁移至右下角双 FAB）
-      Text('查看评论')
+      Text($r('app.string.detail_view_comments'))
         .fontSize(12)
         .fontColor('#999999')
         .width('100%')
@@ -1095,7 +1096,7 @@ struct IllustDetailPage {
   @Builder
   RelatedHeaderRow() {
     Row() {
-      Text('相关作品')
+      Text($r('app.string.detail_related'))
         .fontSize(16)
         .fontWeight(FontWeight.Bold)
         .fontColor('#333333')
@@ -1167,7 +1168,7 @@ struct IllustDetailPage {
                 this.handleSavePage(0)
               }
             } else {
-              this.getUIContext().getPromptAction().showToast({ message: '保存授权被取消' })
+              this.getUIContext().getPromptAction().showToast({ message: $r('app.string.detail_save_auth_cancelled') })
             }
           })
       }
@@ -1258,16 +1259,16 @@ struct IllustDetailPage {
       Column() {
         // 头部：计数 + 全选/清空
         Row() {
-          Text('选择下载页（' + this.pageSelectCount() + '/' + this.pageSelectChecked.length + '）')
+          Text(getStrf($r('app.string.detail_page_select_title'), this.pageSelectCount(), this.pageSelectChecked.length))
             .fontSize(16)
             .fontWeight(FontWeight.Bold)
             .fontColor('#333333')
             .layoutWeight(1)
-          Text('全选')
+          Text($r('app.string.detail_select_all'))
             .fontSize(13)
             .fontColor('#0096FA')
             .onClick(() => { this.setAllPageSelect(true) })
-          Text('清空')
+          Text($r('app.string.common_clear'))
             .fontSize(13)
             .fontColor('#999999')
             .margin({ left: 16 })
@@ -1306,13 +1307,15 @@ struct IllustDetailPage {
 
         // 底部按钮：取消 / 确定下载(N)，空选择不发起
         Row({ space: 12 }) {
-          Button('取消')
+          Button($r('app.string.common_cancel'))
             .fontSize(14)
             .backgroundColor('#EEEEEE')
             .fontColor('#333333')
             .layoutWeight(1)
             .onClick(() => { this.closePageSelect() })
-          Button(this.pageSelectCount() > 0 ? '确定下载(' + this.pageSelectCount() + ')' : '确定下载')
+          Button(this.pageSelectCount() > 0 ?
+            getStrf($r('app.string.detail_download_confirm_count'), this.pageSelectCount()) :
+            getStr($r('app.string.detail_download_confirm')))
             .fontSize(14)
             .backgroundColor(this.pageSelectCount() > 0 ? '#0096FA' : '#CCCCCC')
             .fontColor('#FFFFFF')
@@ -1341,16 +1344,16 @@ struct IllustDetailPage {
   MergeDialogOverlay() {
     Column() {
       Column() {
-        Text('合并标签到…')
+        Text($r('app.string.detail_merge_dialog_title'))
           .fontSize(18)
           .fontWeight(FontWeight.Bold)
           .fontColor('#333333')
           .margin({ bottom: 12 })
-        Text('将 [' + this.mergeFromTag + '] 合并到以下主标签：')
+        Text(getStrf($r('app.string.detail_merge_prompt'), this.mergeFromTag))
           .fontSize(14)
           .fontColor('#666666')
           .margin({ bottom: 16 })
-        TextInput({ placeholder: '输入主标签名', text: this.mergeInputText })
+        TextInput({ placeholder: $r('app.string.detail_merge_input_placeholder'), text: this.mergeInputText })
           .onChange((value: string) => {
             this.onMergeInputChange(value)
           })
@@ -1385,7 +1388,7 @@ struct IllustDetailPage {
           .margin({ bottom: 16 })
         }
         Row({ space: 12 }) {
-          Button('取消')
+          Button($r('app.string.common_cancel'))
             .fontSize(14)
             .backgroundColor('#EEEEEE')
             .fontColor('#333333')
@@ -1393,7 +1396,7 @@ struct IllustDetailPage {
             .onClick(() => {
               this.closeMergeDialog()
             })
-          Button('确认合并')
+          Button($r('app.string.detail_merge_confirm_btn'))
             .fontSize(14)
             .backgroundColor('#0096FA')
             .fontColor('#FFFFFF')
@@ -1401,7 +1404,7 @@ struct IllustDetailPage {
             .onClick(() => {
               if (this.mergeInputText.length > 0) {
                 userSettingStore.addExifMergeRule(this.mergeInputText, [this.mergeFromTag])
-                promptAction.showToast({ message: '已将 [' + this.mergeFromTag + '] 合并到 [' + this.mergeInputText + ']' })
+                promptAction.showToast({ message: getStrf($r('app.string.detail_merge_done'), this.mergeFromTag, this.mergeInputText) })
                 this.closeMergeDialog()
               }
             })
@@ -1428,7 +1431,7 @@ struct IllustDetailPage {
   @Builder
   DeletedSnapshotCard(snapshot: BookmarkSnapshot) {
     Column() {
-      Text('该作品已被删除或不可访问')
+      Text($r('app.string.detail_deleted_notice'))
         .fontSize(14)
         .fontColor('#999999')
         .margin({ bottom: 12 })
@@ -1439,12 +1442,12 @@ struct IllustDetailPage {
           .fontColor('#333333')
           .width('100%')
           .margin({ bottom: 8 })
-        Text('作者：' + snapshot.userName + '（UID:' + snapshot.userId + '）')
+        Text(getStrf($r('app.string.detail_deleted_author'), snapshot.userName, snapshot.userId))
           .fontSize(13)
           .fontColor('#666666')
           .width('100%')
           .margin({ bottom: 4 })
-        Text('共 ' + snapshot.pageCount + ' 页 · PID: ' + snapshot.illustId)
+        Text(getStrf($r('app.string.detail_deleted_meta'), snapshot.pageCount, snapshot.illustId))
           .fontSize(13)
           .fontColor('#666666')
           .width('100%')
@@ -1457,7 +1460,7 @@ struct IllustDetailPage {
             .margin({ bottom: 4 })
         }
         if (snapshot.createDate.length > 0) {
-          Text('发布于 ' + formatCreateDate(snapshot.createDate))
+          Text(getStrf($r('app.string.detail_published_at'), formatCreateDate(snapshot.createDate)))
             .fontSize(12)
             .fontColor('#999999')
             .width('100%')
@@ -1470,11 +1473,11 @@ struct IllustDetailPage {
       .margin({ bottom: 16 })
 
       if (this.recoverState === RECOVER_STATE_POLLING) {
-        Text(this.recoverProgressText.length > 0 ? this.recoverProgressText : '正在查询第三方源…')
+        Text(this.recoverProgressText.length > 0 ? this.recoverProgressText : getStr($r('app.string.detail_recover_querying')))
           .fontSize(13)
           .fontColor('#666666')
           .margin({ bottom: 8 })
-        Text('取消')
+        Text($r('app.string.common_cancel'))
           .fontSize(14)
           .fontColor('#0096FA')
           .padding({ left: 24, right: 24, top: 8, bottom: 8 })
@@ -1482,7 +1485,7 @@ struct IllustDetailPage {
             this.cancelRecover()
           })
       } else if (this.store.canRecover()) {
-        Text('尝试从第三方恢复')
+        Text($r('app.string.detail_recover_try'))
           .fontSize(14)
           .fontColor('#FFFFFF')
           .backgroundColor('#0096FA')
@@ -1492,11 +1495,11 @@ struct IllustDetailPage {
             this.startRecover()
           })
       } else {
-        Text('在设置页配置并注册中继服务器后，可尝试从第三方恢复')
+        Text($r('app.string.detail_recover_need_relay'))
           .fontSize(12)
           .fontColor('#999999')
       }
-      Text('重试加载')
+      Text($r('app.string.detail_retry_load'))
         .fontSize(13)
         .fontColor('#999999')
         .margin({ top: 16 })
@@ -1567,14 +1570,14 @@ struct IllustDetailPage {
       if (this.mergeReviewShown) {
         Column() {
           Column() {
-            Text('同义标签审查')
+            Text($r('app.string.detail_merge_review_title'))
               .fontSize(18)
               .fontWeight(FontWeight.Bold)
               .fontColor('#333333')
               .width('100%')
               .textAlign(TextAlign.Center)
               .margin({ bottom: 12 })
-            Text('检测到以下标签拥有相同翻译，请选择作为备注主标签的标签名：')
+            Text($r('app.string.detail_merge_review_desc'))
               .fontSize(12)
               .fontColor('#666666')
               .width('100%')
@@ -1582,7 +1585,7 @@ struct IllustDetailPage {
 
             ForEach(this.mergeReviewGroups, (group: MergeGroup, groupIndex: number) => {
               Column() {
-                Text('翻译: ' + group.translatedName)
+                Text(getStrf($r('app.string.detail_merge_translated'), group.translatedName))
                   .fontSize(12)
                   .fontColor('#999999')
                   .width('100%')
@@ -1621,7 +1624,7 @@ struct IllustDetailPage {
             }, (group: MergeGroup, groupIndex: number) => group.translatedName + '_' + groupIndex)
 
             Row() {
-              Button('跳过')
+              Button($r('app.string.detail_skip'))
                 .fontSize(14)
                 .backgroundColor('#F0F0F0')
                 .fontColor('#666666')
@@ -1631,7 +1634,7 @@ struct IllustDetailPage {
                   this.mergeReviewGroups = []
                   this.mergeReviewSelected = []
                 })
-              Button('确认合并')
+              Button($r('app.string.detail_merge_confirm_btn'))
                 .fontSize(14)
                 .backgroundColor('#0096FA')
                 .fontColor('#FFFFFF')
@@ -1662,7 +1665,7 @@ struct IllustDetailPage {
       if (this.exifPickerShown) {
         Column() {
           Column() {
-            Text('EXIF 备注标签选择')
+            Text($r('app.string.detail_exif_picker_title'))
               .fontSize(18)
               .fontWeight(FontWeight.Bold)
               .fontColor('#333333')
@@ -1672,7 +1675,7 @@ struct IllustDetailPage {
 
             // Preview area
             Column() {
-              Text('预览')
+              Text($r('app.string.common_preview'))
                 .fontSize(12)
                 .fontColor('#999999')
                 .margin({ bottom: 4 })
@@ -1682,7 +1685,7 @@ struct IllustDetailPage {
                 .maxLines(3)
                 .textOverflow({ overflow: TextOverflow.Ellipsis })
                 .width('100%')
-              Text(this.exifPickerPreviewBytes + ' / ' + EXIF_FIELD_MAX_BYTES + ' 字节')
+              Text(getStrf($r('app.string.detail_exif_bytes'), this.exifPickerPreviewBytes, EXIF_FIELD_MAX_BYTES))
                 .fontSize(12)
                 .fontColor(this.exifPickerPreviewBytes > EXIF_FIELD_MAX_BYTES ? '#CC3333' : '#0096FA')
                 .margin({ top: 4 })
@@ -1695,11 +1698,11 @@ struct IllustDetailPage {
 
             // Writable tags section
             Row() {
-              Text('可写入标签')
+              Text($r('app.string.detail_exif_writable'))
                 .fontSize(14)
                 .fontColor('#333333')
                 .fontWeight(FontWeight.Medium)
-              Text('取消勾选=跳过本次 | 长按=永久屏蔽')
+              Text($r('app.string.detail_exif_writable_hint'))
                 .fontSize(10)
                 .fontColor('#999999')
                 .margin({ left: 8 })
@@ -1769,7 +1772,7 @@ struct IllustDetailPage {
 
             // Muted tags section
             if (this.exifPickerMutedItems.length > 0) {
-              Text('已屏蔽标签')
+              Text($r('app.string.detail_exif_muted_section'))
                 .fontSize(14)
                 .fontColor('#CC3333')
                 .fontWeight(FontWeight.Medium)
@@ -1789,7 +1792,7 @@ struct IllustDetailPage {
                           .fontColor('#999999')
                           .margin({ left: 4 })
                       }
-                      Text('恢复')
+                      Text($r('app.string.detail_exif_restore'))
                         .fontSize(12)
                         .fontColor('#0096FA')
                         .margin({ left: 8 })
@@ -1812,7 +1815,7 @@ struct IllustDetailPage {
 
             // Action buttons
             Row({ space: 12 }) {
-              Button('跳过')
+              Button($r('app.string.detail_skip'))
                 .fontSize(14)
                 .backgroundColor('#EEEEEE')
                 .fontColor('#333333')
@@ -1820,7 +1823,7 @@ struct IllustDetailPage {
                 .onClick(() => {
                   this.onExifPickerSkip()
                 })
-              Button('确认')
+              Button($r('app.string.common_confirm_action'))
                 .fontSize(14)
                 .backgroundColor('#0096FA')
                 .fontColor('#FFFFFF')
@@ -1835,16 +1838,16 @@ struct IllustDetailPage {
             // 长按屏蔽二次确认弹窗
             if (this.exifPickerMuteConfirmTarget.length > 0) {
               Column() {
-                Text('确认屏蔽标签「' + this.exifPickerMuteConfirmTarget + '」？')
+                Text(getStrf($r('app.string.detail_mute_confirm_title'), this.exifPickerMuteConfirmTarget))
                   .fontSize(14)
                   .fontColor('#333333')
                   .margin({ bottom: 12 })
-                Text('屏蔽后该标签在所有作品的 EXIF 中都不会写入，可在设置中恢复。')
+                Text($r('app.string.detail_mute_confirm_desc'))
                   .fontSize(12)
                   .fontColor('#666666')
                   .margin({ bottom: 16 })
                 Row({ space: 12 }) {
-                  Button('取消')
+                  Button($r('app.string.common_cancel'))
                     .fontSize(13)
                     .backgroundColor('#EEEEEE')
                     .fontColor('#333333')
@@ -1852,7 +1855,7 @@ struct IllustDetailPage {
                     .onClick(() => {
                       this.exifPickerMuteConfirmTarget = ''
                     })
-                  Button('确认屏蔽')
+                  Button($r('app.string.detail_mute_confirm_btn'))
                     .fontSize(13)
                     .backgroundColor('#CC3333')
                     .fontColor('#FFFFFF')

@@ -26,10 +26,10 @@ HarmonyOS ArkTS Stage Model 应用（单模块 `entry`），API 12+ / SDK 6.1.0(
 ## 架构（entry/src/main/ets/）
 
 ```
-pages/       — 页面（splash、login、home/*、search/*、detail/*、user/*、bookmark/*、settings/*；novel/NovelPage 未注册进 main_pages.json、无引用，是死代码占位）
+pages/       — 页面（splash、login、home/*、search/*、detail/*、user/*、bookmark/*、settings/*）
              settings/ = 分类聚合结构：SettingsPage（首页 7 分类入口+摘要）+ SettingWidgets（共享行组件/Picker/选项数组/labelOf）+ 7 个分类子页（Browse/Download/Filter/Network/Relay/General/AccountSettingsPage）+ 既有功能页（DownloadPage/MutePage/HistoryPage 等）
 components/  — 可复用组件
-  common/    — CachedImage（@Watch('onUrlChange') 支持自定义 ratio/fit + 模块级导出函数 prefetchCachedImage 预取）、CommonViews（Loading/Error/Empty）、TagExifPicker（@CustomDialog，已无任何引用，死代码——实际 EXIF Picker 是 IllustDetailPage 内联弹层）
+  common/    — CachedImage（@Watch('onUrlChange') 支持自定义 ratio/fit + 模块级导出函数 prefetchCachedImage 预取）、CommonViews（Loading/Error/Empty）
   illust/    — IllustCard（@Reusable 公共卡片：宽高比/角标/红心/长按菜单）、IllustWaterfall（瀑布流容器：分页/刷新/过滤/可选 compareFn 排序）
   viewer/    — ZoomableImage（PanGestureOptions.setDistance 动态 distance + .priorityGesture 优先级提升）
 stores/      — AccountStore、UserSettingStore、BookmarkStateStore（收藏注册表单例）、IllustDetailStore（详情页编排，非单例）、CommentStore（评论页编排，非单例，主楼/回复楼双模式）
@@ -95,7 +95,7 @@ utils/       — Constants（containsCjk/isAsciiOnly/filterTranslatedName、appl
 - `ExifTag`: `{ name: string, translatedName: string }` — 原始 tag 名 + API 翻译名（定义在 `services/ImageExifService.ets`）
 - `ExifTagMergeRule`: `{ mainTag: string, fromTags: string[] }` — 去重式合并规则（定义在 `models/AppSettings.ets`）
 - `MergeGroup`: `{ translatedName: string, tags: ExifTag[] }` — 同义 tag 组（审查弹窗用，定义在 `services/ImageExifService.ets`）
-- `AppSettings` EXIF 相关字段：`embedExifMetadata`、`exifCommentTemplate`、`exifMutedTags`、`exifMergedTags`、`exifTagPriority`、`showTranslatedTags`、`autoMergeTranslatedTags`（**死开关**：管线自动合并步骤移除后已无任何代码读取，仅剩持久化和设置页开关，勿依赖其行为）
+- `AppSettings` EXIF 相关字段：`embedExifMetadata`、`exifCommentTemplate`、`exifMutedTags`、`exifMergedTags`、`exifTagPriority`、`showTranslatedTags`
 
 ### 翻译过滤（filterTranslatedName）
 
@@ -114,7 +114,7 @@ Pixiv API 在 `Accept-Language: zh-CN` 时会将 CJK tag "翻译"成英文（爱
 
 ### 同义标签合并检测（findUnresolvedMergeGroups）
 
-3 种检测方式，不受 `autoMergeTranslatedTags` 开关门控（审查弹窗本身需用户确认）：
+3 种检测方式（审查弹窗本身需用户确认）：
 - **A) 原始 translatedName 相同**：如 女の子/女孩子 都翻译为"女孩子"
 - **B) 有效翻译匹配另一 tag 名**：如 崩壊3rd→崩坏3rd + tag 崩坏3rd 存在；崩坏3rd→崩坏3 + tag 崩坏3 存在
 - **C) CJK→ASCII 被过滤的翻译匹配另一 tag 名**：如 爱莉希雅→Elysia（过滤）+ tag Elysia 存在
@@ -131,7 +131,7 @@ Pixiv API 在 `Accept-Language: zh-CN` 时会将 CJK tag "翻译"成英文（爱
 
 ### EXIF Picker（IllustDetailPage 内联底部弹层）
 
-- 实现形态：IllustDetailPage 内联 Stack 底部弹层（`exifPickerShown`）。`components/common/TagExifPicker.ets`（@CustomDialog）是早期独立组件版本，已无任何引用，属死代码
+- 实现形态：IllustDetailPage 内联 Stack 底部弹层（`exifPickerShown`）
 - 触发：渲染后的 EXIF 备注超 **120 UTF-8 字节**（`EXIF_FIELD_MAX_BYTES`，设备图库扫描器约 128 字节上限）且 `embedExifMetadata` 开启时，保存前弹出（在合并审查通过之后）
 - 可写入区：勾选/取消勾选（取消=跳过本次，不持久化）；拖拽排序（`onMove`，确认后写入 `exifTagPriority`）；长按屏蔽手势仅绑在左侧 Checkbox+文字区域，右侧把手 `≡` 不绑长按以避免与拖拽排序冲突
 - 长按 tag → 二次确认 → 移入弹层内屏蔽区列表；点"确认"时才写入 `exifMutedTags` 持久化（点"跳过"则屏蔽不持久化）

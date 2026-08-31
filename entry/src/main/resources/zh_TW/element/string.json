@@ -2,11 +2,11 @@
   "string": [
     {
       "name": "module_desc",
-      "value": "module description"
+      "value": "模組描述"
     },
     {
       "name": "EntryAbility_desc",
-      "value": "description"
+      "value": "描述"
     },
     {
       "name": "EntryAbility_label",
@@ -14,523 +14,523 @@
     },
     {
       "name": "permission_read_media_reason",
-      "value": "Read images from device storage"
+      "value": "讀取裝置儲存中的圖片"
     },
     {
       "name": "permission_write_media_reason",
-      "value": "Save images to device storage"
+      "value": "儲存圖片到裝置儲存空間"
     },
     {
       "name": "permission_distributed_datasync_reason",
-      "value": "Sync settings and history across your HarmonyOS devices"
+      "value": "在您的鴻蒙裝置間同步設定與歷史記錄"
     },
     {
       "name": "common_loading",
-      "value": "Loading..."
+      "value": "載入中..."
     },
     {
       "name": "common_load_failed",
-      "value": "Load failed"
+      "value": "載入失敗"
     },
     {
       "name": "common_load_failed_detail",
-      "value": "Load failed: %s"
+      "value": "載入失敗: %s"
     },
     {
       "name": "common_tap_retry",
-      "value": "Tap to retry"
+      "value": "點擊重試"
     },
     {
       "name": "common_retry",
-      "value": "Retry"
+      "value": "重試"
     },
     {
       "name": "common_empty",
-      "value": "No content"
+      "value": "暫無內容"
     },
     {
       "name": "common_tip",
-      "value": "Notice"
+      "value": "提示"
     },
     {
       "name": "common_cancel",
-      "value": "Cancel"
+      "value": "取消"
     },
     {
       "name": "common_confirm",
-      "value": "OK"
+      "value": "確定"
     },
     {
       "name": "common_back",
-      "value": "Back"
+      "value": "返回"
     },
     {
       "name": "common_back_arrow",
-      "value": "< Back"
+      "value": "< 返回"
     },
     {
       "name": "common_delete",
-      "value": "Delete"
+      "value": "刪除"
     },
     {
       "name": "common_add",
-      "value": "Add"
+      "value": "新增"
     },
     {
       "name": "common_save",
-      "value": "Save"
+      "value": "儲存"
     },
     {
       "name": "common_preview",
-      "value": "Preview"
+      "value": "預覽"
     },
     {
       "name": "common_export",
-      "value": "Export"
+      "value": "匯出"
     },
     {
       "name": "common_import",
-      "value": "Import"
+      "value": "匯入"
     },
     {
       "name": "common_export_success",
-      "value": "Export succeeded"
+      "value": "匯出成功"
     },
     {
       "name": "common_export_failed",
-      "value": "Export failed: %s"
+      "value": "匯出失敗: %s"
     },
     {
       "name": "common_export_no_context",
-      "value": "Export failed: context unavailable"
+      "value": "匯出失敗：無法取得上下文"
     },
     {
       "name": "common_import_success",
-      "value": "Import succeeded"
+      "value": "匯入成功"
     },
     {
       "name": "common_import_failed",
-      "value": "Import failed: %s"
+      "value": "匯入失敗: %s"
     },
     {
       "name": "common_import_no_context",
-      "value": "Import failed: context unavailable"
+      "value": "匯入失敗：無法取得上下文"
     },
     {
       "name": "common_copy_failed",
-      "value": "Copy failed"
+      "value": "複製失敗"
     },
     {
       "name": "common_clear",
-      "value": "Clear"
+      "value": "清空"
     },
     {
       "name": "common_img_downloaded",
-      "value": "This image has already been downloaded"
+      "value": "該圖片已下載過"
     },
     {
       "name": "common_download_anyway",
-      "value": "Download anyway"
+      "value": "仍要下載"
     },
     {
       "name": "common_added_download",
-      "value": "Added to download queue"
+      "value": "已加入下載任務"
     },
     {
       "name": "common_switch_on",
-      "value": "On"
+      "value": "開"
     },
     {
       "name": "common_switch_off",
-      "value": "Off"
+      "value": "關"
     },
     {
       "name": "card_muted_author",
-      "value": "Muted author: %s"
+      "value": "已封鎖作者: %s"
     },
     {
       "name": "card_save_image",
-      "value": "Save image"
+      "value": "儲存圖片"
     },
     {
       "name": "card_bookmark",
-      "value": "Bookmark"
+      "value": "收藏"
     },
     {
       "name": "card_unbookmark",
-      "value": "Remove bookmark"
+      "value": "取消收藏"
     },
     {
       "name": "card_mute_author",
-      "value": "Mute this author"
+      "value": "封鎖該作者"
     },
     {
       "name": "card_deleted",
-      "value": "Deleted"
+      "value": "已刪除"
     },
     {
       "name": "waterfall_no_more",
-      "value": "No more items"
+      "value": "沒有更多了"
     },
     {
       "name": "waterfall_load_failed_retry",
-      "value": "Load failed, tap to retry"
+      "value": "載入失敗，點擊重試"
     },
     {
       "name": "viewer_loading",
-      "value": "Loading image..."
+      "value": "大圖載入中..."
     },
     {
       "name": "viewer_load_failed",
-      "value": "Image failed to load"
+      "value": "圖片載入失敗"
     },
     {
       "name": "net_oauth_refresh_network",
-      "value": "Token refresh network request failed: %s"
+      "value": "重新整理 token 網路請求失敗: %s"
     },
     {
       "name": "net_oauth_credential_rejected",
-      "value": "Credentials rejected by server (HTTP %d)"
+      "value": "登入憑證已被伺服器拒絕 (HTTP %d)"
     },
     {
       "name": "net_oauth_refresh_server_error",
-      "value": "Token refresh server error (HTTP %d)"
+      "value": "重新整理 token 伺服器錯誤 (HTTP %d)"
     },
     {
       "name": "net_oauth_refresh_parse_failed",
-      "value": "Failed to parse token refresh response: %s"
+      "value": "重新整理 token 回應解析失敗: %s"
     },
     {
       "name": "net_oauth_refresh_invalid",
-      "value": "Invalid token refresh response (missing access_token), please log in again"
+      "value": "重新整理 token 回應無效（缺少 access_token），請重新登入"
     },
     {
       "name": "net_relay_no_server",
-      "value": "Please enter the relay server address first"
+      "value": "請先填寫中繼伺服器位址"
     },
     {
       "name": "net_relay_register_failed",
-      "value": "Registration failed (HTTP %d)"
+      "value": "註冊失敗 (HTTP %d)"
     },
     {
       "name": "net_relay_register_invalid",
-      "value": "Invalid registration response (missing service token)"
+      "value": "註冊回應無效（缺少服務權杖）"
     },
     {
       "name": "net_relay_token_refresh_failed",
-      "value": "Relay token refresh failed (HTTP %d)"
+      "value": "中繼權杖重新整理失敗 (HTTP %d)"
     },
     {
       "name": "net_relay_token_refresh_invalid",
-      "value": "Invalid relay token refresh response"
+      "value": "中繼權杖重新整理回應無效"
     },
     {
       "name": "net_relay_not_configured",
-      "value": "Relay server not configured"
+      "value": "中繼伺服器未配置"
     },
     {
       "name": "net_relay_https_only",
-      "value": "Relay only supports https URLs: %s"
+      "value": "中繼僅支援 https URL: %s"
     },
     {
       "name": "net_relay_auth_required",
-      "value": "Relay not logged in or token expired; please re-register or import in Settings"
+      "value": "中繼服務未登入或權杖已失效，請在設定頁重新註冊或匯入"
     },
     {
       "name": "net_relay_auth_expired",
-      "value": "Relay login expired; please re-register or import an account"
+      "value": "中繼服務登入失效，請重新註冊或匯入帳號"
     },
     {
       "name": "net_relay_server_502",
-      "value": "Relay server error (HTTP 502)"
+      "value": "中繼伺服器錯誤 (HTTP 502)"
     },
     {
       "name": "net_relay_request_failed",
-      "value": "Relay request failed (HTTP %d)"
+      "value": "中繼請求失敗 (HTTP %d)"
     },
     {
       "name": "net_relay_fallback_toast",
-      "value": "Relay server failed repeatedly; reverted to previous network mode"
+      "value": "中繼伺服器連續失敗，已回退到上一網路模式"
     },
     {
       "name": "store_token_invalid",
-      "value": "Token is invalid or expired. Note: refresh tokens rotate; if pixez has run since you exported, the exported token has been revoked. Export again and use it immediately"
+      "value": "Token 無效或已失效。注意：Refresh Token 為輪換制，若 pixez 在您匯出後又執行過，匯出的 Token 已被作廢，請重新匯出後立即使用"
     },
     {
       "name": "store_network_failed",
-      "value": "Network request failed, please check your connection and retry"
+      "value": "網路請求失敗，請檢查網路後重試"
     },
     {
       "name": "store_bookmarked_private",
-      "value": "Bookmarked privately"
+      "value": "已設為私密收藏"
     },
     {
       "name": "store_bookmarked",
-      "value": "Bookmarked"
+      "value": "已收藏"
     },
     {
       "name": "store_bookmark_failed",
-      "value": "Bookmark failed, please retry"
+      "value": "收藏失敗，請重試"
     },
     {
       "name": "store_unbookmarked",
-      "value": "Bookmark removed"
+      "value": "已取消收藏"
     },
     {
       "name": "store_unbookmark_failed",
-      "value": "Failed to remove bookmark, please retry"
+      "value": "取消收藏失敗，請重試"
     },
     {
       "name": "store_comment_posted",
-      "value": "Comment posted"
+      "value": "發表成功"
     },
     {
       "name": "store_comment_post_failed",
-      "value": "Post failed: %s"
+      "value": "發表失敗: %s"
     },
     {
       "name": "store_reply_posted",
-      "value": "Reply posted"
+      "value": "回覆成功"
     },
     {
       "name": "store_reply_failed",
-      "value": "Reply failed: %s"
+      "value": "回覆失敗: %s"
     },
     {
       "name": "store_detail_invalid_data",
-      "value": "Invalid response data, please retry"
+      "value": "回傳資料無效，請重試"
     },
     {
       "name": "store_detail_parse_failed",
-      "value": "Failed to parse illust data"
+      "value": "作品資料解析失敗"
     },
     {
       "name": "store_recover_unavailable",
-      "value": "Relay recovery unavailable; please configure and register a relay server in Settings first"
+      "value": "中繼恢復能力不可用，請先在設定頁配置並註冊中繼伺服器"
     },
     {
       "name": "store_recover_progress",
-      "value": "Recovering from third party (attempt %d, retrying in ~%d s)"
+      "value": "正在從第三方恢復（第 %d 次查詢，約 %d 秒後重試）"
     },
     {
       "name": "store_recover_not_found",
-      "value": "This illust cannot be recovered from third party for now"
+      "value": "暫無法從第三方恢復該作品"
     },
     {
       "name": "store_recover_failed",
-      "value": "Recovery query failed: %s"
+      "value": "恢復查詢失敗: %s"
     },
     {
       "name": "store_dup_confirm_title",
-      "value": "Duplicate download"
+      "value": "重複下載確認"
     },
     {
       "name": "store_pages_downloaded",
-      "value": "%d page(s) already downloaded"
+      "value": "其中 %d 頁已下載過"
     },
     {
       "name": "store_skip_downloaded",
-      "value": "Skip downloaded pages"
+      "value": "略過已下載頁"
     },
     {
       "name": "store_redownload_all",
-      "value": "Redownload all"
+      "value": "全部重新下載"
     },
     {
       "name": "store_no_pages_to_download",
-      "value": "No pages to download"
+      "value": "沒有需要下載的頁"
     },
     {
       "name": "store_added_downloads",
-      "value": "Added %d download task(s)"
+      "value": "已加入 %d 個下載任務"
     },
     {
       "name": "svc_download_failed_title",
-      "value": "Download failed: %s"
+      "value": "下載失敗: %s"
     },
     {
       "name": "svc_saved_to_gallery",
-      "value": "Saved to gallery"
+      "value": "已儲存到媒體庫"
     },
     {
       "name": "svc_download_done_cache_only",
-      "value": "Downloaded %d image(s), saved to cache directory (not added to gallery)"
+      "value": "下載完成 %d 張，已儲存到快取目錄（未寫入媒體庫）"
     },
     {
       "name": "svc_saved_n_to_gallery",
-      "value": "Saved %d image(s) to gallery"
+      "value": "已儲存 %d 張到媒體庫"
     },
     {
       "name": "svc_saved_cache_gallery_cancelled",
-      "value": "Saved to cache directory (gallery save cancelled or failed)"
+      "value": "已儲存到快取目錄（媒體庫儲存被取消或失敗）"
     },
     {
       "name": "svc_gallery_write_failed",
-      "value": "Failed to write to gallery; saved to cache directory"
+      "value": "寫入媒體庫失敗，已儲存到快取目錄"
     },
     {
       "name": "svc_recover_query_failed",
-      "value": "Recovery query failed (HTTP %d)"
+      "value": "恢復查詢失敗 (HTTP %d)"
     },
     {
       "name": "svc_never_synced",
-      "value": "Never synced"
+      "value": "從未同步"
     },
     {
       "name": "svc_sync_push_failed",
-      "value": "Sync push failed (HTTP %d)"
+      "value": "同步上行失敗 (HTTP %d)"
     },
     {
       "name": "svc_sync_pull_failed",
-      "value": "Sync pull failed (HTTP %d)"
+      "value": "同步下行失敗 (HTTP %d)"
     },
     {
       "name": "svc_selftest_health",
-      "value": "Liveness probe /healthz"
+      "value": "存活探針 /healthz"
     },
     {
       "name": "svc_selftest_token",
-      "value": "Service token validity"
+      "value": "服務權杖有效性"
     },
     {
       "name": "svc_selftest_relay",
-      "value": "API relay /relay/v1/request"
+      "value": "API 中繼 /relay/v1/request"
     },
     {
       "name": "svc_selftest_image",
-      "value": "Image relay /img/v1/fetch"
+      "value": "圖片中繼 /img/v1/fetch"
     },
     {
       "name": "svc_selftest_sync",
-      "value": "Sync loopback /sync/v1/push+pull"
+      "value": "同步迴圈 /sync/v1/push+pull"
     },
     {
       "name": "svc_selftest_recover",
-      "value": "Recover endpoint /recover/v1/illust"
+      "value": "恢復端點 /recover/v1/illust"
     },
     {
       "name": "svc_selftest_health_unreachable",
-      "value": "healthz unreachable"
+      "value": "healthz 無法連線"
     },
     {
       "name": "svc_selftest_token_unusable",
-      "value": "Service token unusable"
+      "value": "服務權杖不可用"
     },
     {
       "name": "svc_selftest_no_server",
-      "value": "Relay server address not configured"
+      "value": "未配置中繼伺服器位址"
     },
     {
       "name": "svc_selftest_missing_ok",
-      "value": "Response missing status:\"ok\""
+      "value": "回應缺少 status:\"ok\""
     },
     {
       "name": "svc_selftest_alive",
-      "value": "Service is alive"
+      "value": "服務存活"
     },
     {
       "name": "svc_selftest_token_valid",
-      "value": "Token valid (with 401 auto-refresh)"
+      "value": "權杖有效（含 401 自動重新整理）"
     },
     {
       "name": "svc_selftest_upstream_detail",
-      "value": "Upstream status=%d"
+      "value": "上游 status=%d"
     },
     {
       "name": "svc_selftest_upstream_unexpected",
-      "value": "Upstream status=%d (expected 200/401/403)"
+      "value": "上游 status=%d（預期 200/401/403）"
     },
     {
       "name": "svc_selftest_content_type_not_image",
-      "value": "Content-Type is not an image: %s"
+      "value": "Content-Type 非圖片: %s"
     },
     {
       "name": "svc_selftest_push_failed",
-      "value": "Push failed (HTTP %d)"
+      "value": "push 失敗 (HTTP %d)"
     },
     {
       "name": "svc_selftest_pull_missed",
-      "value": "Push succeeded but pull did not read back the test entry"
+      "value": "push 成功但 pull 未回讀到測試條目"
     },
     {
       "name": "svc_selftest_loop_ok",
-      "value": "push→pull read-back succeeded, tombstone cleaned"
+      "value": "push→pull 回讀成功，墓碑已清理"
     },
     {
       "name": "svc_selftest_endpoint_hit",
-      "value": "Endpoint available, actual status: %s (HTTP %d)"
+      "value": "端點可用，實際命中: %s (HTTP %d)"
     },
     {
       "name": "svc_selftest_bad_status",
-      "value": "Invalid status field: %s"
+      "value": "status 欄位非法: %s"
     },
     {
       "name": "svc_selftest_json_parse",
-      "value": "Failed to parse response JSON"
+      "value": "回應 JSON 解析失敗"
     },
     {
       "name": "home_tab_recom",
-      "value": "For You"
+      "value": "推薦"
     },
     {
       "name": "home_tab_follow",
-      "value": "Following"
+      "value": "動態"
     },
     {
       "name": "home_tab_rank",
-      "value": "Ranking"
+      "value": "排行"
     },
     {
       "name": "home_tab_search",
-      "value": "Search"
+      "value": "搜尋"
     },
     {
       "name": "home_tab_settings",
-      "value": "Settings"
+      "value": "設定"
     },
     {
       "name": "home_rank_day",
-      "value": "Daily"
+      "value": "日榜"
     },
     {
       "name": "home_rank_week",
-      "value": "Weekly"
+      "value": "週榜"
     },
     {
       "name": "home_rank_month",
-      "value": "Monthly"
+      "value": "月榜"
     },
     {
       "name": "home_rank_rookie",
-      "value": "Rookie"
+      "value": "新人"
     },
     {
       "name": "home_rank_original",
-      "value": "Original"
+      "value": "原創"
     },
     {
       "name": "home_rank_male",
-      "value": "For men"
+      "value": "男性向"
     },
     {
       "name": "home_rank_female",
-      "value": "For women"
+      "value": "女性向"
     },
     {
       "name": "home_rank_day_r18",
-      "value": "R18 daily"
+      "value": "R18日榜"
     },
     {
       "name": "home_rank_male_r18",
-      "value": "R18 men"
+      "value": "R18男性向"
     },
     {
       "name": "home_rank_female_r18",
-      "value": "R18 women"
+      "value": "R18女性向"
     },
     {
       "name": "home_rank_week_r18",
-      "value": "R18 weekly"
+      "value": "R18週榜"
     },
     {
       "name": "home_rank_week_r18g",
@@ -538,991 +538,991 @@
     },
     {
       "name": "home_rank_load_failed",
-      "value": "Failed to load ranking: %s"
+      "value": "排行榜載入失敗: %s"
     },
     {
       "name": "home_rank_date",
-      "value": "Date: %s"
+      "value": "日期: %s"
     },
     {
       "name": "home_recom_load_failed",
-      "value": "Failed to load recommendations: %s"
+      "value": "推薦列表載入失敗: %s"
     },
     {
       "name": "splash_session_expired",
-      "value": "Session expired, please log in again"
+      "value": "登入已過期，請重新登入"
     },
     {
       "name": "bookmark_login_required",
-      "value": "Not logged in; cannot view bookmarks"
+      "value": "未登入，無法檢視收藏"
     },
     {
       "name": "bookmark_sort_bookmark_desc",
-      "value": "Bookmark time: new → old (default)"
+      "value": "收藏時間 新→舊（預設）"
     },
     {
       "name": "bookmark_sort_bookmark_asc",
-      "value": "Bookmark time: old → new"
+      "value": "收藏時間 舊→新"
     },
     {
       "name": "bookmark_sort_upload_desc",
-      "value": "Upload time: new → old"
+      "value": "上傳時間 新→舊"
     },
     {
       "name": "bookmark_sort_total_desc",
-      "value": "Bookmark count: high → low"
+      "value": "收藏數 高→低"
     },
     {
       "name": "bookmark_title",
-      "value": "My Bookmarks"
+      "value": "我的收藏"
     },
     {
       "name": "bookmark_sort",
-      "value": "Sort"
+      "value": "排序"
     },
     {
       "name": "bookmark_public",
-      "value": "Public"
+      "value": "公開"
     },
     {
       "name": "bookmark_private",
-      "value": "Private"
+      "value": "私密"
     },
     {
       "name": "search_placeholder",
-      "value": "Search illustrations"
+      "value": "搜尋插畫"
     },
     {
       "name": "search_button",
-      "value": "Search"
+      "value": "搜尋"
     },
     {
       "name": "search_history_title",
-      "value": "Search history"
+      "value": "搜尋記錄"
     },
     {
       "name": "search_clear",
-      "value": "Clear"
+      "value": "清除"
     },
     {
       "name": "search_trending",
-      "value": "Trending tags"
+      "value": "熱門標籤"
     },
     {
       "name": "search_tab_illust",
-      "value": "Illustrations"
+      "value": "插畫"
     },
     {
       "name": "search_tab_user",
-      "value": "Artists"
+      "value": "繪師"
     },
     {
       "name": "search_pid_direct",
-      "value": "Go to illust ID: %s"
+      "value": "插畫 ID 直達: %s"
     },
     {
       "name": "search_uid_direct",
-      "value": "Go to artist ID: %s"
+      "value": "繪師 ID 直達: %s"
     },
     {
       "name": "search_no_users",
-      "value": "No matching artists found"
+      "value": "未找到符合的繪師"
     },
     {
       "name": "user_unfollowed",
-      "value": "Unfollowed"
+      "value": "已取消關注"
     },
     {
       "name": "user_followed",
-      "value": "Followed"
+      "value": "已關注"
     },
     {
       "name": "user_unfollow_failed",
-      "value": "Unfollow failed, please retry"
+      "value": "取消關注失敗，請重試"
     },
     {
       "name": "user_follow_failed",
-      "value": "Follow failed, please retry"
+      "value": "關注失敗，請重試"
     },
     {
       "name": "user_stat_follow",
-      "value": "Following %d"
+      "value": "關注 %d"
     },
     {
       "name": "user_stat_works",
-      "value": "Works %d"
+      "value": "作品 %d"
     },
     {
       "name": "user_followed_btn",
-      "value": "Following"
+      "value": "已關注"
     },
     {
       "name": "user_follow",
-      "value": "Follow"
+      "value": "關注"
     },
     {
       "name": "login_webview",
-      "value": "Log in with WebView"
+      "value": "使用 WebView 登入"
     },
     {
       "name": "login_token",
-      "value": "Log in with Token"
+      "value": "使用 Token 登入"
     },
     {
       "name": "login_bypass",
-      "value": "Use built-in bypass"
+      "value": "使用內建繞過方式"
     },
     {
       "name": "login_bypass_hint",
-      "value": "Built-in bypass resolves real IPs via DoH for direct Pixiv access; WebView login also goes through the built-in proxy"
+      "value": "內建繞過透過 DoH 解析真實 IP 直連 Pixiv，WebView 登入同樣經過內建代理"
     },
     {
       "name": "login_terms",
-      "value": "Terms of Use"
+      "value": "使用條款"
     },
     {
       "name": "login_token_invalid",
-      "value": "Please enter a valid refresh token"
+      "value": "請輸入有效的 Refresh Token"
     },
     {
       "name": "login_error_detail",
-      "value": "Login error: %s"
+      "value": "登入出錯: %s"
     },
     {
       "name": "login_token_title",
-      "value": "Token Login"
+      "value": "Token 登入"
     },
     {
       "name": "login_token_hint",
-      "value": "Enter your Pixiv refresh token"
+      "value": "請輸入您的 Pixiv Refresh Token"
     },
     {
       "name": "login_token_placeholder",
-      "value": "Paste your refresh token here"
+      "value": "貼上 Refresh Token 到這裡"
     },
     {
       "name": "login_logging_in",
-      "value": "Logging in..."
+      "value": "登入中..."
     },
     {
       "name": "login_login",
-      "value": "Log in"
+      "value": "登入"
     },
     {
       "name": "login_token_help",
-      "value": "How to get a refresh token?"
+      "value": "如何取得 Refresh Token？"
     },
     {
       "name": "detail_merge_rule_saved",
-      "value": "Merge rule saved, please tap save again"
+      "value": "合併規則已儲存，請再次點擊儲存"
     },
     {
       "name": "detail_bookmark_public",
-      "value": "Bookmark publicly"
+      "value": "公開收藏"
     },
     {
       "name": "detail_bookmark_private",
-      "value": "Bookmark privately"
+      "value": "私密收藏"
     },
     {
       "name": "detail_save_current_page",
-      "value": "Save current page"
+      "value": "儲存目前頁"
     },
     {
       "name": "detail_save_all_pages",
-      "value": "Save all pages"
+      "value": "儲存全部頁"
     },
     {
       "name": "detail_copy_tag",
-      "value": "Copy tag name"
+      "value": "複製標籤名"
     },
     {
       "name": "detail_mute_tag",
-      "value": "Mute this tag"
+      "value": "封鎖該標籤"
     },
     {
       "name": "detail_exif_mute",
-      "value": "Mute in comment metadata"
+      "value": "備註中封鎖"
     },
     {
       "name": "detail_exif_muted_toast",
-      "value": "Muted in EXIF comment: %s"
+      "value": "已從EXIF備註中封鎖: %s"
     },
     {
       "name": "detail_exif_merge",
-      "value": "Merge in comment metadata"
+      "value": "備註中合併"
     },
     {
       "name": "detail_tap_to_show",
-      "value": "Tap to show"
+      "value": "點擊顯示"
     },
     {
       "name": "detail_stat_bookmarks",
-      "value": "%d bookmarks"
+      "value": "收藏 %d"
     },
     {
       "name": "detail_stat_views",
-      "value": "%d views"
+      "value": "瀏覽 %d"
     },
     {
       "name": "detail_published_at",
-      "value": "Published %s"
+      "value": "發布於 %s"
     },
     {
       "name": "detail_pid_copied",
-      "value": "PID copied"
+      "value": "已複製 PID"
     },
     {
       "name": "detail_view_comments",
-      "value": "View comments"
+      "value": "檢視留言"
     },
     {
       "name": "detail_related",
-      "value": "Related works"
+      "value": "相關作品"
     },
     {
       "name": "detail_save_auth_cancelled",
-      "value": "Save authorization cancelled"
+      "value": "儲存授權被取消"
     },
     {
       "name": "detail_page_select_title",
-      "value": "Select pages (%d/%d)"
+      "value": "選擇下載頁（%d/%d）"
     },
     {
       "name": "detail_select_all",
-      "value": "Select all"
+      "value": "全選"
     },
     {
       "name": "detail_download_confirm_count",
-      "value": "Download (%d)"
+      "value": "確定下載(%d)"
     },
     {
       "name": "detail_download_confirm",
-      "value": "Download"
+      "value": "確定下載"
     },
     {
       "name": "detail_merge_dialog_title",
-      "value": "Merge tag into…"
+      "value": "合併標籤到…"
     },
     {
       "name": "detail_merge_prompt",
-      "value": "Merge [%s] into this main tag:"
+      "value": "將 [%s] 合併到以下主標籤："
     },
     {
       "name": "detail_merge_input_placeholder",
-      "value": "Enter main tag name"
+      "value": "輸入主標籤名"
     },
     {
       "name": "detail_merge_confirm_btn",
-      "value": "Confirm merge"
+      "value": "確認合併"
     },
     {
       "name": "detail_merge_done",
-      "value": "Merged [%s] into [%s]"
+      "value": "已將 [%s] 合併到 [%s]"
     },
     {
       "name": "detail_deleted_notice",
-      "value": "This work has been deleted or is unavailable"
+      "value": "該作品已被刪除或無法存取"
     },
     {
       "name": "detail_deleted_author",
-      "value": "Artist: %s (UID:%d)"
+      "value": "作者：%s（UID:%d）"
     },
     {
       "name": "detail_deleted_meta",
-      "value": "%d pages · PID: %d"
+      "value": "共 %d 頁 · PID: %d"
     },
     {
       "name": "detail_recover_querying",
-      "value": "Querying third-party sources…"
+      "value": "正在查詢第三方來源…"
     },
     {
       "name": "detail_recover_try",
-      "value": "Try recovering from third party"
+      "value": "嘗試從第三方恢復"
     },
     {
       "name": "detail_recover_need_relay",
-      "value": "Configure and register a relay server in Settings to enable third-party recovery"
+      "value": "在設定頁配置並註冊中繼伺服器後，可嘗試從第三方恢復"
     },
     {
       "name": "detail_retry_load",
-      "value": "Retry loading"
+      "value": "重試載入"
     },
     {
       "name": "detail_merge_review_title",
-      "value": "Synonymous tag review"
+      "value": "同義標籤審查"
     },
     {
       "name": "detail_merge_review_desc",
-      "value": "These tags share the same translation. Choose the main tag for the comment metadata:"
+      "value": "偵測到以下標籤擁有相同翻譯，請選擇作為備註主標籤的標籤名："
     },
     {
       "name": "detail_merge_translated",
-      "value": "Translation: %s"
+      "value": "翻譯: %s"
     },
     {
       "name": "detail_skip",
-      "value": "Skip"
+      "value": "略過"
     },
     {
       "name": "common_confirm_action",
-      "value": "Confirm"
+      "value": "確認"
     },
     {
       "name": "detail_exif_picker_title",
-      "value": "EXIF comment tag selection"
+      "value": "EXIF 備註標籤選擇"
     },
     {
       "name": "detail_exif_bytes",
-      "value": "%d / %d bytes"
+      "value": "%d / %d 位元組"
     },
     {
       "name": "detail_exif_writable",
-      "value": "Writable tags"
+      "value": "可寫入標籤"
     },
     {
       "name": "detail_exif_writable_hint",
-      "value": "Uncheck = skip this time | Long-press = mute permanently"
+      "value": "取消勾選=略過本次 | 長按=永久封鎖"
     },
     {
       "name": "detail_exif_muted_section",
-      "value": "Muted tags"
+      "value": "已封鎖標籤"
     },
     {
       "name": "detail_exif_restore",
-      "value": "Restore"
+      "value": "恢復"
     },
     {
       "name": "detail_mute_confirm_title",
-      "value": "Mute tag \"%s\"?"
+      "value": "確認封鎖標籤「%s」？"
     },
     {
       "name": "detail_mute_confirm_desc",
-      "value": "Once muted, this tag will not be written to EXIF of any work. You can restore it in Settings."
+      "value": "封鎖後該標籤在所有作品的 EXIF 中都不會寫入，可在設定中恢復。"
     },
     {
       "name": "detail_mute_confirm_btn",
-      "value": "Confirm mute"
+      "value": "確認封鎖"
     },
     {
       "name": "comment_param_error",
-      "value": "Invalid parameters"
+      "value": "參數錯誤"
     },
     {
       "name": "comment_reply_prefix",
-      "value": "Reply to @%s"
+      "value": "回覆 @%s"
     },
     {
       "name": "comment_stamp",
-      "value": "[Stamp]"
+      "value": "[貼圖]"
     },
     {
       "name": "comment_reply",
-      "value": "Reply"
+      "value": "回覆"
     },
     {
       "name": "comment_view_replies",
-      "value": "View replies"
+      "value": "檢視回覆"
     },
     {
       "name": "comment_reply_list",
-      "value": "Replies"
+      "value": "回覆列表"
     },
     {
       "name": "comment_title",
-      "value": "Comments"
+      "value": "留言"
     },
     {
       "name": "comment_reply_to_comment",
-      "value": "Reply to @%s's comment"
+      "value": "回覆 @%s 的留言"
     },
     {
       "name": "comment_empty",
-      "value": "No comments yet"
+      "value": "暫無留言"
     },
     {
       "name": "comment_cancel_reply",
-      "value": "✕ Cancel"
+      "value": "✕ 取消"
     },
     {
       "name": "comment_placeholder_reply",
-      "value": "Write your reply..."
+      "value": "寫下你的回覆..."
     },
     {
       "name": "comment_placeholder",
-      "value": "Write your comment..."
+      "value": "寫下你的留言..."
     },
     {
       "name": "comment_sending",
-      "value": "Sending"
+      "value": "發送中"
     },
     {
       "name": "comment_send",
-      "value": "Send"
+      "value": "發送"
     },
     {
       "name": "settings_title",
-      "value": "Settings"
+      "value": "設定"
     },
     {
       "name": "common_export_file",
-      "value": "Export to file"
+      "value": "匯出為檔案"
     },
     {
       "name": "common_close",
-      "value": "Close"
+      "value": "關閉"
     },
     {
       "name": "common_status",
-      "value": "Status"
+      "value": "狀態"
     },
     {
       "name": "history_clear_browse_title",
-      "value": "Clear browsing history"
+      "value": "清空瀏覽紀錄"
     },
     {
       "name": "history_clear_browse_msg",
-      "value": "Clear all browsing history? This cannot be undone."
+      "value": "確定要清空全部瀏覽紀錄嗎？此操作無法復原。"
     },
     {
       "name": "history_empty_toast",
-      "value": "No history yet"
+      "value": "暫無歷史紀錄"
     },
     {
       "name": "history_export_json",
-      "value": "Export JSON"
+      "value": "匯出 JSON"
     },
     {
       "name": "history_export_pid",
-      "value": "Export PID list"
+      "value": "匯出 PID 列表"
     },
     {
       "name": "history_clear_search_title",
-      "value": "Clear search history"
+      "value": "清空搜尋紀錄"
     },
     {
       "name": "history_clear_search_msg",
-      "value": "Clear all search history?"
+      "value": "確定要清空全部搜尋紀錄嗎？"
     },
     {
       "name": "history_empty_browse",
-      "value": "No browsing history"
+      "value": "暫無瀏覽紀錄"
     },
     {
       "name": "history_empty_search",
-      "value": "No search history"
+      "value": "暫無搜尋紀錄"
     },
     {
       "name": "history_total_count",
-      "value": "%d items"
+      "value": "共 %d 條"
     },
     {
       "name": "history_tab_browse",
-      "value": "Browsing history"
+      "value": "瀏覽紀錄"
     },
     {
       "name": "dl_fetch_failed",
-      "value": "Failed to fetch work info"
+      "value": "取得作品資訊失敗"
     },
     {
       "name": "dl_retry_failed",
-      "value": "Retry failed: %s"
+      "value": "重試失敗: %s"
     },
     {
       "name": "dl_cleared_completed",
-      "value": "Cleared %d completed records"
+      "value": "已清空 %d 條完成紀錄"
     },
     {
       "name": "dl_cleared_failed",
-      "value": "Cleared %d failed records"
+      "value": "已清空 %d 條失敗紀錄"
     },
     {
       "name": "dl_no_failed_tasks",
-      "value": "No failed tasks to retry"
+      "value": "沒有可重試的失敗任務"
     },
     {
       "name": "dl_retry_readded",
-      "value": "Re-queued %d download tasks"
+      "value": "已重新加入 %d 個下載任務"
     },
     {
       "name": "dl_retry_failed_part",
-      "value": ", %d failed to rebuild"
+      "value": "，重建失敗 %d 個"
     },
     {
       "name": "dl_retry_skipped_part",
-      "value": ", %d skipped"
+      "value": "，略過 %d 個"
     },
     {
       "name": "dl_status_completed",
-      "value": "Completed"
+      "value": "已完成"
     },
     {
       "name": "dl_status_downloading",
-      "value": "Downloading"
+      "value": "下載中"
     },
     {
       "name": "dl_status_pending",
-      "value": "Queued"
+      "value": "排隊中"
     },
     {
       "name": "dl_status_failed",
-      "value": "Failed"
+      "value": "失敗"
     },
     {
       "name": "dl_retry_failed_btn",
-      "value": "Retry failed"
+      "value": "重試失敗"
     },
     {
       "name": "dl_retry_all_title",
-      "value": "Retry all"
+      "value": "一鍵重試"
     },
     {
       "name": "dl_retry_all_msg",
-      "value": "Retry all failed tasks"
+      "value": "將重試全部失敗任務？"
     },
     {
       "name": "dl_clear_failed_btn",
-      "value": "Clear failed"
+      "value": "清空失敗"
     },
     {
       "name": "dl_clear_failed_msg",
-      "value": "Remove all failed task records (files are kept)"
+      "value": "將移除全部失敗任務紀錄（不刪除檔案）"
     },
     {
       "name": "dl_clear_completed_btn",
-      "value": "Clear completed"
+      "value": "清空完成"
     },
     {
       "name": "dl_clear_completed_title",
-      "value": "Clear completed"
+      "value": "清空已完成"
     },
     {
       "name": "dl_clear_completed_msg",
-      "value": "Remove all completed task records (files are kept)"
+      "value": "將移除全部已完成任務紀錄（不刪除檔案）"
     },
     {
       "name": "dl_empty",
-      "value": "No download tasks"
+      "value": "暫無下載任務"
     },
     {
       "name": "dl_task_prefix",
-      "value": "Work %s"
+      "value": "作品 %s"
     },
     {
       "name": "dl_task_page",
-      "value": " page %d"
+      "value": " 第 %d 頁"
     },
     {
       "name": "dl_task_status",
-      "value": "Status: %s"
+      "value": "狀態: %s"
     },
     {
       "name": "dl_task_progress",
-      "value": "Progress: %d%%"
+      "value": "進度: %d%%"
     },
     {
       "name": "exif_import_bad_version",
-      "value": "Unsupported format version"
+      "value": "不支援此格式版本"
     },
     {
       "name": "exif_import_bad_format",
-      "value": "Invalid file format"
+      "value": "檔案格式不正確"
     },
     {
       "name": "exif_tag_config_title",
-      "value": "EXIF tag management"
+      "value": "EXIF 標籤管理"
     },
     {
       "name": "exif_section_muted",
-      "value": "Muted comment tags"
+      "value": "備註封鎖標籤"
     },
     {
       "name": "exif_muted_placeholder",
-      "value": "Enter tag name to mute"
+      "value": "輸入要封鎖的標籤名"
     },
     {
       "name": "exif_muted_empty",
-      "value": "No muted tags (add via tag long-press menu on detail page)"
+      "value": "暫無封鎖標籤（可在詳情頁標籤長按選單中新增）"
     },
     {
       "name": "exif_section_merge",
-      "value": "Comment merge rules"
+      "value": "備註合併規則"
     },
     {
       "name": "exif_merge_desc",
-      "value": "When downloading, subordinate tags are replaced by the main tag to save comment space"
+      "value": "下載時，從屬標籤將被主標籤取代，節省備註空間"
     },
     {
       "name": "exif_merge_main_label",
-      "value": "Main tag:"
+      "value": "主標籤："
     },
     {
       "name": "exif_merge_main_placeholder",
-      "value": "e.g. girl"
+      "value": "如: 女孩子"
     },
     {
       "name": "exif_merge_from_label",
-      "value": "From:"
+      "value": "從屬："
     },
     {
       "name": "exif_merge_from_placeholder",
-      "value": "Comma-separated, e.g. 女の子,girl"
+      "value": "逗號分隔，如: 女の子,girl"
     },
     {
       "name": "exif_merge_add_btn",
-      "value": "Add merge rule"
+      "value": "新增合併規則"
     },
     {
       "name": "exif_merge_empty",
-      "value": "No merge rules (add via tag long-press menu on detail page)"
+      "value": "暫無合併規則（可在詳情頁標籤長按選單中新增）"
     },
     {
       "name": "exif_section_priority",
-      "value": "Priority order"
+      "value": "優先順序排序"
     },
     {
       "name": "exif_priority_desc",
-      "value": "Tags are written to comments in this priority order; lower index first"
+      "value": "下載時標籤按此優先順序寫入備註，索引越小越優先"
     },
     {
       "name": "exif_priority_placeholder",
-      "value": "Enter tag name"
+      "value": "輸入標籤名"
     },
     {
       "name": "exif_priority_empty",
-      "value": "No priority rules (tags keep original order when empty)"
+      "value": "暫無優先順序規則（為空時標籤按原始順序排列）"
     },
     {
       "name": "exif_section_io",
-      "value": "Import / Export"
+      "value": "匯入匯出"
     },
     {
       "name": "exif_io_desc",
-      "value": "Export rules to a JSON file, or import from one (merged and deduplicated on import)"
+      "value": "將規則匯出為 JSON 檔案，或從 JSON 檔案匯入（匯入時與現有規則合併去重）"
     },
     {
       "name": "exif_sample_tag_original",
-      "value": "original"
+      "value": "原創"
     },
     {
       "name": "exif_sample_tag_girl",
-      "value": "girl"
+      "value": "女孩子"
     },
     {
       "name": "exif_template_title",
-      "value": "Comment template"
+      "value": "備註範本"
     },
     {
       "name": "exif_preview",
-      "value": "Preview"
+      "value": "預覽"
     },
     {
       "name": "exif_template_label",
-      "value": "Template"
+      "value": "範本"
     },
     {
       "name": "exif_template_placeholder",
-      "value": "e.g. PID:{illust_id} | {tags}"
+      "value": "例如: PID:{illust_id} | {tags}"
     },
     {
       "name": "exif_insert_var",
-      "value": "Insert variable"
+      "value": "插入變數"
     },
     {
       "name": "exif_available_vars",
-      "value": "Available variables"
+      "value": "可用變數"
     },
     {
       "name": "exif_var_illust_id",
-      "value": "{illust_id}  Work ID"
+      "value": "{illust_id}  作品ID"
     },
     {
       "name": "exif_var_user_id",
-      "value": "{user_id}  Author user ID"
+      "value": "{user_id}  作者使用者ID"
     },
     {
       "name": "exif_var_user_name",
-      "value": "{user_name}  Author name"
+      "value": "{user_name}  作者名"
     },
     {
       "name": "exif_var_title",
-      "value": "{title}  Work title"
+      "value": "{title}  作品標題"
     },
     {
       "name": "exif_var_part",
-      "value": "{part}  Page number (starts at 0)"
+      "value": "{part}  頁碼（從0開始）"
     },
     {
       "name": "exif_var_tags",
-      "value": "{tags}  Tags (original only, e.g. オリジナル, 女の子)"
+      "value": "{tags}  標籤（僅原文，如: オリジナル, 女の子）"
     },
     {
       "name": "exif_var_tags_translated",
-      "value": "{tags_translated}  Tags with translation (e.g. オリジナル (original), 女の子 (girl)); original only when untranslated"
+      "value": "{tags_translated}  標籤（含翻譯，如: オリジナル (原創), 女の子 (女孩子)；無翻譯時僅顯示原文）"
     },
     {
       "name": "exif_var_tags_localized",
-      "value": "{tags_localized}  Localized tags (e.g. original, girl); original kept when untranslated"
+      "value": "{tags_localized}  標籤（純中文，如: 原創, 女孩子；無中文翻譯時保留原文）"
     },
     {
       "name": "exif_var_note",
-      "value": "Overlong comments are truncated to fit; undefined {variables} are kept as-is."
+      "value": "備註內容過長時會按容量自動截斷；未定義的 {變數} 會原樣保留。"
     },
     {
       "name": "filename_template_title",
-      "value": "Filename template"
+      "value": "檔名範本"
     },
     {
       "name": "filename_template_placeholder",
-      "value": "e.g. {illust_id}_p{part}"
+      "value": "例如: {illust_id}_p{part}"
     },
     {
       "name": "filename_var_note",
-      "value": "The extension is added automatically; characters like \\ / : * ? \" < > | are replaced with underscores."
+      "value": "副檔名會自動加入；\\ / : * ? \" < > | 等字元會被替換為底線。"
     },
     {
       "name": "relay_domain_history",
-      "value": "Browsing history"
+      "value": "瀏覽紀錄"
     },
     {
       "name": "relay_domain_search",
-      "value": "Search history"
+      "value": "搜尋紀錄"
     },
     {
       "name": "relay_domain_bookmark",
-      "value": "Bookmark snapshot"
+      "value": "收藏快照"
     },
     {
       "name": "relay_domain_mute",
-      "value": "Mute list"
+      "value": "封鎖列表"
     },
     {
       "name": "relay_domain_exif",
-      "value": "EXIF config"
+      "value": "EXIF 設定"
     },
     {
       "name": "relay_domain_settings",
-      "value": "App settings"
+      "value": "應用設定"
     },
     {
       "name": "relay_need_server_url",
-      "value": "Please enter the server URL first"
+      "value": "請先填寫伺服器位址"
     },
     {
       "name": "relay_register_ok",
-      "value": "Registered and connected to relay server"
+      "value": "註冊成功，已連線中繼伺服器"
     },
     {
       "name": "relay_register_failed",
-      "value": "Registration failed: %s"
+      "value": "註冊失敗: %s"
     },
     {
       "name": "relay_need_sync_ready",
-      "value": "Enable sync and complete relay registration first"
+      "value": "請先開啟同步開關並完成中繼註冊"
     },
     {
       "name": "relay_sync_done",
-      "value": "Sync completed"
+      "value": "同步完成"
     },
     {
       "name": "relay_sync_partial",
-      "value": "Partial sync failed; will retry automatically"
+      "value": "部分同步失敗，將自動重試"
     },
     {
       "name": "relay_sync_failed",
-      "value": "Sync failed: %s"
+      "value": "同步失敗: %s"
     },
     {
       "name": "relay_no_account",
-      "value": "No sync account available"
+      "value": "無可用同步帳號"
     },
     {
       "name": "relay_export_account_title",
-      "value": "Export sync account"
+      "value": "匯出同步帳號"
     },
     {
       "name": "relay_export_account_msg",
-      "value": "The accountKey is your sync account credential. Anyone who has it can join your sync account and read all synced data (history/mutes/settings/bookmark snapshot). Only use it between trusted devices."
+      "value": "accountKey 等同於同步帳號憑證，外洩後他人可加入你的同步帳號並讀取全部同步資料（歷史/封鎖/設定/收藏快照）。請僅在可信裝置間使用。"
     },
     {
       "name": "relay_copy_accountkey",
-      "value": "Copy accountKey"
+      "value": "複製 accountKey"
     },
     {
       "name": "relay_copied_accountkey",
-      "value": "accountKey copied"
+      "value": "已複製 accountKey"
     },
     {
       "name": "relay_paste_denied",
-      "value": "Paste permission denied"
+      "value": "貼上授權被取消"
     },
     {
       "name": "relay_paste_no_key",
-      "value": "No valid accountKey found in clipboard"
+      "value": "剪貼簿中找不到有效的 accountKey"
     },
     {
       "name": "relay_file_too_large",
-      "value": "File too large; not a valid account export"
+      "value": "檔案過大，不是有效的帳號匯出檔案"
     },
     {
       "name": "relay_file_no_key",
-      "value": "No valid accountKey found in file"
+      "value": "檔案中找不到有效 accountKey"
     },
     {
       "name": "relay_import_account_title",
-      "value": "Import sync account"
+      "value": "匯入同步帳號"
     },
     {
       "name": "relay_import_account_msg",
-      "value": "Join the sync account for accountKey (%s), replacing this device's current relay registration. Synced data from other devices on that account will be pulled to this device."
+      "value": "將加入 accountKey（%s）對應的同步帳號，並取代本機目前的中繼註冊。該帳號下其他裝置的同步資料將拉取到本機。"
     },
     {
       "name": "relay_import_done",
-      "value": "Imported; joined the sync account"
+      "value": "匯入成功，已加入同步帳號"
     },
     {
       "name": "relay_selftest_passed",
-      "value": "Passed"
+      "value": "通過"
     },
     {
       "name": "relay_selftest_failed",
-      "value": "Failed"
+      "value": "失敗"
     },
     {
       "name": "relay_selftest_skipped",
-      "value": "Skipped"
+      "value": "略過"
     },
     {
       "name": "relay_selftest_running",
-      "value": "Running…"
+      "value": "進行中…"
     },
     {
       "name": "relay_selftest_waiting",
-      "value": "Waiting"
+      "value": "等待"
     },
     {
       "name": "relay_selftest_running_summary",
-      "value": "Testing…"
+      "value": "正在偵測…"
     },
     {
       "name": "relay_selftest_all_ready",
-      "value": "All backend features ready (%d/%d)"
+      "value": "後端功能全部就緒 (%d/%d)"
     },
     {
       "name": "relay_selftest_abnormal",
-      "value": "%d item(s) abnormal"
+      "value": "%d 項異常"
     },
     {
       "name": "relay_logout_title",
-      "value": "Log out of relay account"
+      "value": "登出中繼帳號"
     },
     {
       "name": "relay_logout_msg",
-      "value": "This clears the relay token on this device (Pixiv login and server URL are unaffected). Other devices' data remains on the server."
+      "value": "將清除本機的中繼服務權杖（不影響 Pixiv 登入狀態與伺服器位址設定）。其他裝置資料仍保留在伺服器。"
     },
     {
       "name": "relay_logout_btn",
-      "value": "Log out"
+      "value": "登出"
     },
     {
       "name": "relay_logged_out",
-      "value": "Logged out of relay account"
+      "value": "已登出中繼帳號"
     },
     {
       "name": "relay_selftest_title",
-      "value": "Backend self-test"
+      "value": "後端自我檢測"
     },
     {
       "name": "relay_page_title",
-      "value": "Relay server & sync"
+      "value": "中繼伺服器與同步"
     },
     {
       "name": "relay_server_url",
-      "value": "Server URL"
+      "value": "伺服器位址"
     },
     {
       "name": "relay_invite_title",
-      "value": "Invite code (optional)"
+      "value": "邀請碼（選填）"
     },
     {
       "name": "relay_invite_placeholder",
-      "value": "Required if the server asks for an invite code"
+      "value": "伺服器需要邀請碼時填寫"
     },
     {
       "name": "relay_account_title",
-      "value": "Sync account (optional)"
+      "value": "同步帳號（選填）"
     },
     {
       "name": "relay_account_placeholder",
-      "value": "Paste an accountKey to join an existing account"
+      "value": "匯入 accountKey 加入既有帳號"
     },
     {
       "name": "relay_registering",
-      "value": "Registering…"
+      "value": "註冊中…"
     },
     {
       "name": "relay_register_btn",
-      "value": "Register / Log in"
+      "value": "註冊 / 登入"
     },
     {
       "name": "relay_connected",
-      "value": "Connected"
+      "value": "已連線"
     },
     {
       "name": "relay_sync_switch",
-      "value": "Data sync (history/mutes/settings/bookmark snapshot)"
+      "value": "資料同步（歷史/封鎖/設定/收藏快照）"
     },
     {
       "name": "relay_autosync_switch",
-      "value": "Auto sync (on foreground, 5-min throttle)"
+      "value": "自動同步（回到前景時，5 分鐘節流）"
     },
     {
       "name": "relay_sync_now",
-      "value": "Sync now"
+      "value": "立即同步"
     },
     {
       "name": "relay_syncing",
-      "value": "Syncing…"
+      "value": "同步中…"
     },
     {
       "name": "relay_no_sync_capability",
-      "value": "This server does not support data sync (capabilities missing sync)"
+      "value": "目前伺服器不支援資料同步（capabilities 缺少 sync）"
     },
     {
       "name": "relay_import_clipboard",
-      "value": "Import sync account from clipboard"
+      "value": "從剪貼簿匯入同步帳號"
     },
     {
       "name": "relay_import_file",
-      "value": "Import sync account from file"
+      "value": "從檔案匯入同步帳號"
     },
     {
       "name": "relay_selftesting",
-      "value": "Testing…"
+      "value": "偵測中…"
     },
     {
       "name": "relay_selftest_value",
-      "value": "Probe six endpoints"
+      "value": "探測六個端點"
     },
     {
       "name": "relay_mode_note",
-      "value": "In relay mode, API/OAuth/images are all proxied via the server (a valid HTTPS certificate is required)"
+      "value": "中繼模式下 API/OAuth/圖片全部經伺服器中轉（需伺服器設定合法 HTTPS 憑證）"
     },
     {
       "name": "settings_language",
-      "value": "Language"
+      "value": "語言"
     },
     {
       "name": "settings_lang_system",
-      "value": "System"
+      "value": "跟隨系統"
     },
     {
       "name": "settings_lang_zh_hans",
-      "value": "Simplified Chinese"
+      "value": "簡體中文"
     },
     {
       "name": "settings_lang_zh_hant",
-      "value": "Traditional Chinese"
+      "value": "繁體中文"
     },
     {
       "name": "settings_lang_en",
@@ -1530,331 +1530,331 @@
     },
     {
       "name": "about_app_name",
-      "value": "App name"
+      "value": "應用名稱"
     },
     {
       "name": "about_version_label",
-      "value": "Version"
+      "value": "版本號"
     },
     {
       "name": "about_based_on",
-      "value": "Based on"
+      "value": "基於"
     },
     {
       "name": "about_based_on_value",
-      "value": "PixEz open-source project"
+      "value": "PixEz 開源專案"
     },
     {
       "name": "about_framework",
-      "value": "Framework"
+      "value": "框架"
     },
     {
       "name": "about_pixez_value",
-      "value": "Flutter Pixiv client"
+      "value": "Flutter 版 Pixiv 客戶端"
     },
     {
       "name": "about_pixiv_value",
-      "value": "Illustration community"
+      "value": "插畫交流平台"
     },
     {
       "name": "about_section_disclaimer",
-      "value": "Disclaimer"
+      "value": "聲明"
     },
     {
       "name": "about_section_project",
-      "value": "Project info"
+      "value": "專案資訊"
     },
     {
       "name": "about_section_thanks",
-      "value": "Acknowledgements"
+      "value": "致謝"
     },
     {
       "name": "about_disclaimer_text",
-      "value": "ArkPix is a third-party Pixiv client and is not affiliated with Pixiv Inc. All illustration copyrights belong to their original creators; for personal study and exchange only."
+      "value": "ArkPix 為 Pixiv 第三方客戶端，與 Pixiv Inc. 無任何關聯。所有插畫版權歸原創作者所有，僅供個人學習交流使用。"
     },
     {
       "name": "about_tagline",
-      "value": "Third-party Pixiv client · HarmonyOS edition"
+      "value": "Pixiv 第三方客戶端 · HarmonyOS 版"
     },
     {
       "name": "about_title",
-      "value": "About"
+      "value": "關於"
     },
     {
       "name": "account_copy_clipboard",
-      "value": "Copy to clipboard"
+      "value": "複製到剪貼簿"
     },
     {
       "name": "account_export_token_title",
-      "value": "Export token"
+      "value": "匯出 Token"
     },
     {
       "name": "account_export_token_msg",
-      "value": "The token is a login credential; anyone who has it can log in to your account. Only use it in trusted environments and keep it safe after export."
+      "value": "Token 等同於登入憑證，外洩後他人可直接登入你的帳號。請僅在可信環境使用，匯出後妥善保管。"
     },
     {
       "name": "account_logout_btn",
-      "value": "Log out"
+      "value": "登出"
     },
     {
       "name": "account_logout_title",
-      "value": "Log out"
+      "value": "登出"
     },
     {
       "name": "account_logout_msg",
-      "value": "Log out of the current account?"
+      "value": "確定要登出目前帳號嗎？"
     },
     {
       "name": "account_no_token",
-      "value": "No token available"
+      "value": "無可用 token"
     },
     {
       "name": "account_token_copied",
-      "value": "Refresh token copied to clipboard"
+      "value": "已複製 refresh token 到剪貼簿"
     },
     {
       "name": "filter_mute_rules_count",
-      "value": "%d rules"
+      "value": "%d 條規則"
     },
     {
       "name": "mute_no_tags",
-      "value": "No muted words"
+      "value": "暫無封鎖詞"
     },
     {
       "name": "mute_no_users",
-      "value": "No muted authors (add via card long-press menu)"
+      "value": "暫無封鎖作者（可在插畫卡片長按選單中新增）"
     },
     {
       "name": "mute_tag_placeholder",
-      "value": "Enter word to mute"
+      "value": "輸入封鎖詞"
     },
     {
       "name": "mute_tags_section",
-      "value": "Muted words (title/tags)"
+      "value": "封鎖詞（標題/標籤）"
     },
     {
       "name": "mute_user_id",
-      "value": "User ID: %s"
+      "value": "使用者 ID: %s"
     },
     {
       "name": "mute_users_section",
-      "value": "Muted authors"
+      "value": "封鎖作者"
     },
     {
       "name": "settings_about",
-      "value": "About ArkPix"
+      "value": "關於 ArkPix"
     },
     {
       "name": "settings_ai_filter",
-      "value": "Filter AI works"
+      "value": "過濾 AI 作品"
     },
     {
       "name": "settings_anti_social",
-      "value": "Privacy mask mode"
+      "value": "防社死模式"
     },
     {
       "name": "settings_api_mode",
-      "value": "API mode"
+      "value": "API 方式"
     },
     {
       "name": "settings_auth_mode",
-      "value": "Auth mode"
+      "value": "認證方式"
     },
     {
       "name": "settings_auto_bookmark",
-      "value": "Auto-bookmark on download"
+      "value": "下載時自動收藏"
     },
     {
       "name": "settings_cache_cleared",
-      "value": "Image cache cleared"
+      "value": "圖片快取已清理"
     },
     {
       "name": "settings_cat_account",
-      "value": "Account"
+      "value": "帳戶"
     },
     {
       "name": "settings_cat_browse",
-      "value": "Browsing & display"
+      "value": "瀏覽與顯示"
     },
     {
       "name": "settings_cat_download",
-      "value": "Download & metadata"
+      "value": "下載與元資料"
     },
     {
       "name": "settings_cat_filter",
-      "value": "Mute & filter"
+      "value": "封鎖與過濾"
     },
     {
       "name": "settings_cat_general",
-      "value": "General"
+      "value": "一般"
     },
     {
       "name": "settings_cat_network",
-      "value": "Network"
+      "value": "網路"
     },
     {
       "name": "settings_cat_relay",
-      "value": "Relay & sync"
+      "value": "中繼伺服器與同步"
     },
     {
       "name": "settings_clear_cache",
-      "value": "Clear image cache"
+      "value": "清理圖片快取"
     },
     {
       "name": "settings_clear_cache_title",
-      "value": "Clear cache"
+      "value": "清理快取"
     },
     {
       "name": "settings_clear_cache_msg",
-      "value": "Clear all cached images?"
+      "value": "確定要清理所有圖片快取嗎？"
     },
     {
       "name": "settings_concurrency_1",
-      "value": "1 thread"
+      "value": "1 執行緒"
     },
     {
       "name": "settings_concurrency_2",
-      "value": "2 threads"
+      "value": "2 執行緒"
     },
     {
       "name": "settings_concurrency_3",
-      "value": "3 threads"
+      "value": "3 執行緒"
     },
     {
       "name": "settings_concurrency_4",
-      "value": "4 threads"
+      "value": "4 執行緒"
     },
     {
       "name": "settings_concurrency_5",
-      "value": "5 threads"
+      "value": "5 執行緒"
     },
     {
       "name": "settings_cross_2",
-      "value": "2 columns"
+      "value": "2 欄"
     },
     {
       "name": "settings_cross_3",
-      "value": "3 columns"
+      "value": "3 欄"
     },
     {
       "name": "settings_cross_count",
-      "value": "Grid columns"
+      "value": "網格欄數"
     },
     {
       "name": "settings_detail_quality",
-      "value": "Detail page quality"
+      "value": "詳情頁畫質"
     },
     {
       "name": "settings_device_sync_denied_toast",
-      "value": "Cross-device data sync not authorized; enable it in system settings and retry"
+      "value": "未授權跨裝置資料同步，可在系統設定中開啟後重試"
     },
     {
       "name": "settings_device_sync_item",
-      "value": "Device sync (settings/mutes/history)"
+      "value": "裝置間同步（設定/封鎖/歷史）"
     },
     {
       "name": "settings_download_concurrency",
-      "value": "Download threads"
+      "value": "下載執行緒數"
     },
     {
       "name": "settings_download_manager",
-      "value": "Downloads"
+      "value": "下載管理"
     },
     {
       "name": "settings_download_quality",
-      "value": "Download quality"
+      "value": "下載圖片畫質"
     },
     {
       "name": "settings_embed_exif",
-      "value": "Embed image metadata"
+      "value": "寫入圖片元資料"
     },
     {
       "name": "settings_exif_tag_config",
-      "value": "EXIF tag management"
+      "value": "EXIF 標籤管理"
     },
     {
       "name": "settings_exif_template",
-      "value": "Comment template"
+      "value": "備註範本"
     },
     {
       "name": "settings_filename_template",
-      "value": "Filename template"
+      "value": "檔名範本"
     },
     {
       "name": "settings_fullscreen_quality",
-      "value": "Full-screen quality"
+      "value": "全螢幕檢視畫質"
     },
     {
       "name": "settings_got_it",
-      "value": "Got it"
+      "value": "知道了"
     },
     {
       "name": "settings_history",
-      "value": "History"
+      "value": "歷史紀錄"
     },
     {
       "name": "settings_illust_quality",
-      "value": "Illustration quality"
+      "value": "插畫畫質"
     },
     {
       "name": "settings_image_host",
-      "value": "Image host"
+      "value": "圖床"
     },
     {
       "name": "settings_image_host_default",
-      "value": "Default (i.pximg.net)"
+      "value": "預設 (i.pximg.net)"
     },
     {
       "name": "settings_image_host_optional",
-      "value": "Alternative (i.pixiv.re)"
+      "value": "可選 (i.pixiv.re)"
     },
     {
       "name": "settings_image_host_custom",
-      "value": "Custom"
+      "value": "自訂"
     },
     {
       "name": "settings_image_host_custom_title",
-      "value": "Custom image host"
+      "value": "自訂圖床"
     },
     {
       "name": "settings_image_host_custom_placeholder",
-      "value": "e.g. i.pixiv.re"
+      "value": "如: i.pixiv.re"
     },
     {
       "name": "settings_manga_quality",
-      "value": "Manga quality"
+      "value": "漫畫畫質"
     },
     {
       "name": "settings_mute_manager",
-      "value": "Mute management"
+      "value": "封鎖管理"
     },
     {
       "name": "settings_my_bookmarks",
-      "value": "My bookmarks"
+      "value": "我的收藏"
     },
     {
       "name": "settings_net_mode_standard",
-      "value": "Standard"
+      "value": "標準"
     },
     {
       "name": "settings_net_mode_compatible",
-      "value": "Compatible"
+      "value": "相容"
     },
     {
       "name": "settings_net_mode_ech",
-      "value": "Enhanced"
+      "value": "增強"
     },
     {
       "name": "settings_net_mode_relay",
-      "value": "Relay"
+      "value": "中繼"
     },
     {
       "name": "settings_net_mode_desc",
-      "value": "Compatible = direct Pixiv IPs without SNI (bypass SNI + DoH); Enhanced = ECH (currently same as Compatible); Standard = direct; Relay = proxied via self-hosted relay server"
+      "value": "相容=直連 Pixiv 真實 IP 且不發送 SNI（bypass sni + DoH）；增強=ECH（目前版本等同於相容）；標準=直連；中繼=全部經自架 Relay Server 中轉"
     },
     {
       "name": "settings_preview_quality",
-      "value": "Preview quality"
+      "value": "預覽圖畫質"
     },
     {
       "name": "settings_proxy_http",
@@ -1866,95 +1866,95 @@
     },
     {
       "name": "settings_quality_thumbnail",
-      "value": "Thumbnail"
+      "value": "縮圖"
     },
     {
       "name": "settings_quality_medium",
-      "value": "Medium"
+      "value": "中圖"
     },
     {
       "name": "settings_quality_large",
-      "value": "Large"
+      "value": "大圖"
     },
     {
       "name": "settings_quality_original",
-      "value": "Original"
+      "value": "原圖"
     },
     {
       "name": "settings_quality_medium_short",
-      "value": "M"
+      "value": "中"
     },
     {
       "name": "settings_quality_large_short",
-      "value": "L"
+      "value": "大"
     },
     {
       "name": "settings_relay_connected",
-      "value": "Connected"
+      "value": "已連線"
     },
     {
       "name": "settings_relay_missing_title",
-      "value": "Relay server not configured"
+      "value": "未設定中繼伺服器"
     },
     {
       "name": "settings_relay_missing_msg",
-      "value": "Enter the server URL and finish registration on the \"Relay & sync\" page before switching to relay mode."
+      "value": "請先在「中繼伺服器與同步」頁填寫伺服器位址並完成註冊，再切換中繼模式。"
     },
     {
       "name": "settings_relay_not_configured",
-      "value": "Not configured"
+      "value": "未設定"
     },
     {
       "name": "settings_relay_not_registered",
-      "value": "Not registered"
+      "value": "未註冊"
     },
     {
       "name": "settings_section_device_sync",
-      "value": "Device sync"
+      "value": "裝置間同步"
     },
     {
       "name": "settings_show_r18_rank",
-      "value": "Show R18 rankings"
+      "value": "顯示 R18 榜單"
     },
     {
       "name": "settings_show_translated",
-      "value": "Show translated tags"
+      "value": "顯示翻譯標籤"
     },
     {
       "name": "settings_summary_ai_filter",
-      "value": "AI filter: %s"
+      "value": "AI過濾: %s"
     },
     {
       "name": "settings_summary_browse",
-      "value": "Preview: %s · Grid: %d cols"
+      "value": "預覽: %s · 網格: %d 欄"
     },
     {
       "name": "settings_summary_network",
-      "value": "Auth: %s · API: %s"
+      "value": "認證: %s · API: %s"
     },
     {
       "name": "settings_summary_sync",
-      "value": " · Sync: %s"
+      "value": " · 同步: %s"
     },
     {
       "name": "settings_summary_threads_suffix",
-      "value": " · %d threads"
+      "value": " · %d 執行緒"
     },
     {
       "name": "settings_sync_joined",
-      "value": "Session joined"
+      "value": "已加入工作階段"
     },
     {
       "name": "settings_sync_off",
-      "value": "Off"
+      "value": "未開啟"
     },
     {
       "name": "settings_sync_status",
-      "value": "Sync status"
+      "value": "同步狀態"
     },
     {
       "name": "settings_sync_unauthorized",
-      "value": "Unauthorized"
+      "value": "未授權"
     }
   ]
 }

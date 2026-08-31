@@ -2,11 +2,11 @@
   "string": [
     {
       "name": "module_desc",
-      "value": "module description"
+      "value": "模块描述"
     },
     {
       "name": "EntryAbility_desc",
-      "value": "description"
+      "value": "描述"
     },
     {
       "name": "EntryAbility_label",
@@ -14,523 +14,523 @@
     },
     {
       "name": "permission_read_media_reason",
-      "value": "Read images from device storage"
+      "value": "读取设备存储中的图片"
     },
     {
       "name": "permission_write_media_reason",
-      "value": "Save images to device storage"
+      "value": "保存图片到设备存储"
     },
     {
       "name": "permission_distributed_datasync_reason",
-      "value": "Sync settings and history across your HarmonyOS devices"
+      "value": "在您的鸿蒙设备间同步设置与历史记录"
     },
     {
       "name": "common_loading",
-      "value": "Loading..."
+      "value": "加载中..."
     },
     {
       "name": "common_load_failed",
-      "value": "Load failed"
+      "value": "加载失败"
     },
     {
       "name": "common_load_failed_detail",
-      "value": "Load failed: %s"
+      "value": "加载失败: %s"
     },
     {
       "name": "common_tap_retry",
-      "value": "Tap to retry"
+      "value": "点击重试"
     },
     {
       "name": "common_retry",
-      "value": "Retry"
+      "value": "重试"
     },
     {
       "name": "common_empty",
-      "value": "No content"
+      "value": "暂无内容"
     },
     {
       "name": "common_tip",
-      "value": "Notice"
+      "value": "提示"
     },
     {
       "name": "common_cancel",
-      "value": "Cancel"
+      "value": "取消"
     },
     {
       "name": "common_confirm",
-      "value": "OK"
+      "value": "确定"
     },
     {
       "name": "common_back",
-      "value": "Back"
+      "value": "返回"
     },
     {
       "name": "common_back_arrow",
-      "value": "< Back"
+      "value": "< 返回"
     },
     {
       "name": "common_delete",
-      "value": "Delete"
+      "value": "删除"
     },
     {
       "name": "common_add",
-      "value": "Add"
+      "value": "添加"
     },
     {
       "name": "common_save",
-      "value": "Save"
+      "value": "保存"
     },
     {
       "name": "common_preview",
-      "value": "Preview"
+      "value": "预览"
     },
     {
       "name": "common_export",
-      "value": "Export"
+      "value": "导出"
     },
     {
       "name": "common_import",
-      "value": "Import"
+      "value": "导入"
     },
     {
       "name": "common_export_success",
-      "value": "Export succeeded"
+      "value": "导出成功"
     },
     {
       "name": "common_export_failed",
-      "value": "Export failed: %s"
+      "value": "导出失败: %s"
     },
     {
       "name": "common_export_no_context",
-      "value": "Export failed: context unavailable"
+      "value": "导出失败：无法获取上下文"
     },
     {
       "name": "common_import_success",
-      "value": "Import succeeded"
+      "value": "导入成功"
     },
     {
       "name": "common_import_failed",
-      "value": "Import failed: %s"
+      "value": "导入失败: %s"
     },
     {
       "name": "common_import_no_context",
-      "value": "Import failed: context unavailable"
+      "value": "导入失败：无法获取上下文"
     },
     {
       "name": "common_copy_failed",
-      "value": "Copy failed"
+      "value": "复制失败"
     },
     {
       "name": "common_clear",
-      "value": "Clear"
+      "value": "清空"
     },
     {
       "name": "common_img_downloaded",
-      "value": "This image has already been downloaded"
+      "value": "该图片已下载过"
     },
     {
       "name": "common_download_anyway",
-      "value": "Download anyway"
+      "value": "仍要下载"
     },
     {
       "name": "common_added_download",
-      "value": "Added to download queue"
+      "value": "已加入下载任务"
     },
     {
       "name": "common_switch_on",
-      "value": "On"
+      "value": "开"
     },
     {
       "name": "common_switch_off",
-      "value": "Off"
+      "value": "关"
     },
     {
       "name": "card_muted_author",
-      "value": "Muted author: %s"
+      "value": "已屏蔽作者: %s"
     },
     {
       "name": "card_save_image",
-      "value": "Save image"
+      "value": "保存图片"
     },
     {
       "name": "card_bookmark",
-      "value": "Bookmark"
+      "value": "收藏"
     },
     {
       "name": "card_unbookmark",
-      "value": "Remove bookmark"
+      "value": "取消收藏"
     },
     {
       "name": "card_mute_author",
-      "value": "Mute this author"
+      "value": "屏蔽该作者"
     },
     {
       "name": "card_deleted",
-      "value": "Deleted"
+      "value": "已删除"
     },
     {
       "name": "waterfall_no_more",
-      "value": "No more items"
+      "value": "没有更多了"
     },
     {
       "name": "waterfall_load_failed_retry",
-      "value": "Load failed, tap to retry"
+      "value": "加载失败，点击重试"
     },
     {
       "name": "viewer_loading",
-      "value": "Loading image..."
+      "value": "大图加载中..."
     },
     {
       "name": "viewer_load_failed",
-      "value": "Image failed to load"
+      "value": "图片加载失败"
     },
     {
       "name": "net_oauth_refresh_network",
-      "value": "Token refresh network request failed: %s"
+      "value": "刷新 token 网络请求失败: %s"
     },
     {
       "name": "net_oauth_credential_rejected",
-      "value": "Credentials rejected by server (HTTP %d)"
+      "value": "登录凭证已被服务端拒绝 (HTTP %d)"
     },
     {
       "name": "net_oauth_refresh_server_error",
-      "value": "Token refresh server error (HTTP %d)"
+      "value": "刷新 token 服务器错误 (HTTP %d)"
     },
     {
       "name": "net_oauth_refresh_parse_failed",
-      "value": "Failed to parse token refresh response: %s"
+      "value": "刷新 token 响应解析失败: %s"
     },
     {
       "name": "net_oauth_refresh_invalid",
-      "value": "Invalid token refresh response (missing access_token), please log in again"
+      "value": "刷新 token 响应无效（缺少 access_token），请重新登录"
     },
     {
       "name": "net_relay_no_server",
-      "value": "Please enter the relay server address first"
+      "value": "请先填写中继服务器地址"
     },
     {
       "name": "net_relay_register_failed",
-      "value": "Registration failed (HTTP %d)"
+      "value": "注册失败 (HTTP %d)"
     },
     {
       "name": "net_relay_register_invalid",
-      "value": "Invalid registration response (missing service token)"
+      "value": "注册响应无效（缺少服务令牌）"
     },
     {
       "name": "net_relay_token_refresh_failed",
-      "value": "Relay token refresh failed (HTTP %d)"
+      "value": "中继令牌刷新失败 (HTTP %d)"
     },
     {
       "name": "net_relay_token_refresh_invalid",
-      "value": "Invalid relay token refresh response"
+      "value": "中继令牌刷新响应无效"
     },
     {
       "name": "net_relay_not_configured",
-      "value": "Relay server not configured"
+      "value": "中继服务器未配置"
     },
     {
       "name": "net_relay_https_only",
-      "value": "Relay only supports https URLs: %s"
+      "value": "中继仅支持 https URL: %s"
     },
     {
       "name": "net_relay_auth_required",
-      "value": "Relay not logged in or token expired; please re-register or import in Settings"
+      "value": "中继服务未登录或令牌已失效，请在设置页重新注册或导入"
     },
     {
       "name": "net_relay_auth_expired",
-      "value": "Relay login expired; please re-register or import an account"
+      "value": "中继服务登录失效，请重新注册或导入账号"
     },
     {
       "name": "net_relay_server_502",
-      "value": "Relay server error (HTTP 502)"
+      "value": "中继服务器错误 (HTTP 502)"
     },
     {
       "name": "net_relay_request_failed",
-      "value": "Relay request failed (HTTP %d)"
+      "value": "中继请求失败 (HTTP %d)"
     },
     {
       "name": "net_relay_fallback_toast",
-      "value": "Relay server failed repeatedly; reverted to previous network mode"
+      "value": "中继服务器连续失败，已回落到上一网络模式"
     },
     {
       "name": "store_token_invalid",
-      "value": "Token is invalid or expired. Note: refresh tokens rotate; if pixez has run since you exported, the exported token has been revoked. Export again and use it immediately"
+      "value": "Token 无效或已失效。注意：Refresh Token 为轮换制，若 pixez 在您导出后又运行过，导出的 Token 已被作废，请重新导出后立即使用"
     },
     {
       "name": "store_network_failed",
-      "value": "Network request failed, please check your connection and retry"
+      "value": "网络请求失败，请检查网络后重试"
     },
     {
       "name": "store_bookmarked_private",
-      "value": "Bookmarked privately"
+      "value": "已私密收藏"
     },
     {
       "name": "store_bookmarked",
-      "value": "Bookmarked"
+      "value": "已收藏"
     },
     {
       "name": "store_bookmark_failed",
-      "value": "Bookmark failed, please retry"
+      "value": "收藏失败，请重试"
     },
     {
       "name": "store_unbookmarked",
-      "value": "Bookmark removed"
+      "value": "已取消收藏"
     },
     {
       "name": "store_unbookmark_failed",
-      "value": "Failed to remove bookmark, please retry"
+      "value": "取消收藏失败，请重试"
     },
     {
       "name": "store_comment_posted",
-      "value": "Comment posted"
+      "value": "发表成功"
     },
     {
       "name": "store_comment_post_failed",
-      "value": "Post failed: %s"
+      "value": "发表失败: %s"
     },
     {
       "name": "store_reply_posted",
-      "value": "Reply posted"
+      "value": "回复成功"
     },
     {
       "name": "store_reply_failed",
-      "value": "Reply failed: %s"
+      "value": "回复失败: %s"
     },
     {
       "name": "store_detail_invalid_data",
-      "value": "Invalid response data, please retry"
+      "value": "返回数据无效，请重试"
     },
     {
       "name": "store_detail_parse_failed",
-      "value": "Failed to parse illust data"
+      "value": "作品数据解析失败"
     },
     {
       "name": "store_recover_unavailable",
-      "value": "Relay recovery unavailable; please configure and register a relay server in Settings first"
+      "value": "中继恢复能力不可用，请先在设置页配置并注册中继服务器"
     },
     {
       "name": "store_recover_progress",
-      "value": "Recovering from third party (attempt %d, retrying in ~%d s)"
+      "value": "正在从第三方恢复（第 %d 次查询，约 %d 秒后重试）"
     },
     {
       "name": "store_recover_not_found",
-      "value": "This illust cannot be recovered from third party for now"
+      "value": "暂无法从第三方恢复该作品"
     },
     {
       "name": "store_recover_failed",
-      "value": "Recovery query failed: %s"
+      "value": "恢复查询失败: %s"
     },
     {
       "name": "store_dup_confirm_title",
-      "value": "Duplicate download"
+      "value": "重复下载确认"
     },
     {
       "name": "store_pages_downloaded",
-      "value": "%d page(s) already downloaded"
+      "value": "其中 %d 页已下载过"
     },
     {
       "name": "store_skip_downloaded",
-      "value": "Skip downloaded pages"
+      "value": "跳过已下载页"
     },
     {
       "name": "store_redownload_all",
-      "value": "Redownload all"
+      "value": "全部重新下载"
     },
     {
       "name": "store_no_pages_to_download",
-      "value": "No pages to download"
+      "value": "没有需要下载的页"
     },
     {
       "name": "store_added_downloads",
-      "value": "Added %d download task(s)"
+      "value": "已加入 %d 个下载任务"
     },
     {
       "name": "svc_download_failed_title",
-      "value": "Download failed: %s"
+      "value": "下载失败: %s"
     },
     {
       "name": "svc_saved_to_gallery",
-      "value": "Saved to gallery"
+      "value": "已保存到图库"
     },
     {
       "name": "svc_download_done_cache_only",
-      "value": "Downloaded %d image(s), saved to cache directory (not added to gallery)"
+      "value": "下载完成 %d 张，已保存到缓存目录（未写入图库）"
     },
     {
       "name": "svc_saved_n_to_gallery",
-      "value": "Saved %d image(s) to gallery"
+      "value": "已保存 %d 张到图库"
     },
     {
       "name": "svc_saved_cache_gallery_cancelled",
-      "value": "Saved to cache directory (gallery save cancelled or failed)"
+      "value": "已保存到缓存目录（图库保存被取消或失败）"
     },
     {
       "name": "svc_gallery_write_failed",
-      "value": "Failed to write to gallery; saved to cache directory"
+      "value": "写入图库失败，已保存到缓存目录"
     },
     {
       "name": "svc_recover_query_failed",
-      "value": "Recovery query failed (HTTP %d)"
+      "value": "恢复查询失败 (HTTP %d)"
     },
     {
       "name": "svc_never_synced",
-      "value": "Never synced"
+      "value": "从未同步"
     },
     {
       "name": "svc_sync_push_failed",
-      "value": "Sync push failed (HTTP %d)"
+      "value": "同步上行失败 (HTTP %d)"
     },
     {
       "name": "svc_sync_pull_failed",
-      "value": "Sync pull failed (HTTP %d)"
+      "value": "同步下行失败 (HTTP %d)"
     },
     {
       "name": "svc_selftest_health",
-      "value": "Liveness probe /healthz"
+      "value": "存活探针 /healthz"
     },
     {
       "name": "svc_selftest_token",
-      "value": "Service token validity"
+      "value": "服务令牌有效性"
     },
     {
       "name": "svc_selftest_relay",
-      "value": "API relay /relay/v1/request"
+      "value": "API 中继 /relay/v1/request"
     },
     {
       "name": "svc_selftest_image",
-      "value": "Image relay /img/v1/fetch"
+      "value": "图片中继 /img/v1/fetch"
     },
     {
       "name": "svc_selftest_sync",
-      "value": "Sync loopback /sync/v1/push+pull"
+      "value": "同步回环 /sync/v1/push+pull"
     },
     {
       "name": "svc_selftest_recover",
-      "value": "Recover endpoint /recover/v1/illust"
+      "value": "恢复端点 /recover/v1/illust"
     },
     {
       "name": "svc_selftest_health_unreachable",
-      "value": "healthz unreachable"
+      "value": "healthz 不可达"
     },
     {
       "name": "svc_selftest_token_unusable",
-      "value": "Service token unusable"
+      "value": "服务令牌不可用"
     },
     {
       "name": "svc_selftest_no_server",
-      "value": "Relay server address not configured"
+      "value": "未配置中继服务器地址"
     },
     {
       "name": "svc_selftest_missing_ok",
-      "value": "Response missing status:\"ok\""
+      "value": "响应缺少 status:\"ok\""
     },
     {
       "name": "svc_selftest_alive",
-      "value": "Service is alive"
+      "value": "服务存活"
     },
     {
       "name": "svc_selftest_token_valid",
-      "value": "Token valid (with 401 auto-refresh)"
+      "value": "令牌有效（含 401 自动刷新）"
     },
     {
       "name": "svc_selftest_upstream_detail",
-      "value": "Upstream status=%d"
+      "value": "上游 status=%d"
     },
     {
       "name": "svc_selftest_upstream_unexpected",
-      "value": "Upstream status=%d (expected 200/401/403)"
+      "value": "上游 status=%d（预期 200/401/403）"
     },
     {
       "name": "svc_selftest_content_type_not_image",
-      "value": "Content-Type is not an image: %s"
+      "value": "Content-Type 非图片: %s"
     },
     {
       "name": "svc_selftest_push_failed",
-      "value": "Push failed (HTTP %d)"
+      "value": "push 失败 (HTTP %d)"
     },
     {
       "name": "svc_selftest_pull_missed",
-      "value": "Push succeeded but pull did not read back the test entry"
+      "value": "push 成功但 pull 未回读到测试条目"
     },
     {
       "name": "svc_selftest_loop_ok",
-      "value": "push→pull read-back succeeded, tombstone cleaned"
+      "value": "push→pull 回读成功，墓碑已清理"
     },
     {
       "name": "svc_selftest_endpoint_hit",
-      "value": "Endpoint available, actual status: %s (HTTP %d)"
+      "value": "端点可用，实际命中: %s (HTTP %d)"
     },
     {
       "name": "svc_selftest_bad_status",
-      "value": "Invalid status field: %s"
+      "value": "status 字段非法: %s"
     },
     {
       "name": "svc_selftest_json_parse",
-      "value": "Failed to parse response JSON"
+      "value": "响应 JSON 解析失败"
     },
     {
       "name": "home_tab_recom",
-      "value": "For You"
+      "value": "推荐"
     },
     {
       "name": "home_tab_follow",
-      "value": "Following"
+      "value": "动态"
     },
     {
       "name": "home_tab_rank",
-      "value": "Ranking"
+      "value": "排行"
     },
     {
       "name": "home_tab_search",
-      "value": "Search"
+      "value": "搜索"
     },
     {
       "name": "home_tab_settings",
-      "value": "Settings"
+      "value": "设置"
     },
     {
       "name": "home_rank_day",
-      "value": "Daily"
+      "value": "日榜"
     },
     {
       "name": "home_rank_week",
-      "value": "Weekly"
+      "value": "周榜"
     },
     {
       "name": "home_rank_month",
-      "value": "Monthly"
+      "value": "月榜"
     },
     {
       "name": "home_rank_rookie",
-      "value": "Rookie"
+      "value": "新人"
     },
     {
       "name": "home_rank_original",
-      "value": "Original"
+      "value": "原创"
     },
     {
       "name": "home_rank_male",
-      "value": "For men"
+      "value": "男性向"
     },
     {
       "name": "home_rank_female",
-      "value": "For women"
+      "value": "女性向"
     },
     {
       "name": "home_rank_day_r18",
-      "value": "R18 daily"
+      "value": "R18日榜"
     },
     {
       "name": "home_rank_male_r18",
-      "value": "R18 men"
+      "value": "R18男性向"
     },
     {
       "name": "home_rank_female_r18",
-      "value": "R18 women"
+      "value": "R18女性向"
     },
     {
       "name": "home_rank_week_r18",
-      "value": "R18 weekly"
+      "value": "R18周榜"
     },
     {
       "name": "home_rank_week_r18g",
@@ -538,991 +538,991 @@
     },
     {
       "name": "home_rank_load_failed",
-      "value": "Failed to load ranking: %s"
+      "value": "排行榜加载失败: %s"
     },
     {
       "name": "home_rank_date",
-      "value": "Date: %s"
+      "value": "日期: %s"
     },
     {
       "name": "home_recom_load_failed",
-      "value": "Failed to load recommendations: %s"
+      "value": "推荐列表加载失败: %s"
     },
     {
       "name": "splash_session_expired",
-      "value": "Session expired, please log in again"
+      "value": "登录已过期，请重新登录"
     },
     {
       "name": "bookmark_login_required",
-      "value": "Not logged in; cannot view bookmarks"
+      "value": "未登录，无法查看收藏"
     },
     {
       "name": "bookmark_sort_bookmark_desc",
-      "value": "Bookmark time: new → old (default)"
+      "value": "收藏时间 新→旧（默认）"
     },
     {
       "name": "bookmark_sort_bookmark_asc",
-      "value": "Bookmark time: old → new"
+      "value": "收藏时间 旧→新"
     },
     {
       "name": "bookmark_sort_upload_desc",
-      "value": "Upload time: new → old"
+      "value": "上传时间 新→旧"
     },
     {
       "name": "bookmark_sort_total_desc",
-      "value": "Bookmark count: high → low"
+      "value": "收藏数 高→低"
     },
     {
       "name": "bookmark_title",
-      "value": "My Bookmarks"
+      "value": "我的收藏"
     },
     {
       "name": "bookmark_sort",
-      "value": "Sort"
+      "value": "排序"
     },
     {
       "name": "bookmark_public",
-      "value": "Public"
+      "value": "公开"
     },
     {
       "name": "bookmark_private",
-      "value": "Private"
+      "value": "私密"
     },
     {
       "name": "search_placeholder",
-      "value": "Search illustrations"
+      "value": "搜索插画"
     },
     {
       "name": "search_button",
-      "value": "Search"
+      "value": "搜索"
     },
     {
       "name": "search_history_title",
-      "value": "Search history"
+      "value": "搜索历史"
     },
     {
       "name": "search_clear",
-      "value": "Clear"
+      "value": "清除"
     },
     {
       "name": "search_trending",
-      "value": "Trending tags"
+      "value": "热门标签"
     },
     {
       "name": "search_tab_illust",
-      "value": "Illustrations"
+      "value": "插画"
     },
     {
       "name": "search_tab_user",
-      "value": "Artists"
+      "value": "画师"
     },
     {
       "name": "search_pid_direct",
-      "value": "Go to illust ID: %s"
+      "value": "插画 ID 直达: %s"
     },
     {
       "name": "search_uid_direct",
-      "value": "Go to artist ID: %s"
+      "value": "画师 ID 直达: %s"
     },
     {
       "name": "search_no_users",
-      "value": "No matching artists found"
+      "value": "未找到匹配的画师"
     },
     {
       "name": "user_unfollowed",
-      "value": "Unfollowed"
+      "value": "已取消关注"
     },
     {
       "name": "user_followed",
-      "value": "Followed"
+      "value": "已关注"
     },
     {
       "name": "user_unfollow_failed",
-      "value": "Unfollow failed, please retry"
+      "value": "取消关注失败，请重试"
     },
     {
       "name": "user_follow_failed",
-      "value": "Follow failed, please retry"
+      "value": "关注失败，请重试"
     },
     {
       "name": "user_stat_follow",
-      "value": "Following %d"
+      "value": "关注 %d"
     },
     {
       "name": "user_stat_works",
-      "value": "Works %d"
+      "value": "作品 %d"
     },
     {
       "name": "user_followed_btn",
-      "value": "Following"
+      "value": "已关注"
     },
     {
       "name": "user_follow",
-      "value": "Follow"
+      "value": "关注"
     },
     {
       "name": "login_webview",
-      "value": "Log in with WebView"
+      "value": "使用 WebView 登录"
     },
     {
       "name": "login_token",
-      "value": "Log in with Token"
+      "value": "使用 Token 登录"
     },
     {
       "name": "login_bypass",
-      "value": "Use built-in bypass"
+      "value": "使用内置绕过方式"
     },
     {
       "name": "login_bypass_hint",
-      "value": "Built-in bypass resolves real IPs via DoH for direct Pixiv access; WebView login also goes through the built-in proxy"
+      "value": "内置绕过通过 DoH 解析真实 IP 直连 Pixiv，WebView 登录同样经过内置代理"
     },
     {
       "name": "login_terms",
-      "value": "Terms of Use"
+      "value": "使用条款"
     },
     {
       "name": "login_token_invalid",
-      "value": "Please enter a valid refresh token"
+      "value": "请输入有效的 Refresh Token"
     },
     {
       "name": "login_error_detail",
-      "value": "Login error: %s"
+      "value": "登录出错: %s"
     },
     {
       "name": "login_token_title",
-      "value": "Token Login"
+      "value": "Token 登录"
     },
     {
       "name": "login_token_hint",
-      "value": "Enter your Pixiv refresh token"
+      "value": "请输入您的 Pixiv Refresh Token"
     },
     {
       "name": "login_token_placeholder",
-      "value": "Paste your refresh token here"
+      "value": "粘贴 Refresh Token 到这里"
     },
     {
       "name": "login_logging_in",
-      "value": "Logging in..."
+      "value": "登录中..."
     },
     {
       "name": "login_login",
-      "value": "Log in"
+      "value": "登录"
     },
     {
       "name": "login_token_help",
-      "value": "How to get a refresh token?"
+      "value": "如何获取 Refresh Token？"
     },
     {
       "name": "detail_merge_rule_saved",
-      "value": "Merge rule saved, please tap save again"
+      "value": "合并规则已保存，请再次点击保存"
     },
     {
       "name": "detail_bookmark_public",
-      "value": "Bookmark publicly"
+      "value": "公开收藏"
     },
     {
       "name": "detail_bookmark_private",
-      "value": "Bookmark privately"
+      "value": "私密收藏"
     },
     {
       "name": "detail_save_current_page",
-      "value": "Save current page"
+      "value": "保存当前页"
     },
     {
       "name": "detail_save_all_pages",
-      "value": "Save all pages"
+      "value": "保存全部页"
     },
     {
       "name": "detail_copy_tag",
-      "value": "Copy tag name"
+      "value": "复制标签名"
     },
     {
       "name": "detail_mute_tag",
-      "value": "Mute this tag"
+      "value": "屏蔽该标签"
     },
     {
       "name": "detail_exif_mute",
-      "value": "Mute in comment metadata"
+      "value": "备注中屏蔽"
     },
     {
       "name": "detail_exif_muted_toast",
-      "value": "Muted in EXIF comment: %s"
+      "value": "已从EXIF备注中屏蔽: %s"
     },
     {
       "name": "detail_exif_merge",
-      "value": "Merge in comment metadata"
+      "value": "备注中合并"
     },
     {
       "name": "detail_tap_to_show",
-      "value": "Tap to show"
+      "value": "点击显示"
     },
     {
       "name": "detail_stat_bookmarks",
-      "value": "%d bookmarks"
+      "value": "收藏 %d"
     },
     {
       "name": "detail_stat_views",
-      "value": "%d views"
+      "value": "浏览 %d"
     },
     {
       "name": "detail_published_at",
-      "value": "Published %s"
+      "value": "发布于 %s"
     },
     {
       "name": "detail_pid_copied",
-      "value": "PID copied"
+      "value": "已复制 PID"
     },
     {
       "name": "detail_view_comments",
-      "value": "View comments"
+      "value": "查看评论"
     },
     {
       "name": "detail_related",
-      "value": "Related works"
+      "value": "相关作品"
     },
     {
       "name": "detail_save_auth_cancelled",
-      "value": "Save authorization cancelled"
+      "value": "保存授权被取消"
     },
     {
       "name": "detail_page_select_title",
-      "value": "Select pages (%d/%d)"
+      "value": "选择下载页（%d/%d）"
     },
     {
       "name": "detail_select_all",
-      "value": "Select all"
+      "value": "全选"
     },
     {
       "name": "detail_download_confirm_count",
-      "value": "Download (%d)"
+      "value": "确定下载(%d)"
     },
     {
       "name": "detail_download_confirm",
-      "value": "Download"
+      "value": "确定下载"
     },
     {
       "name": "detail_merge_dialog_title",
-      "value": "Merge tag into…"
+      "value": "合并标签到…"
     },
     {
       "name": "detail_merge_prompt",
-      "value": "Merge [%s] into this main tag:"
+      "value": "将 [%s] 合并到以下主标签："
     },
     {
       "name": "detail_merge_input_placeholder",
-      "value": "Enter main tag name"
+      "value": "输入主标签名"
     },
     {
       "name": "detail_merge_confirm_btn",
-      "value": "Confirm merge"
+      "value": "确认合并"
     },
     {
       "name": "detail_merge_done",
-      "value": "Merged [%s] into [%s]"
+      "value": "已将 [%s] 合并到 [%s]"
     },
     {
       "name": "detail_deleted_notice",
-      "value": "This work has been deleted or is unavailable"
+      "value": "该作品已被删除或不可访问"
     },
     {
       "name": "detail_deleted_author",
-      "value": "Artist: %s (UID:%d)"
+      "value": "作者：%s（UID:%d）"
     },
     {
       "name": "detail_deleted_meta",
-      "value": "%d pages · PID: %d"
+      "value": "共 %d 页 · PID: %d"
     },
     {
       "name": "detail_recover_querying",
-      "value": "Querying third-party sources…"
+      "value": "正在查询第三方源…"
     },
     {
       "name": "detail_recover_try",
-      "value": "Try recovering from third party"
+      "value": "尝试从第三方恢复"
     },
     {
       "name": "detail_recover_need_relay",
-      "value": "Configure and register a relay server in Settings to enable third-party recovery"
+      "value": "在设置页配置并注册中继服务器后，可尝试从第三方恢复"
     },
     {
       "name": "detail_retry_load",
-      "value": "Retry loading"
+      "value": "重试加载"
     },
     {
       "name": "detail_merge_review_title",
-      "value": "Synonymous tag review"
+      "value": "同义标签审查"
     },
     {
       "name": "detail_merge_review_desc",
-      "value": "These tags share the same translation. Choose the main tag for the comment metadata:"
+      "value": "检测到以下标签拥有相同翻译，请选择作为备注主标签的标签名："
     },
     {
       "name": "detail_merge_translated",
-      "value": "Translation: %s"
+      "value": "翻译: %s"
     },
     {
       "name": "detail_skip",
-      "value": "Skip"
+      "value": "跳过"
     },
     {
       "name": "common_confirm_action",
-      "value": "Confirm"
+      "value": "确认"
     },
     {
       "name": "detail_exif_picker_title",
-      "value": "EXIF comment tag selection"
+      "value": "EXIF 备注标签选择"
     },
     {
       "name": "detail_exif_bytes",
-      "value": "%d / %d bytes"
+      "value": "%d / %d 字节"
     },
     {
       "name": "detail_exif_writable",
-      "value": "Writable tags"
+      "value": "可写入标签"
     },
     {
       "name": "detail_exif_writable_hint",
-      "value": "Uncheck = skip this time | Long-press = mute permanently"
+      "value": "取消勾选=跳过本次 | 长按=永久屏蔽"
     },
     {
       "name": "detail_exif_muted_section",
-      "value": "Muted tags"
+      "value": "已屏蔽标签"
     },
     {
       "name": "detail_exif_restore",
-      "value": "Restore"
+      "value": "恢复"
     },
     {
       "name": "detail_mute_confirm_title",
-      "value": "Mute tag \"%s\"?"
+      "value": "确认屏蔽标签「%s」？"
     },
     {
       "name": "detail_mute_confirm_desc",
-      "value": "Once muted, this tag will not be written to EXIF of any work. You can restore it in Settings."
+      "value": "屏蔽后该标签在所有作品的 EXIF 中都不会写入，可在设置中恢复。"
     },
     {
       "name": "detail_mute_confirm_btn",
-      "value": "Confirm mute"
+      "value": "确认屏蔽"
     },
     {
       "name": "comment_param_error",
-      "value": "Invalid parameters"
+      "value": "参数错误"
     },
     {
       "name": "comment_reply_prefix",
-      "value": "Reply to @%s"
+      "value": "回复 @%s"
     },
     {
       "name": "comment_stamp",
-      "value": "[Stamp]"
+      "value": "[贴图]"
     },
     {
       "name": "comment_reply",
-      "value": "Reply"
+      "value": "回复"
     },
     {
       "name": "comment_view_replies",
-      "value": "View replies"
+      "value": "查看回复"
     },
     {
       "name": "comment_reply_list",
-      "value": "Replies"
+      "value": "回复列表"
     },
     {
       "name": "comment_title",
-      "value": "Comments"
+      "value": "评论"
     },
     {
       "name": "comment_reply_to_comment",
-      "value": "Reply to @%s's comment"
+      "value": "回复 @%s 的评论"
     },
     {
       "name": "comment_empty",
-      "value": "No comments yet"
+      "value": "暂无评论"
     },
     {
       "name": "comment_cancel_reply",
-      "value": "✕ Cancel"
+      "value": "✕ 取消"
     },
     {
       "name": "comment_placeholder_reply",
-      "value": "Write your reply..."
+      "value": "写下你的回复..."
     },
     {
       "name": "comment_placeholder",
-      "value": "Write your comment..."
+      "value": "写下你的评论..."
     },
     {
       "name": "comment_sending",
-      "value": "Sending"
+      "value": "发送中"
     },
     {
       "name": "comment_send",
-      "value": "Send"
+      "value": "发送"
     },
     {
       "name": "settings_title",
-      "value": "Settings"
+      "value": "设置"
     },
     {
       "name": "common_export_file",
-      "value": "Export to file"
+      "value": "导出为文件"
     },
     {
       "name": "common_close",
-      "value": "Close"
+      "value": "关闭"
     },
     {
       "name": "common_status",
-      "value": "Status"
+      "value": "状态"
     },
     {
       "name": "history_clear_browse_title",
-      "value": "Clear browsing history"
+      "value": "清空浏览历史"
     },
     {
       "name": "history_clear_browse_msg",
-      "value": "Clear all browsing history? This cannot be undone."
+      "value": "确定要清空全部浏览历史吗？该操作不可恢复。"
     },
     {
       "name": "history_empty_toast",
-      "value": "No history yet"
+      "value": "暂无历史记录"
     },
     {
       "name": "history_export_json",
-      "value": "Export JSON"
+      "value": "导出 JSON"
     },
     {
       "name": "history_export_pid",
-      "value": "Export PID list"
+      "value": "导出 PID 列表"
     },
     {
       "name": "history_clear_search_title",
-      "value": "Clear search history"
+      "value": "清空搜索历史"
     },
     {
       "name": "history_clear_search_msg",
-      "value": "Clear all search history?"
+      "value": "确定要清空全部搜索历史吗？"
     },
     {
       "name": "history_empty_browse",
-      "value": "No browsing history"
+      "value": "暂无浏览历史"
     },
     {
       "name": "history_empty_search",
-      "value": "No search history"
+      "value": "暂无搜索历史"
     },
     {
       "name": "history_total_count",
-      "value": "%d items"
+      "value": "共 %d 条"
     },
     {
       "name": "history_tab_browse",
-      "value": "Browsing history"
+      "value": "浏览历史"
     },
     {
       "name": "dl_fetch_failed",
-      "value": "Failed to fetch work info"
+      "value": "获取作品信息失败"
     },
     {
       "name": "dl_retry_failed",
-      "value": "Retry failed: %s"
+      "value": "重试失败: %s"
     },
     {
       "name": "dl_cleared_completed",
-      "value": "Cleared %d completed records"
+      "value": "已清空 %d 条完成记录"
     },
     {
       "name": "dl_cleared_failed",
-      "value": "Cleared %d failed records"
+      "value": "已清空 %d 条失败记录"
     },
     {
       "name": "dl_no_failed_tasks",
-      "value": "No failed tasks to retry"
+      "value": "没有可重试的失败任务"
     },
     {
       "name": "dl_retry_readded",
-      "value": "Re-queued %d download tasks"
+      "value": "已重新加入 %d 个下载任务"
     },
     {
       "name": "dl_retry_failed_part",
-      "value": ", %d failed to rebuild"
+      "value": "，重建失败 %d 个"
     },
     {
       "name": "dl_retry_skipped_part",
-      "value": ", %d skipped"
+      "value": "，跳过 %d 个"
     },
     {
       "name": "dl_status_completed",
-      "value": "Completed"
+      "value": "已完成"
     },
     {
       "name": "dl_status_downloading",
-      "value": "Downloading"
+      "value": "下载中"
     },
     {
       "name": "dl_status_pending",
-      "value": "Queued"
+      "value": "排队中"
     },
     {
       "name": "dl_status_failed",
-      "value": "Failed"
+      "value": "失败"
     },
     {
       "name": "dl_retry_failed_btn",
-      "value": "Retry failed"
+      "value": "重试失败"
     },
     {
       "name": "dl_retry_all_title",
-      "value": "Retry all"
+      "value": "一键重试"
     },
     {
       "name": "dl_retry_all_msg",
-      "value": "Retry all failed tasks"
+      "value": "将重试全部失败任务？"
     },
     {
       "name": "dl_clear_failed_btn",
-      "value": "Clear failed"
+      "value": "清空失败"
     },
     {
       "name": "dl_clear_failed_msg",
-      "value": "Remove all failed task records (files are kept)"
+      "value": "将移除全部失败任务记录（不删除文件）"
     },
     {
       "name": "dl_clear_completed_btn",
-      "value": "Clear completed"
+      "value": "清空完成"
     },
     {
       "name": "dl_clear_completed_title",
-      "value": "Clear completed"
+      "value": "清空已完成"
     },
     {
       "name": "dl_clear_completed_msg",
-      "value": "Remove all completed task records (files are kept)"
+      "value": "将移除全部已完成任务记录（不删除文件）"
     },
     {
       "name": "dl_empty",
-      "value": "No download tasks"
+      "value": "暂无下载任务"
     },
     {
       "name": "dl_task_prefix",
-      "value": "Work %s"
+      "value": "作品 %s"
     },
     {
       "name": "dl_task_page",
-      "value": " page %d"
+      "value": " 第 %d 页"
     },
     {
       "name": "dl_task_status",
-      "value": "Status: %s"
+      "value": "状态: %s"
     },
     {
       "name": "dl_task_progress",
-      "value": "Progress: %d%%"
+      "value": "进度: %d%%"
     },
     {
       "name": "exif_import_bad_version",
-      "value": "Unsupported format version"
+      "value": "不支持该格式版本"
     },
     {
       "name": "exif_import_bad_format",
-      "value": "Invalid file format"
+      "value": "文件格式不正确"
     },
     {
       "name": "exif_tag_config_title",
-      "value": "EXIF tag management"
+      "value": "EXIF 标签管理"
     },
     {
       "name": "exif_section_muted",
-      "value": "Muted comment tags"
+      "value": "备注屏蔽标签"
     },
     {
       "name": "exif_muted_placeholder",
-      "value": "Enter tag name to mute"
+      "value": "输入要屏蔽的标签名"
     },
     {
       "name": "exif_muted_empty",
-      "value": "No muted tags (add via tag long-press menu on detail page)"
+      "value": "暂无屏蔽标签（可在详情页标签长按菜单中添加）"
     },
     {
       "name": "exif_section_merge",
-      "value": "Comment merge rules"
+      "value": "备注合并规则"
     },
     {
       "name": "exif_merge_desc",
-      "value": "When downloading, subordinate tags are replaced by the main tag to save comment space"
+      "value": "下载时，从属标签将被主标签替代，节省备注空间"
     },
     {
       "name": "exif_merge_main_label",
-      "value": "Main tag:"
+      "value": "主标签："
     },
     {
       "name": "exif_merge_main_placeholder",
-      "value": "e.g. girl"
+      "value": "如: 女孩子"
     },
     {
       "name": "exif_merge_from_label",
-      "value": "From:"
+      "value": "从属："
     },
     {
       "name": "exif_merge_from_placeholder",
-      "value": "Comma-separated, e.g. 女の子,girl"
+      "value": "逗号分隔，如: 女の子,girl"
     },
     {
       "name": "exif_merge_add_btn",
-      "value": "Add merge rule"
+      "value": "添加合并规则"
     },
     {
       "name": "exif_merge_empty",
-      "value": "No merge rules (add via tag long-press menu on detail page)"
+      "value": "暂无合并规则（可在详情页标签长按菜单中添加）"
     },
     {
       "name": "exif_section_priority",
-      "value": "Priority order"
+      "value": "优先级排序"
     },
     {
       "name": "exif_priority_desc",
-      "value": "Tags are written to comments in this priority order; lower index first"
+      "value": "下载时标签按此优先级排序写入备注，索引越小越优先"
     },
     {
       "name": "exif_priority_placeholder",
-      "value": "Enter tag name"
+      "value": "输入标签名"
     },
     {
       "name": "exif_priority_empty",
-      "value": "No priority rules (tags keep original order when empty)"
+      "value": "暂无优先级规则（优先级为空时标签按原始顺序排列）"
     },
     {
       "name": "exif_section_io",
-      "value": "Import / Export"
+      "value": "导入导出"
     },
     {
       "name": "exif_io_desc",
-      "value": "Export rules to a JSON file, or import from one (merged and deduplicated on import)"
+      "value": "将规则导出为 JSON 文件，或从 JSON 文件导入（导入时与现有规则合并去重）"
     },
     {
       "name": "exif_sample_tag_original",
-      "value": "original"
+      "value": "原创"
     },
     {
       "name": "exif_sample_tag_girl",
-      "value": "girl"
+      "value": "女孩子"
     },
     {
       "name": "exif_template_title",
-      "value": "Comment template"
+      "value": "备注模板"
     },
     {
       "name": "exif_preview",
-      "value": "Preview"
+      "value": "预览"
     },
     {
       "name": "exif_template_label",
-      "value": "Template"
+      "value": "模板"
     },
     {
       "name": "exif_template_placeholder",
-      "value": "e.g. PID:{illust_id} | {tags}"
+      "value": "例如: PID:{illust_id} | {tags}"
     },
     {
       "name": "exif_insert_var",
-      "value": "Insert variable"
+      "value": "插入变量"
     },
     {
       "name": "exif_available_vars",
-      "value": "Available variables"
+      "value": "可用变量"
     },
     {
       "name": "exif_var_illust_id",
-      "value": "{illust_id}  Work ID"
+      "value": "{illust_id}  作品ID"
     },
     {
       "name": "exif_var_user_id",
-      "value": "{user_id}  Author user ID"
+      "value": "{user_id}  作者用户ID"
     },
     {
       "name": "exif_var_user_name",
-      "value": "{user_name}  Author name"
+      "value": "{user_name}  作者名"
     },
     {
       "name": "exif_var_title",
-      "value": "{title}  Work title"
+      "value": "{title}  作品标题"
     },
     {
       "name": "exif_var_part",
-      "value": "{part}  Page number (starts at 0)"
+      "value": "{part}  页码（从0开始）"
     },
     {
       "name": "exif_var_tags",
-      "value": "{tags}  Tags (original only, e.g. オリジナル, 女の子)"
+      "value": "{tags}  标签（仅原文，如: オリジナル, 女の子）"
     },
     {
       "name": "exif_var_tags_translated",
-      "value": "{tags_translated}  Tags with translation (e.g. オリジナル (original), 女の子 (girl)); original only when untranslated"
+      "value": "{tags_translated}  标签（带翻译，如: オリジナル (原创), 女の子 (女孩子)；无翻译时仅显示原文）"
     },
     {
       "name": "exif_var_tags_localized",
-      "value": "{tags_localized}  Localized tags (e.g. original, girl); original kept when untranslated"
+      "value": "{tags_localized}  标签（纯中文，如: 原创, 女孩子；无中文翻译时保留原文）"
     },
     {
       "name": "exif_var_note",
-      "value": "Overlong comments are truncated to fit; undefined {variables} are kept as-is."
+      "value": "备注内容过长时会按容量自动截断；未定义的 {变量} 会原样保留。"
     },
     {
       "name": "filename_template_title",
-      "value": "Filename template"
+      "value": "文件名模板"
     },
     {
       "name": "filename_template_placeholder",
-      "value": "e.g. {illust_id}_p{part}"
+      "value": "例如: {illust_id}_p{part}"
     },
     {
       "name": "filename_var_note",
-      "value": "The extension is added automatically; characters like \\ / : * ? \" < > | are replaced with underscores."
+      "value": "扩展名会自动添加；\\\\ / : * ? \" < > | 等字符会被替换为下划线。"
     },
     {
       "name": "relay_domain_history",
-      "value": "Browsing history"
+      "value": "浏览历史"
     },
     {
       "name": "relay_domain_search",
-      "value": "Search history"
+      "value": "搜索历史"
     },
     {
       "name": "relay_domain_bookmark",
-      "value": "Bookmark snapshot"
+      "value": "收藏快照"
     },
     {
       "name": "relay_domain_mute",
-      "value": "Mute list"
+      "value": "屏蔽列表"
     },
     {
       "name": "relay_domain_exif",
-      "value": "EXIF config"
+      "value": "EXIF 配置"
     },
     {
       "name": "relay_domain_settings",
-      "value": "App settings"
+      "value": "应用设置"
     },
     {
       "name": "relay_need_server_url",
-      "value": "Please enter the server URL first"
+      "value": "请先填写服务器地址"
     },
     {
       "name": "relay_register_ok",
-      "value": "Registered and connected to relay server"
+      "value": "注册成功，已连接中继服务器"
     },
     {
       "name": "relay_register_failed",
-      "value": "Registration failed: %s"
+      "value": "注册失败: %s"
     },
     {
       "name": "relay_need_sync_ready",
-      "value": "Enable sync and complete relay registration first"
+      "value": "请先开启同步开关并完成中继注册"
     },
     {
       "name": "relay_sync_done",
-      "value": "Sync completed"
+      "value": "同步完成"
     },
     {
       "name": "relay_sync_partial",
-      "value": "Partial sync failed; will retry automatically"
+      "value": "部分同步失败，将自动重试"
     },
     {
       "name": "relay_sync_failed",
-      "value": "Sync failed: %s"
+      "value": "同步失败: %s"
     },
     {
       "name": "relay_no_account",
-      "value": "No sync account available"
+      "value": "无可用同步账号"
     },
     {
       "name": "relay_export_account_title",
-      "value": "Export sync account"
+      "value": "导出同步账号"
     },
     {
       "name": "relay_export_account_msg",
-      "value": "The accountKey is your sync account credential. Anyone who has it can join your sync account and read all synced data (history/mutes/settings/bookmark snapshot). Only use it between trusted devices."
+      "value": "accountKey 等同于同步账号凭证，泄露后他人可加入你的同步账号并读取全部同步数据（历史/屏蔽/设置/收藏快照）。请仅在可信设备间使用。"
     },
     {
       "name": "relay_copy_accountkey",
-      "value": "Copy accountKey"
+      "value": "复制 accountKey"
     },
     {
       "name": "relay_copied_accountkey",
-      "value": "accountKey copied"
+      "value": "已复制 accountKey"
     },
     {
       "name": "relay_paste_denied",
-      "value": "Paste permission denied"
+      "value": "粘贴授权被取消"
     },
     {
       "name": "relay_paste_no_key",
-      "value": "No valid accountKey found in clipboard"
+      "value": "剪贴板中未找到有效 accountKey"
     },
     {
       "name": "relay_file_too_large",
-      "value": "File too large; not a valid account export"
+      "value": "文件过大，不是有效的账号导出文件"
     },
     {
       "name": "relay_file_no_key",
-      "value": "No valid accountKey found in file"
+      "value": "文件中未找到有效 accountKey"
     },
     {
       "name": "relay_import_account_title",
-      "value": "Import sync account"
+      "value": "导入同步账号"
     },
     {
       "name": "relay_import_account_msg",
-      "value": "Join the sync account for accountKey (%s), replacing this device's current relay registration. Synced data from other devices on that account will be pulled to this device."
+      "value": "将加入 accountKey（%s）对应的同步账号，并替换本机当前的中继注册。该账号下其他设备的同步数据将拉取到本机。"
     },
     {
       "name": "relay_import_done",
-      "value": "Imported; joined the sync account"
+      "value": "导入成功，已加入同步账号"
     },
     {
       "name": "relay_selftest_passed",
-      "value": "Passed"
+      "value": "通过"
     },
     {
       "name": "relay_selftest_failed",
-      "value": "Failed"
+      "value": "失败"
     },
     {
       "name": "relay_selftest_skipped",
-      "value": "Skipped"
+      "value": "跳过"
     },
     {
       "name": "relay_selftest_running",
-      "value": "Running…"
+      "value": "进行中…"
     },
     {
       "name": "relay_selftest_waiting",
-      "value": "Waiting"
+      "value": "等待"
     },
     {
       "name": "relay_selftest_running_summary",
-      "value": "Testing…"
+      "value": "正在检测…"
     },
     {
       "name": "relay_selftest_all_ready",
-      "value": "All backend features ready (%d/%d)"
+      "value": "后端功能全部就绪 (%d/%d)"
     },
     {
       "name": "relay_selftest_abnormal",
-      "value": "%d item(s) abnormal"
+      "value": "%d 项异常"
     },
     {
       "name": "relay_logout_title",
-      "value": "Log out of relay account"
+      "value": "注销中继账号"
     },
     {
       "name": "relay_logout_msg",
-      "value": "This clears the relay token on this device (Pixiv login and server URL are unaffected). Other devices' data remains on the server."
+      "value": "将清除本机的中继服务令牌（不影响 Pixiv 登录态与服务器地址配置）。其他设备数据仍保留在服务器。"
     },
     {
       "name": "relay_logout_btn",
-      "value": "Log out"
+      "value": "注销"
     },
     {
       "name": "relay_logged_out",
-      "value": "Logged out of relay account"
+      "value": "已注销中继账号"
     },
     {
       "name": "relay_selftest_title",
-      "value": "Backend self-test"
+      "value": "后端自检"
     },
     {
       "name": "relay_page_title",
-      "value": "Relay server & sync"
+      "value": "中继服务器与同步"
     },
     {
       "name": "relay_server_url",
-      "value": "Server URL"
+      "value": "服务器地址"
     },
     {
       "name": "relay_invite_title",
-      "value": "Invite code (optional)"
+      "value": "邀请码（可选）"
     },
     {
       "name": "relay_invite_placeholder",
-      "value": "Required if the server asks for an invite code"
+      "value": "服务器需要邀请码时填写"
     },
     {
       "name": "relay_account_title",
-      "value": "Sync account (optional)"
+      "value": "同步账号（可选）"
     },
     {
       "name": "relay_account_placeholder",
-      "value": "Paste an accountKey to join an existing account"
+      "value": "导入 accountKey 加入已有账号"
     },
     {
       "name": "relay_registering",
-      "value": "Registering…"
+      "value": "注册中…"
     },
     {
       "name": "relay_register_btn",
-      "value": "Register / Log in"
+      "value": "注册 / 登录"
     },
     {
       "name": "relay_connected",
-      "value": "Connected"
+      "value": "已连接"
     },
     {
       "name": "relay_sync_switch",
-      "value": "Data sync (history/mutes/settings/bookmark snapshot)"
+      "value": "数据同步（历史/屏蔽/设置/收藏快照）"
     },
     {
       "name": "relay_autosync_switch",
-      "value": "Auto sync (on foreground, 5-min throttle)"
+      "value": "自动同步（回到前台时，5 分钟节流）"
     },
     {
       "name": "relay_sync_now",
-      "value": "Sync now"
+      "value": "立即同步"
     },
     {
       "name": "relay_syncing",
-      "value": "Syncing…"
+      "value": "同步中…"
     },
     {
       "name": "relay_no_sync_capability",
-      "value": "This server does not support data sync (capabilities missing sync)"
+      "value": "当前服务器不支持数据同步（capabilities 缺少 sync）"
     },
     {
       "name": "relay_import_clipboard",
-      "value": "Import sync account from clipboard"
+      "value": "从剪贴板导入同步账号"
     },
     {
       "name": "relay_import_file",
-      "value": "Import sync account from file"
+      "value": "从文件导入同步账号"
     },
     {
       "name": "relay_selftesting",
-      "value": "Testing…"
+      "value": "检测中…"
     },
     {
       "name": "relay_selftest_value",
-      "value": "Probe six endpoints"
+      "value": "探测六个端点"
     },
     {
       "name": "relay_mode_note",
-      "value": "In relay mode, API/OAuth/images are all proxied via the server (a valid HTTPS certificate is required)"
+      "value": "中继模式下 API/OAuth/图片全部经服务器中转（需服务器配置合法 HTTPS 证书）"
     },
     {
       "name": "settings_language",
-      "value": "Language"
+      "value": "语言"
     },
     {
       "name": "settings_lang_system",
-      "value": "System"
+      "value": "跟随系统"
     },
     {
       "name": "settings_lang_zh_hans",
-      "value": "Simplified Chinese"
+      "value": "简体中文"
     },
     {
       "name": "settings_lang_zh_hant",
-      "value": "Traditional Chinese"
+      "value": "繁体中文"
     },
     {
       "name": "settings_lang_en",
@@ -1530,331 +1530,331 @@
     },
     {
       "name": "about_app_name",
-      "value": "App name"
+      "value": "应用名称"
     },
     {
       "name": "about_version_label",
-      "value": "Version"
+      "value": "版本号"
     },
     {
       "name": "about_based_on",
-      "value": "Based on"
+      "value": "基于"
     },
     {
       "name": "about_based_on_value",
-      "value": "PixEz open-source project"
+      "value": "PixEz 开源项目"
     },
     {
       "name": "about_framework",
-      "value": "Framework"
+      "value": "框架"
     },
     {
       "name": "about_pixez_value",
-      "value": "Flutter Pixiv client"
+      "value": "Flutter 版 Pixiv 客户端"
     },
     {
       "name": "about_pixiv_value",
-      "value": "Illustration community"
+      "value": "插画交流平台"
     },
     {
       "name": "about_section_disclaimer",
-      "value": "Disclaimer"
+      "value": "声明"
     },
     {
       "name": "about_section_project",
-      "value": "Project info"
+      "value": "项目信息"
     },
     {
       "name": "about_section_thanks",
-      "value": "Acknowledgements"
+      "value": "致谢"
     },
     {
       "name": "about_disclaimer_text",
-      "value": "ArkPix is a third-party Pixiv client and is not affiliated with Pixiv Inc. All illustration copyrights belong to their original creators; for personal study and exchange only."
+      "value": "ArkPix 为 Pixiv 第三方客户端，与 Pixiv Inc. 无任何关联。所有插画版权归原创作者所有，仅供个人学习交流使用。"
     },
     {
       "name": "about_tagline",
-      "value": "Third-party Pixiv client · HarmonyOS edition"
+      "value": "Pixiv 第三方客户端 · HarmonyOS 版"
     },
     {
       "name": "about_title",
-      "value": "About"
+      "value": "关于"
     },
     {
       "name": "account_copy_clipboard",
-      "value": "Copy to clipboard"
+      "value": "复制到剪贴板"
     },
     {
       "name": "account_export_token_title",
-      "value": "Export token"
+      "value": "导出 Token"
     },
     {
       "name": "account_export_token_msg",
-      "value": "The token is a login credential; anyone who has it can log in to your account. Only use it in trusted environments and keep it safe after export."
+      "value": "Token 等同于登录凭证，泄露后他人可直接登录你的账号。请仅在可信环境使用，导出后妥善保管。"
     },
     {
       "name": "account_logout_btn",
-      "value": "Log out"
+      "value": "退出"
     },
     {
       "name": "account_logout_title",
-      "value": "Log out"
+      "value": "退出登录"
     },
     {
       "name": "account_logout_msg",
-      "value": "Log out of the current account?"
+      "value": "确定要退出当前账号吗？"
     },
     {
       "name": "account_no_token",
-      "value": "No token available"
+      "value": "无可用 token"
     },
     {
       "name": "account_token_copied",
-      "value": "Refresh token copied to clipboard"
+      "value": "已复制 refresh token 到剪贴板"
     },
     {
       "name": "filter_mute_rules_count",
-      "value": "%d rules"
+      "value": "%d 条规则"
     },
     {
       "name": "mute_no_tags",
-      "value": "No muted words"
+      "value": "暂无屏蔽词"
     },
     {
       "name": "mute_no_users",
-      "value": "No muted authors (add via card long-press menu)"
+      "value": "暂无屏蔽作者（可在插画卡片长按菜单中添加）"
     },
     {
       "name": "mute_tag_placeholder",
-      "value": "Enter word to mute"
+      "value": "输入屏蔽词"
     },
     {
       "name": "mute_tags_section",
-      "value": "Muted words (title/tags)"
+      "value": "屏蔽词（标题/标签）"
     },
     {
       "name": "mute_user_id",
-      "value": "User ID: %s"
+      "value": "用户 ID: %s"
     },
     {
       "name": "mute_users_section",
-      "value": "Muted authors"
+      "value": "屏蔽作者"
     },
     {
       "name": "settings_about",
-      "value": "About ArkPix"
+      "value": "关于 ArkPix"
     },
     {
       "name": "settings_ai_filter",
-      "value": "Filter AI works"
+      "value": "过滤 AI 作品"
     },
     {
       "name": "settings_anti_social",
-      "value": "Privacy mask mode"
+      "value": "防社死模式"
     },
     {
       "name": "settings_api_mode",
-      "value": "API mode"
+      "value": "API 方式"
     },
     {
       "name": "settings_auth_mode",
-      "value": "Auth mode"
+      "value": "认证方式"
     },
     {
       "name": "settings_auto_bookmark",
-      "value": "Auto-bookmark on download"
+      "value": "下载时自动收藏"
     },
     {
       "name": "settings_cache_cleared",
-      "value": "Image cache cleared"
+      "value": "图片缓存已清理"
     },
     {
       "name": "settings_cat_account",
-      "value": "Account"
+      "value": "账户"
     },
     {
       "name": "settings_cat_browse",
-      "value": "Browsing & display"
+      "value": "浏览与显示"
     },
     {
       "name": "settings_cat_download",
-      "value": "Download & metadata"
+      "value": "下载与元数据"
     },
     {
       "name": "settings_cat_filter",
-      "value": "Mute & filter"
+      "value": "屏蔽与过滤"
     },
     {
       "name": "settings_cat_general",
-      "value": "General"
+      "value": "通用"
     },
     {
       "name": "settings_cat_network",
-      "value": "Network"
+      "value": "网络"
     },
     {
       "name": "settings_cat_relay",
-      "value": "Relay & sync"
+      "value": "中继服务器与同步"
     },
     {
       "name": "settings_clear_cache",
-      "value": "Clear image cache"
+      "value": "清理图片缓存"
     },
     {
       "name": "settings_clear_cache_title",
-      "value": "Clear cache"
+      "value": "清理缓存"
     },
     {
       "name": "settings_clear_cache_msg",
-      "value": "Clear all cached images?"
+      "value": "确定要清理所有图片缓存吗？"
     },
     {
       "name": "settings_concurrency_1",
-      "value": "1 thread"
+      "value": "1 线程"
     },
     {
       "name": "settings_concurrency_2",
-      "value": "2 threads"
+      "value": "2 线程"
     },
     {
       "name": "settings_concurrency_3",
-      "value": "3 threads"
+      "value": "3 线程"
     },
     {
       "name": "settings_concurrency_4",
-      "value": "4 threads"
+      "value": "4 线程"
     },
     {
       "name": "settings_concurrency_5",
-      "value": "5 threads"
+      "value": "5 线程"
     },
     {
       "name": "settings_cross_2",
-      "value": "2 columns"
+      "value": "2 列"
     },
     {
       "name": "settings_cross_3",
-      "value": "3 columns"
+      "value": "3 列"
     },
     {
       "name": "settings_cross_count",
-      "value": "Grid columns"
+      "value": "网格列数"
     },
     {
       "name": "settings_detail_quality",
-      "value": "Detail page quality"
+      "value": "详情页质量"
     },
     {
       "name": "settings_device_sync_denied_toast",
-      "value": "Cross-device data sync not authorized; enable it in system settings and retry"
+      "value": "未授权跨设备数据同步，可在系统设置中开启后重试"
     },
     {
       "name": "settings_device_sync_item",
-      "value": "Device sync (settings/mutes/history)"
+      "value": "设备间同步（设置/屏蔽/历史）"
     },
     {
       "name": "settings_download_concurrency",
-      "value": "Download threads"
+      "value": "下载线程数"
     },
     {
       "name": "settings_download_manager",
-      "value": "Downloads"
+      "value": "下载管理"
     },
     {
       "name": "settings_download_quality",
-      "value": "Download quality"
+      "value": "下载图片质量"
     },
     {
       "name": "settings_embed_exif",
-      "value": "Embed image metadata"
+      "value": "写入图片元数据"
     },
     {
       "name": "settings_exif_tag_config",
-      "value": "EXIF tag management"
+      "value": "EXIF 标签管理"
     },
     {
       "name": "settings_exif_template",
-      "value": "Comment template"
+      "value": "备注模板"
     },
     {
       "name": "settings_filename_template",
-      "value": "Filename template"
+      "value": "文件名模板"
     },
     {
       "name": "settings_fullscreen_quality",
-      "value": "Full-screen quality"
+      "value": "全屏查看质量"
     },
     {
       "name": "settings_got_it",
-      "value": "Got it"
+      "value": "知道了"
     },
     {
       "name": "settings_history",
-      "value": "History"
+      "value": "历史记录"
     },
     {
       "name": "settings_illust_quality",
-      "value": "Illustration quality"
+      "value": "插画质量"
     },
     {
       "name": "settings_image_host",
-      "value": "Image host"
+      "value": "图床"
     },
     {
       "name": "settings_image_host_default",
-      "value": "Default (i.pximg.net)"
+      "value": "默认 (i.pximg.net)"
     },
     {
       "name": "settings_image_host_optional",
-      "value": "Alternative (i.pixiv.re)"
+      "value": "可选 (i.pixiv.re)"
     },
     {
       "name": "settings_image_host_custom",
-      "value": "Custom"
+      "value": "自定义"
     },
     {
       "name": "settings_image_host_custom_title",
-      "value": "Custom image host"
+      "value": "自定义图床"
     },
     {
       "name": "settings_image_host_custom_placeholder",
-      "value": "e.g. i.pixiv.re"
+      "value": "如: i.pixiv.re"
     },
     {
       "name": "settings_manga_quality",
-      "value": "Manga quality"
+      "value": "漫画质量"
     },
     {
       "name": "settings_mute_manager",
-      "value": "Mute management"
+      "value": "屏蔽管理"
     },
     {
       "name": "settings_my_bookmarks",
-      "value": "My bookmarks"
+      "value": "我的收藏"
     },
     {
       "name": "settings_net_mode_standard",
-      "value": "Standard"
+      "value": "标准"
     },
     {
       "name": "settings_net_mode_compatible",
-      "value": "Compatible"
+      "value": "兼容"
     },
     {
       "name": "settings_net_mode_ech",
-      "value": "Enhanced"
+      "value": "增强"
     },
     {
       "name": "settings_net_mode_relay",
-      "value": "Relay"
+      "value": "中继"
     },
     {
       "name": "settings_net_mode_desc",
-      "value": "Compatible = direct Pixiv IPs without SNI (bypass SNI + DoH); Enhanced = ECH (currently same as Compatible); Standard = direct; Relay = proxied via self-hosted relay server"
+      "value": "兼容=直连 Pixiv 真实 IP 且不发送 SNI（bypass sni + DoH）；增强=ECH（当前版本等价于兼容）；标准=直连；中继=全部经自托管 Relay Server 中转"
     },
     {
       "name": "settings_preview_quality",
-      "value": "Preview quality"
+      "value": "预览图质量"
     },
     {
       "name": "settings_proxy_http",
@@ -1866,95 +1866,95 @@
     },
     {
       "name": "settings_quality_thumbnail",
-      "value": "Thumbnail"
+      "value": "缩略图"
     },
     {
       "name": "settings_quality_medium",
-      "value": "Medium"
+      "value": "中图"
     },
     {
       "name": "settings_quality_large",
-      "value": "Large"
+      "value": "大图"
     },
     {
       "name": "settings_quality_original",
-      "value": "Original"
+      "value": "原图"
     },
     {
       "name": "settings_quality_medium_short",
-      "value": "M"
+      "value": "中"
     },
     {
       "name": "settings_quality_large_short",
-      "value": "L"
+      "value": "大"
     },
     {
       "name": "settings_relay_connected",
-      "value": "Connected"
+      "value": "已连接"
     },
     {
       "name": "settings_relay_missing_title",
-      "value": "Relay server not configured"
+      "value": "未配置中继服务器"
     },
     {
       "name": "settings_relay_missing_msg",
-      "value": "Enter the server URL and finish registration on the \"Relay & sync\" page before switching to relay mode."
+      "value": "请先在“中继服务器与同步”页填写服务器地址并完成注册，再切换中继模式。"
     },
     {
       "name": "settings_relay_not_configured",
-      "value": "Not configured"
+      "value": "未配置"
     },
     {
       "name": "settings_relay_not_registered",
-      "value": "Not registered"
+      "value": "未注册"
     },
     {
       "name": "settings_section_device_sync",
-      "value": "Device sync"
+      "value": "设备间同步"
     },
     {
       "name": "settings_show_r18_rank",
-      "value": "Show R18 rankings"
+      "value": "显示 R18 榜单"
     },
     {
       "name": "settings_show_translated",
-      "value": "Show translated tags"
+      "value": "显示翻译标签"
     },
     {
       "name": "settings_summary_ai_filter",
-      "value": "AI filter: %s"
+      "value": "AI过滤: %s"
     },
     {
       "name": "settings_summary_browse",
-      "value": "Preview: %s · Grid: %d cols"
+      "value": "预览: %s · 网格: %d 列"
     },
     {
       "name": "settings_summary_network",
-      "value": "Auth: %s · API: %s"
+      "value": "认证: %s · API: %s"
     },
     {
       "name": "settings_summary_sync",
-      "value": " · Sync: %s"
+      "value": " · 同步: %s"
     },
     {
       "name": "settings_summary_threads_suffix",
-      "value": " · %d threads"
+      "value": " · %d 线程"
     },
     {
       "name": "settings_sync_joined",
-      "value": "Session joined"
+      "value": "已加入会话"
     },
     {
       "name": "settings_sync_off",
-      "value": "Off"
+      "value": "未开启"
     },
     {
       "name": "settings_sync_status",
-      "value": "Sync status"
+      "value": "同步状态"
     },
     {
       "name": "settings_sync_unauthorized",
-      "value": "Unauthorized"
+      "value": "未授权"
     }
   ]
 }

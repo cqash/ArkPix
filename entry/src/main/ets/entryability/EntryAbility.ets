@@ -2,8 +2,11 @@ import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.Ab
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import { webview } from '@kit.ArkWeb';
+import { preferences } from '@kit.ArkData';
 import { hoster } from '../network/Hoster';
 import { localProxyServer } from '../network/LocalProxyServer';
+// I18nUtils 纯函数模块（无 Store 单例依赖），可安全静态 import
+import { applyLanguagePref, normalizeLanguagePref } from '../utils/I18nUtils';
 // ContinuationService 纯内存 + AppStorage（不依赖 PreferenceService），可安全静态 import
 import { continuationService } from '../services/ContinuationService';
 import { CONTINUATION_PAYLOAD_KEY } from '../models/ContinuationPayload';
@@ -28,6 +31,17 @@ export default class EntryAbility extends UIAbility {
       hilog.error(DOMAIN, 'testTag', 'Failed to set colorMode. Cause: %{public}s', JSON.stringify(err));
     }
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onCreate');
+
+    // 语言偏好启动重放：直读 preferences 的 language 键（不得静态 import UserSettingStore——
+    // 其模块求值早于 context 注入会冷启动闪退）。'system' 时重放当前系统语言，
+    // 覆盖"应用在后台/停止期间系统语言变化"的场景（setAppPreferredLanguage('default') 需重启才生效）。
+    try {
+      let pref = preferences.getPreferencesSync(this.context.getApplicationContext(), { name: 'pixiv_settings' })
+      let lang = normalizeLanguagePref(String(pref.getSync('language', 'system')))
+      applyLanguagePref(lang)
+    } catch (e) {
+      hilog.error(DOMAIN, 'testTag', 'replay language pref failed: %{public}s', JSON.stringify(e));
+    }
 
     // 注册 pixiv 自定义协议到 Web 内核（必须在 Web 组件初始化之前），
     // 否则 OAuth 完成后跳转 pixiv:// 会被系统 AppLinking 接管，登录页拿不到 code
@@ -136,6 +150,16 @@ export default class EntryAbility extends UIAbility {
   onForeground(): void {
     // Ability has brought to foreground
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onForeground');
+    // 跟随系统模式下回前台重放系统语言（覆盖后台期间系统语言变化，SC-004）
+    try {
+      let pref = preferences.getPreferencesSync(this.context.getApplicationContext(), { name: 'pixiv_settings' })
+      let lang = normalizeLanguagePref(String(pref.getSync('language', 'system')))
+      if (lang === 'system') {
+        applyLanguagePref(lang)
+      }
+    } catch (e) {
+      hilog.error(DOMAIN, 'testTag', 'foreground language replay failed: %{public}s', JSON.stringify(e));
+    }
     // 回前台补偿同步（autoSyncForeground 开关 + SyncService 内部 5 分钟节流）
     try {
       syncService.onAppForeground();

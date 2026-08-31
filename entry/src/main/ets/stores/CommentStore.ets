@@ -1,6 +1,7 @@
 import { promptAction } from '@kit.ArkUI';
 import { apiService } from '../network/ApiService';
 import { Comment, commentFromJson, parseCommentListPage } from '../models/Comment';
+import { getStr, getStrf } from '../utils/I18nUtils';
 
 interface RawCommentAddResponse {
   comment?: Object
@@ -31,7 +32,7 @@ export class CommentStore {
       this.comments = page.comments
       this.nextUrl = page.nextUrl
     } catch (e) {
-      this.error = '加载失败: ' + e
+      this.error = getStrf($r('app.string.common_load_failed_detail'), String(e))
       console.error('Load comments failed: ' + e)
     } finally {
       this.isLoading = false
@@ -91,13 +92,13 @@ export class CommentStore {
         let added = commentFromJson(raw.comment)
         this.comments = [added].concat(this.comments)
       }
-      promptAction.showToast({ message: '发表成功' })
+      promptAction.showToast({ message: getStr($r('app.string.store_comment_posted')) })
       return true
     } catch (e) {
       console.error('Post comment failed: ' + e)
       // 透传含响应体的错误信息（ApiService.ensureSuccess 已附加截断响应体）
       let detail = e instanceof Error ? e.message : String(e)
-      promptAction.showToast({ message: '发表失败: ' + detail })
+      promptAction.showToast({ message: getStrf($r('app.string.store_comment_post_failed'), detail) })
       return false
     }
   }
@@ -113,12 +114,12 @@ export class CommentStore {
           this.comments = this.comments.concat([added])
         }
       }
-      promptAction.showToast({ message: '回复成功' })
+      promptAction.showToast({ message: getStr($r('app.string.store_reply_posted')) })
       return true
     } catch (e) {
       console.error('Post reply failed: ' + e)
       let detail = e instanceof Error ? e.message : String(e)
-      promptAction.showToast({ message: '回复失败: ' + detail })
+      promptAction.showToast({ message: getStrf($r('app.string.store_reply_failed'), detail) })
       return false
     }
   }

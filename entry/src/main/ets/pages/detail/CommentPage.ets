@@ -3,6 +3,7 @@ import { Comment } from '../../models/Comment';
 import { CommentStore } from '../../stores/CommentStore';
 import { CachedImage } from '../../components/common/CachedImage';
 import { EmptyView, ErrorView, LoadingView } from '../../components/common/CommonViews';
+import { getStr, getStrf } from '../../utils/I18nUtils';
 
 interface RouteParams {
   illustId: number
@@ -34,7 +35,7 @@ struct CommentPage {
   aboutToAppear() {
     let params = router.getParams() as RouteParams
     if (!params || !params.illustId) {
-      this.errorMessage = '参数错误'
+      this.errorMessage = getStr($r('app.string.comment_param_error'))
       return
     }
     this.illustId = params.illustId
@@ -159,25 +160,26 @@ struct CommentPage {
         .width('100%')
 
         if (comment.replyToUserName.length > 0) {
-          Text('回复 @' + comment.replyToUserName)
+          Text(getStrf($r('app.string.comment_reply_prefix'), comment.replyToUserName))
             .fontSize(12)
             .fontColor('#999999')
             .margin({ top: 4 })
         }
 
-        Text(comment.comment.length > 0 ? comment.comment : (comment.hasStamp ? '[贴图]' : ''))
+        Text(comment.comment.length > 0 ? comment.comment :
+          (comment.hasStamp ? getStr($r('app.string.comment_stamp')) : ''))
           .fontSize(14)
           .fontColor('#333333')
           .margin({ top: 4 })
           .width('100%')
 
         Row() {
-          Text('回复')
+          Text($r('app.string.comment_reply'))
             .fontSize(12)
             .fontColor('#0096FA')
             .onClick(() => { this.startReply(comment) })
           if (!this.isReplyMode() && comment.hasReplies) {
-            Text('查看回复')
+            Text($r('app.string.comment_view_replies'))
               .fontSize(12)
               .fontColor('#0096FA')
               .margin({ left: 16 })
@@ -201,13 +203,13 @@ struct CommentPage {
     Column() {
       // 顶部标题栏
       Row() {
-        Text('< 返回')
+        Text($r('app.string.common_back_arrow'))
           .fontSize(16)
           .fontColor('#0096FA')
           .onClick(() => {
             router.back()
           })
-        Text(this.isReplyMode() ? '回复列表' : '评论')
+        Text(this.isReplyMode() ? $r('app.string.comment_reply_list') : $r('app.string.comment_title'))
           .fontSize(18)
           .fontWeight(FontWeight.Bold)
           .fontColor('#333333')
@@ -224,7 +226,7 @@ struct CommentPage {
       .backgroundColor('#FFFFFF')
 
       if (this.isReplyMode() && this.replyToName.length > 0) {
-        Text('回复 @' + this.replyToName + ' 的评论')
+        Text(getStrf($r('app.string.comment_reply_to_comment'), this.replyToName))
           .fontSize(12)
           .fontColor('#999999')
           .width('100%')
@@ -240,7 +242,7 @@ struct CommentPage {
         LoadingView()
           .layoutWeight(1)
       } else if (this.comments.length === 0) {
-        EmptyView({ message: '暂无评论' })
+        EmptyView({ message: getStr($r('app.string.comment_empty')) })
           .layoutWeight(1)
       } else {
         List() {
@@ -256,7 +258,7 @@ struct CommentPage {
                   .width(20)
                   .height(20)
                   .color('#0096FA')
-                Text('加载中...')
+                Text($r('app.string.common_loading'))
                   .fontSize(12)
                   .fontColor('#999999')
                   .margin({ left: 8 })
@@ -275,11 +277,11 @@ struct CommentPage {
       // 底部输入栏
       if (this.replyTarget !== null) {
         Row() {
-          Text('回复 @' + this.replyTargetName())
+          Text(getStrf($r('app.string.comment_reply_prefix'), this.replyTargetName()))
             .fontSize(12)
             .fontColor('#0096FA')
             .layoutWeight(1)
-          Text('✕ 取消')
+          Text($r('app.string.comment_cancel_reply'))
             .fontSize(12)
             .fontColor('#999999')
             .onClick(() => { this.cancelReply() })
@@ -290,7 +292,8 @@ struct CommentPage {
       }
       Row() {
         TextInput({
-          placeholder: this.replyTarget !== null ? '写下你的回复...' : '写下你的评论...',
+          placeholder: this.replyTarget !== null ? $r('app.string.comment_placeholder_reply') :
+            $r('app.string.comment_placeholder'),
           text: $$this.inputText
         })
           .layoutWeight(1)
@@ -300,7 +303,7 @@ struct CommentPage {
           .borderRadius(20)
           .padding({ left: 16, right: 16 })
           .onSubmit(() => { this.sendComment() })
-        Button(this.sending ? '发送中' : '发送')
+        Button(this.sending ? $r('app.string.comment_sending') : $r('app.string.comment_send'))
           .height(40)
           .fontSize(14)
           .backgroundColor('#0096FA')

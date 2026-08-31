@@ -1,6 +1,7 @@
 import { apiService } from '../../network/ApiService';
 import { IllustWaterfall, IllustListPage, parseIllustListPage } from '../../components/illust/IllustWaterfall';
 import { getDbService } from '../../services/DatabaseService';
+import { getStrf } from '../../utils/I18nUtils';
 
 @Component
 export struct RecomPage {
@@ -19,7 +20,7 @@ export struct RecomPage {
       if (cached) {
         return parseIllustListPage(JSON.parse(cached))
       }
-      throw new Error('推荐列表加载失败: ' + e)
+      throw new Error(getStrf($r('app.string.home_recom_load_failed'), String(e)))
     }
   }
 

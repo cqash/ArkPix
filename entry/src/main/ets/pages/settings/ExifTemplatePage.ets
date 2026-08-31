@@ -2,28 +2,32 @@ import { router } from '@kit.ArkUI';
 import { userSettingStore } from '../../stores/UserSettingStore';
 import { ExifTag } from '../../services/ImageExifService';
 import { Constants } from '../../utils/Constants';
+import { getStr } from '../../utils/I18nUtils';
 
 const DEFAULT_TEMPLATE = 'PID:{illust_id} | {tags}'
 const SAMPLE_ILLUST_ID = 12345678
 const SAMPLE_USER_ID = 87654321
 const SAMPLE_USER_NAME = 'サンプルユーザー'
 const SAMPLE_TITLE = 'サンプルイラスト'
-const SAMPLE_TAGS: ExifTag[] = [
-  { name: 'オリジナル', translatedName: '原创' },
-  { name: '女の子', translatedName: '女孩子' },
-  { name: 'clipstudiopaint', translatedName: '' }
-]
+
+function buildSampleTags(): ExifTag[] {
+  let t1: ExifTag = { name: 'オリジナル', translatedName: getStr($r('app.string.exif_sample_tag_original')) }
+  let t2: ExifTag = { name: '女の子', translatedName: getStr($r('app.string.exif_sample_tag_girl')) }
+  let t3: ExifTag = { name: 'clipstudiopaint', translatedName: '' }
+  return [t1, t2, t3]
+}
 
 function buildPreviewComment(template: string): string {
-  let tagsOriginal = SAMPLE_TAGS.map((t: ExifTag) => t.name).join(', ')
-  let tagsLocalized = SAMPLE_TAGS.map((t: ExifTag) => {
+  let sampleTags = buildSampleTags()
+  let tagsOriginal = sampleTags.map((t: ExifTag) => t.name).join(', ')
+  let tagsLocalized = sampleTags.map((t: ExifTag) => {
     let displayTranslation = Constants.filterTranslatedName(t.name, t.translatedName)
     if (displayTranslation.length > 0) {
       return displayTranslation
     }
     return t.name
   }).join(', ')
-  let tagsTranslated = SAMPLE_TAGS.map((t: ExifTag) => {
+  let tagsTranslated = sampleTags.map((t: ExifTag) => {
     let displayTranslation = Constants.filterTranslatedName(t.name, t.translatedName)
     if (displayTranslation.length > 0) {
       return `${t.name} (${displayTranslation})`
@@ -74,18 +78,18 @@ struct ExifTemplatePage {
   build() {
     Column() {
       Row() {
-        Button('返回')
+        Button($r('app.string.common_back'))
           .fontSize(12)
           .height(32)
           .backgroundColor('#0096FA')
           .onClick(() => { router.back() })
-        Text('备注模板')
+        Text($r('app.string.exif_template_title'))
           .fontSize(18)
           .fontWeight(FontWeight.Bold)
           .fontColor('#333333')
           .layoutWeight(1)
           .textAlign(TextAlign.Center)
-        Button('保存')
+        Button($r('app.string.common_save'))
           .fontSize(12)
           .height(32)
           .backgroundColor('#0096FA')
@@ -98,7 +102,7 @@ struct ExifTemplatePage {
       .backgroundColor('#FFFFFF')
 
       Column() {
-        Text('预览')
+        Text($r('app.string.exif_preview'))
           .fontSize(12)
           .fontColor('#999999')
           .width('100%')
@@ -116,12 +120,12 @@ struct ExifTemplatePage {
       .margin({ top: 8 })
 
       Column() {
-        Text('模板')
+        Text($r('app.string.exif_template_label'))
           .fontSize(12)
           .fontColor('#999999')
           .width('100%')
           .margin({ bottom: 8 })
-        TextInput({ placeholder: '例如: PID:{illust_id} | {tags}', text: this.template })
+        TextInput({ placeholder: $r('app.string.exif_template_placeholder'), text: this.template })
           .width('100%')
           .height(48)
           .backgroundColor('#F5F5F5')
@@ -135,7 +139,7 @@ struct ExifTemplatePage {
       .margin({ top: 8 })
 
       Column() {
-        Text('插入变量')
+        Text($r('app.string.exif_insert_var'))
           .fontSize(12)
           .fontColor('#999999')
           .width('100%')
@@ -158,52 +162,52 @@ struct ExifTemplatePage {
       .margin({ top: 8 })
 
       Column() {
-        Text('可用变量')
+        Text($r('app.string.exif_available_vars'))
           .fontSize(12)
           .fontColor('#999999')
           .width('100%')
           .margin({ bottom: 8 })
-        Text('{illust_id}  作品ID')
+        Text($r('app.string.exif_var_illust_id'))
           .fontSize(12)
           .fontColor('#666666')
           .width('100%')
           .margin({ bottom: 4 })
-        Text('{user_id}  作者用户ID')
+        Text($r('app.string.exif_var_user_id'))
           .fontSize(12)
           .fontColor('#666666')
           .width('100%')
           .margin({ bottom: 4 })
-        Text('{user_name}  作者名')
+        Text($r('app.string.exif_var_user_name'))
           .fontSize(12)
           .fontColor('#666666')
           .width('100%')
           .margin({ bottom: 4 })
-        Text('{title}  作品标题')
+        Text($r('app.string.exif_var_title'))
           .fontSize(12)
           .fontColor('#666666')
           .width('100%')
           .margin({ bottom: 4 })
-        Text('{part}  页码（从0开始）')
+        Text($r('app.string.exif_var_part'))
           .fontSize(12)
           .fontColor('#666666')
           .width('100%')
           .margin({ bottom: 4 })
-        Text('{tags}  标签（仅原文，如: オリジナル, 女の子）')
+        Text($r('app.string.exif_var_tags'))
           .fontSize(12)
           .fontColor('#666666')
           .width('100%')
           .margin({ bottom: 4 })
-        Text('{tags_translated}  标签（带翻译，如: オリジナル (原创), 女の子 (女孩子)；无翻译时仅显示原文）')
+        Text($r('app.string.exif_var_tags_translated'))
           .fontSize(12)
           .fontColor('#666666')
           .width('100%')
           .margin({ bottom: 4 })
-        Text('{tags_localized}  标签（纯中文，如: 原创, 女孩子；无中文翻译时保留原文）')
+        Text($r('app.string.exif_var_tags_localized'))
           .fontSize(12)
           .fontColor('#666666')
           .width('100%')
           .margin({ bottom: 4 })
-        Text('备注内容过长时会按容量自动截断；未定义的 {变量} 会原样保留。')
+        Text($r('app.string.exif_var_note'))
           .fontSize(11)
           .fontColor('#999999')
           .width('100%')

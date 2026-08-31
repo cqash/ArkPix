@@ -2,26 +2,27 @@ import { apiService } from '../../network/ApiService';
 import { IllustWaterfall, IllustListPage, parseIllustListPage } from '../../components/illust/IllustWaterfall';
 import { getDbService } from '../../services/DatabaseService';
 import { AppSettings } from '../../models/AppSettings';
+import { getStrf } from '../../utils/I18nUtils';
 
 interface RankModeItem {
-  label: string
+  labelRes: Resource
   mode: string
   r18: boolean
 }
 
 const RANK_MODES: RankModeItem[] = [
-  { label: '日榜', mode: 'day', r18: false },
-  { label: '周榜', mode: 'week', r18: false },
-  { label: '月榜', mode: 'month', r18: false },
-  { label: '新人', mode: 'week_rookie', r18: false },
-  { label: '原创', mode: 'week_original', r18: false },
-  { label: '男性向', mode: 'day_male', r18: false },
-  { label: '女性向', mode: 'day_female', r18: false },
-  { label: 'R18日', mode: 'day_r18', r18: true },
-  { label: 'R18男性', mode: 'day_male_r18', r18: true },
-  { label: 'R18女性', mode: 'day_female_r18', r18: true },
-  { label: 'R18周', mode: 'week_r18', r18: true },
-  { label: 'R18G', mode: 'week_r18g', r18: true }
+  { labelRes: $r('app.string.home_rank_day'), mode: 'day', r18: false },
+  { labelRes: $r('app.string.home_rank_week'), mode: 'week', r18: false },
+  { labelRes: $r('app.string.home_rank_month'), mode: 'month', r18: false },
+  { labelRes: $r('app.string.home_rank_rookie'), mode: 'week_rookie', r18: false },
+  { labelRes: $r('app.string.home_rank_original'), mode: 'week_original', r18: false },
+  { labelRes: $r('app.string.home_rank_male'), mode: 'day_male', r18: false },
+  { labelRes: $r('app.string.home_rank_female'), mode: 'day_female', r18: false },
+  { labelRes: $r('app.string.home_rank_day_r18'), mode: 'day_r18', r18: true },
+  { labelRes: $r('app.string.home_rank_male_r18'), mode: 'day_male_r18', r18: true },
+  { labelRes: $r('app.string.home_rank_female_r18'), mode: 'day_female_r18', r18: true },
+  { labelRes: $r('app.string.home_rank_week_r18'), mode: 'week_r18', r18: true },
+  { labelRes: $r('app.string.home_rank_week_r18g'), mode: 'week_r18g', r18: true }
 ]
 
 @Component
@@ -51,7 +52,7 @@ export struct RankPage {
       if (cached) {
         return parseIllustListPage(JSON.parse(cached))
       }
-      throw new Error('排行榜加载失败: ' + e)
+      throw new Error(getStrf($r('app.string.home_rank_load_failed'), String(e)))
     }
   }
 
@@ -87,7 +88,7 @@ export struct RankPage {
         Row() {
           ForEach(RANK_MODES, (item: RankModeItem) => {
             if (!item.r18 || this.appSettings.showR18Rank) {
-              Text(item.label)
+              Text(item.labelRes)
                 .fontSize(14)
                 .fontColor(this.selectedMode === item.mode ? '#0096FA' : '#333333')
                 .fontWeight(this.selectedMode === item.mode ? FontWeight.Bold : FontWeight.Normal)
@@ -103,7 +104,7 @@ export struct RankPage {
       .padding({ top: 8, bottom: 8 })
 
       Row() {
-        Text('日期: ' + this.selectedDate)
+        Text(getStrf($r('app.string.home_rank_date'), this.selectedDate))
           .fontSize(12)
           .fontColor('#0096FA')
           .padding({ left: 16, right: 16, top: 4, bottom: 4 })

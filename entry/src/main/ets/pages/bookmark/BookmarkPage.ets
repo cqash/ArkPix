@@ -10,6 +10,7 @@ import {
   parseIllustListPage,
   compareArrivalReverse
 } from '../../components/illust/IllustWaterfall';
+import { getStr } from '../../utils/I18nUtils';
 
 /** 收藏排序模式：bookmarkDesc 默认（接口原始序）；仅存 @State 不持久化 */
 type BookmarkSortMode = 'bookmarkDesc' | 'bookmarkAsc' | 'uploadDesc' | 'totalBookmarksDesc'
@@ -26,14 +27,14 @@ struct BookmarkPage {
 
   aboutToAppear() {
     if (accountStore.getCurrentUserId() === 0) {
-      this.loginError = '未登录，无法查看收藏'
+      this.loginError = getStr($r('app.string.bookmark_login_required'))
     }
   }
 
   private async fetchFirst(): Promise<IllustListPage> {
     let userId = accountStore.getCurrentUserId()
     if (userId === 0) {
-      throw new Error('未登录，无法查看收藏')
+      throw new Error(getStr($r('app.string.bookmark_login_required')))
     }
     let response = await apiService.getUserBookmarks(userId, this.restrict)
     let page = parseIllustListPage(response)
@@ -123,10 +124,10 @@ struct BookmarkPage {
   @Builder
   SortMenuBuilder() {
     Column() {
-      this.SortMenuItem('收藏时间 新→旧（默认）', () => { this.applySort('bookmarkDesc') })
-      this.SortMenuItem('收藏时间 旧→新', () => { this.applySort('bookmarkAsc') })
-      this.SortMenuItem('上传时间 新→旧', () => { this.applySort('uploadDesc') })
-      this.SortMenuItem('收藏数 高→低', () => { this.applySort('totalBookmarksDesc') })
+      this.SortMenuItem(getStr($r('app.string.bookmark_sort_bookmark_desc')), () => { this.applySort('bookmarkDesc') })
+      this.SortMenuItem(getStr($r('app.string.bookmark_sort_bookmark_asc')), () => { this.applySort('bookmarkAsc') })
+      this.SortMenuItem(getStr($r('app.string.bookmark_sort_upload_desc')), () => { this.applySort('uploadDesc') })
+      this.SortMenuItem(getStr($r('app.string.bookmark_sort_total_desc')), () => { this.applySort('totalBookmarksDesc') })
     }
     .width(180)
     .padding({ top: 4, bottom: 4 })
@@ -135,18 +136,18 @@ struct BookmarkPage {
   build() {
     Column() {
       Row() {
-        Button('返回')
+        Button($r('app.string.common_back'))
           .fontSize(14)
           .backgroundColor('#F5F5F5')
           .fontColor('#333333')
           .onClick(() => { router.back() })
-        Text('我的收藏')
+        Text($r('app.string.bookmark_title'))
           .fontSize(16)
           .fontWeight(FontWeight.Bold)
           .fontColor('#333333')
           .layoutWeight(1)
           .textAlign(TextAlign.Center)
-        Text('排序')
+        Text($r('app.string.bookmark_sort'))
           .fontSize(14)
           .fontColor('#0096FA')
           .width(60)
@@ -162,13 +163,13 @@ struct BookmarkPage {
       .backgroundColor('#FFFFFF')
 
       Row() {
-        Text('公开')
+        Text($r('app.string.bookmark_public'))
           .fontSize(14)
           .fontColor(this.restrict === 'public' ? '#0096FA' : '#333333')
           .fontWeight(this.restrict === 'public' ? FontWeight.Bold : FontWeight.Normal)
           .padding({ left: 24, right: 24, top: 8, bottom: 8 })
           .onClick(() => { this.switchRestrict('public') })
-        Text('私密')
+        Text($r('app.string.bookmark_private'))
           .fontSize(14)
           .fontColor(this.restrict === 'private' ? '#0096FA' : '#333333')
           .fontWeight(this.restrict === 'private' ? FontWeight.Bold : FontWeight.Normal)

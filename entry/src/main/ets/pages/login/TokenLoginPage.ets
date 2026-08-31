@@ -1,5 +1,6 @@
 import { router } from '@kit.ArkUI';
 import { accountStore } from '../../stores/AccountStore';
+import { getStr, getStrf } from '../../utils/I18nUtils';
 
 interface RawTokenExport {
   refreshToken?: string
@@ -31,7 +32,7 @@ struct TokenLoginPage {
   async doLogin() {
     let token = this.extractToken(this.tokenInput)
     if (token.length === 0) {
-      this.errorMessage = '请输入有效的 Refresh Token'
+      this.errorMessage = getStr($r('app.string.login_token_invalid'))
       return
     }
     this.isLoading = true
@@ -46,7 +47,7 @@ struct TokenLoginPage {
         this.errorMessage = error
       }
     } catch (e) {
-      this.errorMessage = '登录出错: ' + e
+      this.errorMessage = getStrf($r('app.string.login_error_detail'), String(e))
     } finally {
       this.isLoading = false
     }
@@ -54,17 +55,17 @@ struct TokenLoginPage {
 
   build() {
     Column({ space: 16 }) {
-      Text('Token 登录')
+      Text($r('app.string.login_token_title'))
         .fontSize(24)
         .fontWeight(FontWeight.Bold)
         .fontColor('#333333')
         .margin({ bottom: 24 })
 
-      Text('请输入您的 Pixiv Refresh Token')
+      Text($r('app.string.login_token_hint'))
         .fontSize(14)
         .fontColor('#666666')
 
-      TextArea({ text: $$this.tokenInput, placeholder: '粘贴 Refresh Token 到这里' })
+      TextArea({ text: $$this.tokenInput, placeholder: $r('app.string.login_token_placeholder') })
         .height(120)
         .width('90%')
         .borderRadius(8)
@@ -77,7 +78,7 @@ struct TokenLoginPage {
           .fontColor('#FF4444')
       }
 
-      Button(this.isLoading ? '登录中...' : '登录')
+      Button(this.isLoading ? $r('app.string.login_logging_in') : $r('app.string.login_login'))
         .width('90%')
         .height(48)
         .backgroundColor('#0096FA')
@@ -87,7 +88,7 @@ struct TokenLoginPage {
           this.doLogin()
         })
 
-      Button('返回')
+      Button($r('app.string.common_back'))
         .width('90%')
         .height(48)
         .backgroundColor('#F0F0F0')
@@ -96,7 +97,7 @@ struct TokenLoginPage {
           router.back()
         })
 
-      Text('如何获取 Refresh Token？')
+      Text($r('app.string.login_token_help'))
         .fontSize(12)
         .fontColor('#0096FA')
         .decoration({ type: TextDecorationType.Underline })

@@ -8,8 +8,10 @@ import {
   labelOf,
   PREVIEW_QUALITY_OPTIONS,
   DETAIL_QUALITY_OPTIONS,
-  networkModeLabel
+  networkModeLabel,
+  languageLabel
 } from './SettingWidgets';
+import { getStr, getStrf } from '../../utils/I18nUtils';
 
 /**
  * 设置首页：仅呈现 7 个分类入口，点击进入独立路由二级子页。
@@ -36,34 +38,37 @@ export struct SettingsPage {
   }
 
   private browseSummary(): string {
-    return '预览:' + labelOf(PREVIEW_QUALITY_OPTIONS, this.settings.previewQuality) +
-      ' · 网格:' + this.settings.crossCount + '列'
+    return getStrf($r('app.string.settings_summary_browse'),
+      labelOf(PREVIEW_QUALITY_OPTIONS, this.settings.previewQuality), this.settings.crossCount)
   }
 
   private downloadSummary(): string {
     return labelOf(DETAIL_QUALITY_OPTIONS, this.settings.downloadQuality) +
-      ' · ' + this.settings.downloadConcurrency + '线程'
+      getStrf($r('app.string.settings_summary_threads_suffix'), this.settings.downloadConcurrency)
   }
 
   private filterSummary(): string {
-    return 'AI过滤:' + (this.settings.aiFilter ? '开' : '关')
+    let onOff = this.settings.aiFilter ? getStr($r('app.string.common_switch_on')) : getStr($r('app.string.common_switch_off'))
+    return getStrf($r('app.string.settings_summary_ai_filter'), onOff)
   }
 
   private networkSummary(): string {
-    return '认证:' + networkModeLabel(this.settings.authMode) +
-      ' · API:' + networkModeLabel(this.settings.apiMode)
+    return getStrf($r('app.string.settings_summary_network'),
+      networkModeLabel(this.settings.authMode), networkModeLabel(this.settings.apiMode))
   }
 
   private relaySummary(): string {
     let status: string
     if (this.settings.relayServerUrl.trim().length === 0) {
-      status = '未配置'
+      status = getStr($r('app.string.settings_relay_not_configured'))
     } else if (!this.relayRegistered) {
-      status = '未注册'
+      status = getStr($r('app.string.settings_relay_not_registered'))
     } else {
-      status = '已连接' + (this.relayServerVersion.length > 0 ? ' v' + this.relayServerVersion : '')
+      status = getStr($r('app.string.settings_relay_connected')) +
+        (this.relayServerVersion.length > 0 ? ' v' + this.relayServerVersion : '')
     }
-    return status + ' · 同步:' + (this.settings.syncEnabled ? '开' : '关')
+    let onOff = this.settings.syncEnabled ? getStr($r('app.string.common_switch_on')) : getStr($r('app.string.common_switch_off'))
+    return status + getStrf($r('app.string.settings_summary_sync'), onOff)
   }
 
   private accountSummary(): string {
@@ -74,7 +79,7 @@ export struct SettingsPage {
     Column() {
       // 标题
       Row() {
-        Text('设置')
+        Text($r('app.string.settings_title'))
           .fontSize(18)
           .fontWeight(FontWeight.Bold)
           .fontColor('#333333')
@@ -90,49 +95,49 @@ export struct SettingsPage {
       Scroll() {
         Column() {
           SettingItem({
-            title: '浏览与显示',
+            title: getStr($r('app.string.settings_cat_browse')),
             value: this.browseSummary(),
             onItemClick: () => {
               router.pushUrl({ url: 'pages/settings/BrowseSettingsPage' })
             }
           })
           SettingItem({
-            title: '下载与元数据',
+            title: getStr($r('app.string.settings_cat_download')),
             value: this.downloadSummary(),
             onItemClick: () => {
               router.pushUrl({ url: 'pages/settings/DownloadSettingsPage' })
             }
           })
           SettingItem({
-            title: '屏蔽与过滤',
+            title: getStr($r('app.string.settings_cat_filter')),
             value: this.filterSummary(),
             onItemClick: () => {
               router.pushUrl({ url: 'pages/settings/FilterSettingsPage' })
             }
           })
           SettingItem({
-            title: '网络',
+            title: getStr($r('app.string.settings_cat_network')),
             value: this.networkSummary(),
             onItemClick: () => {
               router.pushUrl({ url: 'pages/settings/NetworkSettingsPage' })
             }
           })
           SettingItem({
-            title: '中继服务器与同步',
+            title: getStr($r('app.string.settings_cat_relay')),
             value: this.relaySummary(),
             onItemClick: () => {
               router.pushUrl({ url: 'pages/settings/RelaySettingsPage' })
             }
           })
           SettingItem({
-            title: '通用',
-            value: '',
+            title: getStr($r('app.string.settings_cat_general')),
+            value: languageLabel(this.settings.language),
             onItemClick: () => {
               router.pushUrl({ url: 'pages/settings/GeneralSettingsPage' })
             }
           })
           SettingItem({
-            title: '账户',
+            title: getStr($r('app.string.settings_cat_account')),
             value: this.accountSummary(),
             onItemClick: () => {
               router.pushUrl({ url: 'pages/settings/AccountSettingsPage' })

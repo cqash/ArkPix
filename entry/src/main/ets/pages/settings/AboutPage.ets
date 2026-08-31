@@ -1,4 +1,5 @@
 import { router } from '@kit.ArkUI';
+import { getStr } from '../../utils/I18nUtils';
 
 @Entry
 @Component
@@ -7,13 +8,13 @@ struct AboutPage {
     Column() {
       // 顶部导航栏
       Row() {
-        Text('< 返回')
+        Text($r('app.string.common_back_arrow'))
           .fontSize(16)
           .fontColor('#0096FA')
           .onClick(() => {
             router.back()
           })
-        Text('关于')
+        Text($r('app.string.about_title'))
           .fontSize(18)
           .fontWeight(FontWeight.Bold)
           .fontColor('#333333')
@@ -37,7 +38,7 @@ struct AboutPage {
               .fontSize(36)
               .fontWeight(FontWeight.Bold)
               .fontColor('#0096FA')
-            Text('Pixiv 第三方客户端 · HarmonyOS 版')
+            Text($r('app.string.about_tagline'))
               .fontSize(14)
               .fontColor('#999999')
               .margin({ top: 8 })
@@ -53,16 +54,16 @@ struct AboutPage {
 
           // 项目信息
           Column() {
-            Text('项目信息')
+            Text($r('app.string.about_section_project'))
               .fontSize(12)
               .fontColor('#999999')
               .width('100%')
               .padding({ left: 16, bottom: 4 })
 
-            this.InfoItem('应用名称', 'ArkPix')
-            this.InfoItem('版本号', '1.0.0 (1000000)')
-            this.InfoItem('基于', 'PixEz 开源项目')
-            this.InfoItem('框架', 'HarmonyOS ArkTS')
+            this.InfoItem(getStr($r('app.string.about_app_name')), 'ArkPix')
+            this.InfoItem(getStr($r('app.string.about_version_label')), '1.0.0 (1000000)')
+            this.InfoItem(getStr($r('app.string.about_based_on')), getStr($r('app.string.about_based_on_value')))
+            this.InfoItem(getStr($r('app.string.about_framework')), 'HarmonyOS ArkTS')
             this.InfoItem('SDK', 'API 12+ / SDK 6.1.0')
           }
           .width('100%')
@@ -70,28 +71,28 @@ struct AboutPage {
 
           // 开源与致谢
           Column() {
-            Text('致谢')
+            Text($r('app.string.about_section_thanks'))
               .fontSize(12)
               .fontColor('#999999')
               .width('100%')
               .padding({ left: 16, bottom: 4 })
 
-            this.InfoItem('PixEz', 'Flutter 版 Pixiv 客户端')
-            this.InfoItem('Pixiv', '插画交流平台')
+            this.InfoItem('PixEz', getStr($r('app.string.about_pixez_value')))
+            this.InfoItem('Pixiv', getStr($r('app.string.about_pixiv_value')))
           }
           .width('100%')
           .padding({ top: 8, bottom: 8 })
 
           // 免责声明
           Column() {
-            Text('声明')
+            Text($r('app.string.about_section_disclaimer'))
               .fontSize(12)
               .fontColor('#999999')
               .width('100%')
               .padding({ left: 16, bottom: 4 })
 
             Column() {
-              Text('ArkPix 为 Pixiv 第三方客户端，与 Pixiv Inc. 无任何关联。所有插画版权归原创作者所有，仅供个人学习交流使用。')
+              Text($r('app.string.about_disclaimer_text'))
                 .fontSize(13)
                 .fontColor('#666666')
                 .lineHeight(20)

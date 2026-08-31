@@ -14,6 +14,7 @@ import {
   parseRelayError,
   BookmarkSnapshot
 } from '../models/RelayModels';
+import { getStr, getStrf } from '../utils/I18nUtils';
 
 // ---------------- 同步域 ----------------
 
@@ -124,7 +125,7 @@ interface RawExifConfigSyncData {
 interface RawSettingsSyncData {
   downloadQuality?: number
   theme?: string
-  language?: string
+  // language 为设备本地设置（界面语言偏好），不参与同步；旧载荷残留字段因接口无声明天然跳过
   saveFormat?: string
   autoBookmarkOnDownload?: boolean
   filenameTemplate?: string
@@ -268,7 +269,7 @@ export class SyncService {
   getLastSyncText(domain: string): string {
     let ts = preferenceService.getNumber('sync_last_' + domain, 0)
     if (ts <= 0) {
-      return '从未同步'
+      return getStr($r('app.string.svc_never_synced'))
     }
     let d = new Date(ts)
     return d.getFullYear().toString() + '-' + this.pad2(d.getMonth() + 1) + '-' + this.pad2(d.getDate()) +
@@ -468,7 +469,8 @@ export class SyncService {
       }
       if (resp.responseCode !== 200) {
         let errInfo = parseRelayError(String(resp.result))
-        throw new Error(errInfo.message.length > 0 ? errInfo.message : '同步上行失败 (HTTP ' + resp.responseCode + ')')
+        throw new Error(errInfo.message.length > 0 ? errInfo.message :
+          getStrf($r('app.string.svc_sync_push_failed'), resp.responseCode))
       }
       let result = syncPushResultFromJson(JSON.parse(String(resp.result)))
       if (result.syncToken.length > 0) {
@@ -530,7 +532,8 @@ export class SyncService {
         }
         if (resp.responseCode !== 200) {
           let errInfo = parseRelayError(String(resp.result))
-          throw new Error(errInfo.message.length > 0 ? errInfo.message : '同步下行失败 (HTTP ' + resp.responseCode + ')')
+          throw new Error(errInfo.message.length > 0 ? errInfo.message :
+            getStrf($r('app.string.svc_sync_pull_failed'), resp.responseCode))
         }
         let result = syncPullResultFromJson(JSON.parse(String(resp.result)))
         await this.applyItems(domain, result.items)
@@ -738,7 +741,6 @@ export class SyncService {
     let data: Record<string, Object> = {
       'downloadQuality': s.downloadQuality,
       'theme': s.theme,
-      'language': s.language,
       'saveFormat': s.saveFormat,
       'autoBookmarkOnDownload': s.autoBookmarkOnDownload,
       'filenameTemplate': s.filenameTemplate,
@@ -962,9 +964,6 @@ export class SyncService {
       }
       if (raw?.theme !== undefined) {
         userSettingStore.setTheme(raw.theme)
-      }
-      if (raw?.language !== undefined) {
-        userSettingStore.setLanguage(raw.language)
       }
       if (raw?.saveFormat !== undefined) {
         userSettingStore.setSaveFormat(raw.saveFormat)

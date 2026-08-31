@@ -6,6 +6,7 @@ import { ErrorView } from '../../components/common/CommonViews';
 import { IllustWaterfall, IllustListPage, parseIllustListPage } from '../../components/illust/IllustWaterfall';
 import { continuationService } from '../../services/ContinuationService';
 import { ContinuationPayload, CONTINUATION_PAGE_USER_PROFILE } from '../../models/ContinuationPayload';
+import { getStr, getStrf } from '../../utils/I18nUtils';
 
 interface UserRouteParams {
   userId: number
@@ -59,7 +60,7 @@ export struct UserProfilePage {
         this.stats = profileStatsFromJson(detail.profile)
       }
     } catch (e) {
-      this.profileError = '加载失败: ' + e
+      this.profileError = getStrf($r('app.string.common_load_failed_detail'), String(e))
       console.error('Load profile failed: ' + e)
     } finally {
       this.isLoading = false
@@ -87,10 +88,10 @@ export struct UserProfilePage {
         await apiService.followUser(this.user.id, 'public')
       }
       this.user.isFollowed = !wasFollowed
-      promptAction.showToast({ message: wasFollowed ? '已取消关注' : '已关注' })
+      promptAction.showToast({ message: wasFollowed ? $r('app.string.user_unfollowed') : $r('app.string.user_followed') })
     } catch (e) {
       console.error('Follow failed: ' + e)
-      promptAction.showToast({ message: (wasFollowed ? '取消关注失败' : '关注失败') + '，请重试' })
+      promptAction.showToast({ message: wasFollowed ? $r('app.string.user_unfollow_failed') : $r('app.string.user_follow_failed') })
     }
   }
 
@@ -129,16 +130,16 @@ export struct UserProfilePage {
             .maxLines(2)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
           Row() {
-            Text('关注 ' + this.stats.totalFollowUsers)
+            Text(getStrf($r('app.string.user_stat_follow'), this.stats.totalFollowUsers))
               .fontSize(12)
               .fontColor('#999999')
-            Text('作品 ' + this.stats.totalIllusts)
+            Text(getStrf($r('app.string.user_stat_works'), this.stats.totalIllusts))
               .fontSize(12)
               .fontColor('#999999')
               .margin({ left: 16 })
           }
           .margin({ top: 8 })
-          Button(this.user.isFollowed ? '已关注' : '关注')
+          Button(this.user.isFollowed ? $r('app.string.user_followed_btn') : $r('app.string.user_follow'))
             .width(120)
             .height(36)
             .backgroundColor(this.user.isFollowed ? '#FF6B6B' : '#0096FA')

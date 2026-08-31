@@ -2,6 +2,7 @@ import { promptAction } from '@kit.ArkUI';
 import { apiService } from '../network/ApiService';
 import { getDbService } from '../services/DatabaseService';
 import { Illust } from '../models/Illust';
+import { getStr } from '../utils/I18nUtils';
 
 /**
  * 收藏状态三态：
@@ -126,13 +127,14 @@ export class BookmarkStateStore {
       illust.isBookmarked = true
       this.setState(illust.id, BOOKMARK_DONE)
       await this.invalidateDetailCache(illust.id)
-      this.showToast(restrict === 'private' ? '已私密收藏' : '已收藏')
+      this.showToast(restrict === 'private' ? getStr($r('app.string.store_bookmarked_private')) :
+        getStr($r('app.string.store_bookmarked')))
       this.notifyBookmarkChanged(illust, true)
       return true
     } catch (e) {
       console.error('Bookmark failed: ' + e)
       this.setState(illust.id, BOOKMARK_NONE)
-      this.showToast('收藏失败，请重试')
+      this.showToast(getStr($r('app.string.store_bookmark_failed')))
       return false
     }
   }
@@ -147,13 +149,13 @@ export class BookmarkStateStore {
       illust.isBookmarked = false
       this.setState(illust.id, BOOKMARK_NONE)
       await this.invalidateDetailCache(illust.id)
-      this.showToast('已取消收藏')
+      this.showToast(getStr($r('app.string.store_unbookmarked')))
       this.notifyBookmarkChanged(illust, false)
       return true
     } catch (e) {
       console.error('Unbookmark failed: ' + e)
       this.setState(illust.id, BOOKMARK_DONE)
-      this.showToast('取消收藏失败，请重试')
+      this.showToast(getStr($r('app.string.store_unbookmark_failed')))
       return false
     }
   }

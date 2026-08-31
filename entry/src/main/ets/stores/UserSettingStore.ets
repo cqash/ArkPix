@@ -1,6 +1,7 @@
 import { preferenceService } from '../services/PreferenceService';
 import { AppSettings, AppSettingsOptions, ExifTagMergeRule } from '../models/AppSettings';
 import { Constants } from '../utils/Constants';
+import { applyLanguagePref, normalizeLanguagePref } from '../utils/I18nUtils';
 
 // ---------------- 同步写入 hook（模块级回调，避免 UserSettingStore 反向 import SyncService 成环） ----------------
 // domain：'mute' / 'exif_config' / 'settings'；tombstoneKeys：被移除项的同步 key（删除传播用）
@@ -63,7 +64,7 @@ export class UserSettingStore {
       fullScreenQuality: preferenceService.getNumber('full_screen_quality', 0),
       downloadQuality: preferenceService.getNumber('download_quality', 1),
       theme: preferenceService.getString('theme', 'system'),
-      language: preferenceService.getString('language', 'zh-CN'),
+      language: normalizeLanguagePref(preferenceService.getString('language', 'system')),
       authMode: Constants.normalizeMode(preferenceService.getString('auth_mode', 'standard')),
       apiMode: Constants.normalizeMode(preferenceService.getString('api_mode', 'standard')),
       crossCount: preferenceService.getNumber('cross_count', 2),
@@ -84,7 +85,6 @@ export class UserSettingStore {
         (rule: ExifTagMergeRule) => new ExifTagMergeRule({ mainTag: rule.mainTag, fromTags: rule.fromTags.slice() })
       ),
       exifTagPriority: preferenceService.getObject('exif_tag_priority', []) as string[],
-      autoMergeTranslatedTags: preferenceService.getBoolean('auto_merge_translated_tags', false),
       downloadConcurrency: preferenceService.getNumber('download_concurrency', 3),
       proxyType: preferenceService.getString('proxy_type', 'http'),
       proxyHost: preferenceService.getString('proxy_host', ''),
@@ -132,7 +132,6 @@ export class UserSettingStore {
     preferenceService.setObject('exif_muted_tags', this.settings.exifMutedTags)
     preferenceService.setObject('exif_merged_tags', this.settings.exifMergedTags)
     preferenceService.setObject('exif_tag_priority', this.settings.exifTagPriority)
-    preferenceService.setBoolean('auto_merge_translated_tags', this.settings.autoMergeTranslatedTags)
     preferenceService.setNumber('download_concurrency', this.settings.downloadConcurrency)
     preferenceService.setString('proxy_type', this.settings.proxyType)
     preferenceService.setString('proxy_host', this.settings.proxyHost)
@@ -183,7 +182,6 @@ export class UserSettingStore {
         (rule: ExifTagMergeRule) => new ExifTagMergeRule({ mainTag: rule.mainTag, fromTags: rule.fromTags.slice() })
       ),
       exifTagPriority: this.settings.exifTagPriority.slice(),
-      autoMergeTranslatedTags: this.settings.autoMergeTranslatedTags,
       downloadConcurrency: this.settings.downloadConcurrency,
       proxyType: this.settings.proxyType,
       proxyHost: this.settings.proxyHost,
@@ -291,10 +289,14 @@ export class UserSettingStore {
     notifySettingsWrite('settings')
   }
 
+  /**
+   * 设置界面语言（'system'/'zh-Hans'/'zh-Hant'/'en-Latn-US'，非法值归一化为 'system'）。
+   * 保存后立即 setAppPreferredLanguage 即时生效；设备本地设置，不触发 settings 域同步写钩子。
+   */
   setLanguage(value: string): void {
-    this.settings.language = value
+    this.settings.language = normalizeLanguagePref(value)
     this.saveSettings()
-    notifySettingsWrite('settings')
+    applyLanguagePref(this.settings.language)
   }
 
   setAuthMode(value: string): void {
@@ -481,11 +483,6 @@ export class UserSettingStore {
     this.settings.exifTagPriority = result
     this.saveSettings()
     notifySettingsWrite('exif_config')
-  }
-
-  setAutoMergeTranslatedTags(value: boolean): void {
-    this.settings.autoMergeTranslatedTags = value
-    this.saveSettings()
   }
 
   setProxyType(value: string): void {

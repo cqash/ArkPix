@@ -9,6 +9,7 @@ import {
   DETAIL_QUALITY_OPTIONS,
   DOWNLOAD_CONCURRENCY_OPTIONS
 } from './SettingWidgets';
+import { getStr } from '../../utils/I18nUtils';
 
 @Entry
 @Component
@@ -23,13 +24,13 @@ export struct DownloadSettingsPage {
     Column() {
       // 顶部导航栏
       Row() {
-        Text('< 返回')
+        Text($r('app.string.common_back_arrow'))
           .fontSize(16)
           .fontColor('#0096FA')
           .onClick(() => {
             router.back()
           })
-        Text('下载与元数据')
+        Text($r('app.string.settings_cat_download'))
           .fontSize(18)
           .fontWeight(FontWeight.Bold)
           .fontColor('#333333')
@@ -48,37 +49,37 @@ export struct DownloadSettingsPage {
       Scroll() {
         Column() {
           SettingItem({
-            title: '下载管理',
+            title: getStr($r('app.string.settings_download_manager')),
             value: '',
             onItemClick: () => {
               router.pushUrl({ url: 'pages/settings/DownloadPage' })
             }
           })
           SettingItem({
-            title: '下载图片质量',
+            title: getStr($r('app.string.settings_download_quality')),
             value: labelOf(DETAIL_QUALITY_OPTIONS, this.settings.downloadQuality),
             onItemClick: () => {
-              showQualityPicker('下载图片质量', DETAIL_QUALITY_OPTIONS, this.settings.downloadQuality,
+              showQualityPicker(getStr($r('app.string.settings_download_quality')), DETAIL_QUALITY_OPTIONS, this.settings.downloadQuality,
                 (v: number) => { userSettingStore.setDownloadQuality(v); this.refresh() })
             }
           })
           SettingItem({
-            title: '下载线程数',
+            title: getStr($r('app.string.settings_download_concurrency')),
             value: labelOf(DOWNLOAD_CONCURRENCY_OPTIONS, this.settings.downloadConcurrency),
             onItemClick: () => {
-              showQualityPicker('下载线程数', DOWNLOAD_CONCURRENCY_OPTIONS, this.settings.downloadConcurrency,
+              showQualityPicker(getStr($r('app.string.settings_download_concurrency')), DOWNLOAD_CONCURRENCY_OPTIONS, this.settings.downloadConcurrency,
                 (v: number) => { userSettingStore.setDownloadConcurrency(v); this.refresh() })
             }
           })
           SettingItem({
-            title: '文件名模板',
+            title: getStr($r('app.string.settings_filename_template')),
             value: this.settings.filenameTemplate,
             onItemClick: () => {
               router.pushUrl({ url: 'pages/settings/FilenameTemplatePage' })
             }
           })
           SwitchItem({
-            title: '写入图片元数据',
+            title: getStr($r('app.string.settings_embed_exif')),
             isOn: this.settings.embedExifMetadata,
             onToggle: () => {
               userSettingStore.setEmbedExifMetadata(!this.settings.embedExifMetadata)
@@ -86,29 +87,21 @@ export struct DownloadSettingsPage {
             }
           })
           SettingItem({
-            title: '备注模板',
+            title: getStr($r('app.string.settings_exif_template')),
             value: this.settings.exifCommentTemplate,
             onItemClick: () => {
               router.pushUrl({ url: 'pages/settings/ExifTemplatePage' })
             }
           })
           SettingItem({
-            title: 'EXIF 标签管理',
+            title: getStr($r('app.string.settings_exif_tag_config')),
             value: '',
             onItemClick: () => {
               router.pushUrl({ url: 'pages/settings/ExifTagConfigPage' })
             }
           })
           SwitchItem({
-            title: '自动合并同义标签',
-            isOn: this.settings.autoMergeTranslatedTags,
-            onToggle: () => {
-              userSettingStore.setAutoMergeTranslatedTags(!this.settings.autoMergeTranslatedTags)
-              this.refresh()
-            }
-          })
-          SwitchItem({
-            title: '下载时自动收藏',
+            title: getStr($r('app.string.settings_auto_bookmark')),
             isOn: this.settings.autoBookmarkOnDownload,
             onToggle: () => {
               userSettingStore.setAutoBookmarkOnDownload(!this.settings.autoBookmarkOnDownload)

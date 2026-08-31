@@ -4,6 +4,7 @@ import { picker, fileIo } from '@kit.CoreFileKit';
 import { accountStore } from '../../stores/AccountStore';
 import { copyText } from '../../utils/ClipboardUtils';
 import { SettingItem } from './SettingWidgets';
+import { getStr, getStrf } from '../../utils/I18nUtils';
 
 interface TokenExportData {
   version: number
@@ -23,19 +24,19 @@ export struct AccountSettingsPage {
   private showExportTokenDialog(): void {
     let account = accountStore.getCurrentAccount()
     if (!account || account.refreshToken.length === 0) {
-      promptAction.showToast({ message: '无可用 token' })
+      promptAction.showToast({ message: $r('app.string.account_no_token') })
       return
     }
     this.getUIContext().showAlertDialog({
-      title: '导出 Token',
-      message: 'Token 等同于登录凭证，泄露后他人可直接登录你的账号。请仅在可信环境使用，导出后妥善保管。',
+      title: $r('app.string.account_export_token_title'),
+      message: $r('app.string.account_export_token_msg'),
       autoCancel: true,
       primaryButton: {
-        value: '复制到剪贴板',
+        value: $r('app.string.account_copy_clipboard'),
         action: () => { this.copyToken() }
       },
       secondaryButton: {
-        value: '导出为文件',
+        value: $r('app.string.common_export_file'),
         action: () => { this.exportTokenFile() }
       }
     })
@@ -44,17 +45,17 @@ export struct AccountSettingsPage {
   private async copyToken(): Promise<void> {
     let account = accountStore.getCurrentAccount()
     if (!account || account.refreshToken.length === 0) {
-      promptAction.showToast({ message: '无可用 token' })
+      promptAction.showToast({ message: $r('app.string.account_no_token') })
       return
     }
     let ok = await copyText(account.refreshToken)
-    promptAction.showToast({ message: ok ? '已复制 refresh token 到剪贴板' : '复制失败' })
+    promptAction.showToast({ message: ok ? $r('app.string.account_token_copied') : $r('app.string.common_copy_failed') })
   }
 
   private async exportTokenFile(): Promise<void> {
     let account = accountStore.getCurrentAccount()
     if (!account || account.refreshToken.length === 0) {
-      promptAction.showToast({ message: '无可用 token' })
+      promptAction.showToast({ message: $r('app.string.account_no_token') })
       return
     }
     let exportData: TokenExportData = {
@@ -71,7 +72,7 @@ export struct AccountSettingsPage {
     try {
       let ctx = AppStorage.get<common.Context>('context')
       if (!ctx) {
-        promptAction.showToast({ message: '导出失败：无法获取上下文' })
+        promptAction.showToast({ message: $r('app.string.common_export_no_context') })
         return
       }
       let options = new picker.DocumentSaveOptions()
@@ -84,23 +85,23 @@ export struct AccountSettingsPage {
       let file = fileIo.openSync(uris[0], fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE)
       fileIo.writeSync(file.fd, json)
       fileIo.closeSync(file)
-      promptAction.showToast({ message: '导出成功' })
+      promptAction.showToast({ message: $r('app.string.common_export_success') })
     } catch (e) {
-      promptAction.showToast({ message: '导出失败: ' + e })
+      promptAction.showToast({ message: getStrf($r('app.string.common_export_failed'), String(e)) })
     }
   }
 
   private confirmLogout(): void {
     this.getUIContext().showAlertDialog({
-      title: '退出登录',
-      message: '确定要退出当前账号吗？',
+      title: $r('app.string.account_logout_title'),
+      message: $r('app.string.account_logout_msg'),
       autoCancel: true,
       primaryButton: {
-        value: '取消',
+        value: $r('app.string.common_cancel'),
         action: () => {}
       },
       secondaryButton: {
-        value: '退出',
+        value: $r('app.string.account_logout_btn'),
         action: () => {
           accountStore.logout()
           router.replaceUrl({ url: 'pages/login/LoginPage' })
@@ -113,13 +114,13 @@ export struct AccountSettingsPage {
     Column() {
       // 顶部导航栏
       Row() {
-        Text('< 返回')
+        Text($r('app.string.common_back_arrow'))
           .fontSize(16)
           .fontColor('#0096FA')
           .onClick(() => {
             router.back()
           })
-        Text('账户')
+        Text($r('app.string.settings_cat_account'))
           .fontSize(18)
           .fontWeight(FontWeight.Bold)
           .fontColor('#333333')
@@ -138,14 +139,14 @@ export struct AccountSettingsPage {
       Scroll() {
         Column() {
           SettingItem({
-            title: '导出 Token',
+            title: getStr($r('app.string.account_export_token_title')),
             value: '',
             onItemClick: () => {
               this.showExportTokenDialog()
             }
           })
           Row() {
-            Text('退出登录')
+            Text($r('app.string.account_logout_title'))
               .fontSize(14)
               .fontColor('#FF4444')
             Text(' >')

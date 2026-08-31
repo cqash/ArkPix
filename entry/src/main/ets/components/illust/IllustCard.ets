@@ -6,6 +6,7 @@ import { bookmarkStateStore, BOOKMARK_LOADING, BOOKMARK_DONE } from '../../store
 import { userSettingStore } from '../../stores/UserSettingStore';
 import { downloadService } from '../../services/DownloadService';
 import { pickPreviewUrl, pickDetailUrl } from '../../utils/ImageUrlUtils';
+import { getStr, getStrf } from '../../utils/I18nUtils';
 
 /**
  * 公共插画卡片（@Reusable）：
@@ -74,15 +75,15 @@ export struct IllustCard {
     let downloaded = await downloadService.isDownloaded(this.illust.id, 0)
     if (downloaded) {
       this.getUIContext().showAlertDialog({
-        title: '提示',
-        message: '该图片已下载过',
+        title: $r('app.string.common_tip'),
+        message: $r('app.string.common_img_downloaded'),
         autoCancel: true,
         primaryButton: {
-          value: '取消',
+          value: $r('app.string.common_cancel'),
           action: () => {}
         },
         secondaryButton: {
-          value: '仍要下载',
+          value: $r('app.string.common_download_anyway'),
           action: () => { this.doSaveImage() }
         }
       })
@@ -95,7 +96,7 @@ export struct IllustCard {
     let quality = userSettingStore.getSettings().downloadQuality
     let url = pickDetailUrl(this.illust, 0, quality)
     downloadService.enqueue(url, this.illust, 0)
-    this.showToast('已加入下载任务')
+    this.showToast(getStr($r('app.string.common_added_download')))
     if (userSettingStore.getSettings().autoBookmarkOnDownload && this.heartState() !== BOOKMARK_DONE) {
       await bookmarkStateStore.star(this.illust)
     }
@@ -115,7 +116,7 @@ export struct IllustCard {
 
   private muteAuthor(): void {
     userSettingStore.addMuteUser(this.illust.user.id)
-    this.showToast('已屏蔽作者: ' + this.illust.user.name)
+    this.showToast(getStrf($r('app.string.card_muted_author'), this.illust.user.name))
     this.onMuteChange()
   }
 
@@ -132,9 +133,9 @@ export struct IllustCard {
   @Builder
   MenuBuilder() {
     Column() {
-      this.MenuItem('保存图片', () => { this.saveImage() })
-      this.MenuItem(this.heartState() === BOOKMARK_DONE ? '取消收藏' : '收藏', () => { this.toggleBookmark() })
-      this.MenuItem('屏蔽该作者', () => { this.muteAuthor() })
+      this.MenuItem(getStr($r('app.string.card_save_image')), () => { this.saveImage() })
+      this.MenuItem(this.heartState() === BOOKMARK_DONE ? getStr($r('app.string.card_unbookmark')) : getStr($r('app.string.card_bookmark')), () => { this.toggleBookmark() })
+      this.MenuItem(getStr($r('app.string.card_mute_author')), () => { this.muteAuthor() })
     }
     .width(160)
     .padding({ top: 4, bottom: 4 })
@@ -160,7 +161,7 @@ export struct IllustCard {
     Column() {
       Stack({ alignContent: Alignment.TopEnd }) {
         Column() {
-          Text('已删除')
+          Text($r('app.string.card_deleted'))
             .fontSize(13)
             .fontColor('#999999')
         }
@@ -169,7 +170,7 @@ export struct IllustCard {
         .justifyContent(FlexAlign.Center)
         .backgroundColor('#E0E0E0')
         .borderRadius(8)
-        Text('已删除')
+        Text($r('app.string.card_deleted'))
           .fontSize(10)
           .fontColor('#FFFFFF')
           .backgroundColor('rgba(0, 0, 0, 0.45)')

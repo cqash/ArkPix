@@ -366,7 +366,7 @@ export class DistributedSyncService {
   /**
    * 可同步字段全集序列化。
    * 排除设备本地字段：deviceSyncEnabled / autoSyncForeground / syncEnabled（Relay 账号绑定）
-   * / relayServerUrl / prevAuthMode / prevApiMode。
+   * / relayServerUrl / prevAuthMode / prevApiMode / language（界面语言偏好，设备本地）。
    * 另排除浏览相关字段（FR-012，不同设备屏幕尺寸/形态不同，保持设备本地）：
    * pictureQuality / mangaQuality / previewQuality / detailQuality / fullScreenQuality
    * / crossCount / isTopMode；downloadQuality 等非浏览字段仍同步。
@@ -375,7 +375,6 @@ export class DistributedSyncService {
     let payload: Record<string, Object> = {}
     payload['downloadQuality'] = settings.downloadQuality
     payload['theme'] = settings.theme
-    payload['language'] = settings.language
     payload['authMode'] = settings.authMode
     payload['apiMode'] = settings.apiMode
     payload['muteTags'] = settings.muteTags
@@ -392,7 +391,6 @@ export class DistributedSyncService {
     payload['exifMutedTags'] = settings.exifMutedTags
     payload['exifMergedTags'] = settings.exifMergedTags
     payload['exifTagPriority'] = settings.exifTagPriority
-    payload['autoMergeTranslatedTags'] = settings.autoMergeTranslatedTags
     payload['downloadConcurrency'] = settings.downloadConcurrency
     payload['proxyType'] = settings.proxyType
     payload['proxyHost'] = settings.proxyHost
@@ -464,7 +462,6 @@ export class DistributedSyncService {
     this.applyNumberField(fields, 'downloadQuality', current.downloadQuality,
       (v: number) => userSettingStore.setDownloadQuality(v))
     this.applyStringField(fields, 'theme', current.theme, (v: string) => userSettingStore.setTheme(v))
-    this.applyStringField(fields, 'language', current.language, (v: string) => userSettingStore.setLanguage(v))
     this.applyStringField(fields, 'authMode', current.authMode, (v: string) => userSettingStore.setAuthMode(v))
     this.applyStringField(fields, 'apiMode', current.apiMode, (v: string) => userSettingStore.setApiMode(v))
     this.applyBooleanField(fields, 'aiFilter', current.aiFilter, (v: boolean) => userSettingStore.setAiFilter(v))
@@ -484,8 +481,6 @@ export class DistributedSyncService {
       (v: boolean) => userSettingStore.setShowR18Rank(v))
     this.applyBooleanField(fields, 'antiSocialDeath', current.antiSocialDeath,
       (v: boolean) => userSettingStore.setAntiSocialDeath(v))
-    this.applyBooleanField(fields, 'autoMergeTranslatedTags', current.autoMergeTranslatedTags,
-      (v: boolean) => userSettingStore.setAutoMergeTranslatedTags(v))
     this.applyNumberField(fields, 'downloadConcurrency', current.downloadConcurrency,
       (v: number) => userSettingStore.setDownloadConcurrency(v))
     this.applyStringField(fields, 'proxyType', current.proxyType,

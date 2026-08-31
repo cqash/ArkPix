@@ -40,7 +40,7 @@ struct HomePage {
   }
 
   @Builder
-  TabBuilder(title: string, index: number) {
+  TabBuilder(title: Resource, index: number) {
     Column() {
       Text(title)
         .fontSize(10)
@@ -57,27 +57,27 @@ struct HomePage {
       TabContent() {
         RecomPage()
       }
-      .tabBar(this.TabBuilder('推荐', 0))
+      .tabBar(this.TabBuilder($r('app.string.home_tab_recom'), 0))
 
       TabContent() {
         FollowPage()
       }
-      .tabBar(this.TabBuilder('动态', 1))
+      .tabBar(this.TabBuilder($r('app.string.home_tab_follow'), 1))
 
       TabContent() {
         RankPage()
       }
-      .tabBar(this.TabBuilder('排行', 2))
+      .tabBar(this.TabBuilder($r('app.string.home_tab_rank'), 2))
 
       TabContent() {
         SearchPage()
       }
-      .tabBar(this.TabBuilder('搜索', 3))
+      .tabBar(this.TabBuilder($r('app.string.home_tab_search'), 3))
 
       TabContent() {
         SettingsPage()
       }
-      .tabBar(this.TabBuilder('设置', 4))
+      .tabBar(this.TabBuilder($r('app.string.home_tab_settings'), 4))
     }
     .onChange((index: number) => {
       this.currentIndex = index

@@ -17,6 +17,7 @@ import {
   imageHostLabel,
   imageHostIndex
 } from './SettingWidgets';
+import { getStr } from '../../utils/I18nUtils';
 
 @Entry
 @Component
@@ -34,11 +35,11 @@ export struct NetworkSettingsPage {
     }
     if (userSettingStore.getSettings().relayServerUrl.trim().length === 0) {
       this.getUIContext().showAlertDialog({
-        title: '未配置中继服务器',
-        message: '请先在"中继服务器与同步"页填写服务器地址并完成注册，再切换中继模式。',
+        title: $r('app.string.settings_relay_missing_title'),
+        message: $r('app.string.settings_relay_missing_msg'),
         autoCancel: true,
         primaryButton: {
-          value: '知道了',
+          value: $r('app.string.settings_got_it'),
           action: () => {}
         }
       })
@@ -80,13 +81,13 @@ export struct NetworkSettingsPage {
     Column() {
       // 顶部导航栏
       Row() {
-        Text('< 返回')
+        Text($r('app.string.common_back_arrow'))
           .fontSize(16)
           .fontColor('#0096FA')
           .onClick(() => {
             router.back()
           })
-        Text('网络')
+        Text($r('app.string.settings_cat_network'))
           .fontSize(18)
           .fontWeight(FontWeight.Bold)
           .fontColor('#333333')
@@ -105,37 +106,37 @@ export struct NetworkSettingsPage {
       Scroll() {
         Column() {
           SettingItem({
-            title: '认证方式',
+            title: getStr($r('app.string.settings_auth_mode')),
             value: networkModeLabel(this.settings.authMode),
             onItemClick: () => {
-              showQualityPicker('认证方式', NETWORK_MODE_OPTIONS, networkModeIndex(this.settings.authMode),
+              showQualityPicker(getStr($r('app.string.settings_auth_mode')), NETWORK_MODE_OPTIONS, networkModeIndex(this.settings.authMode),
                 (v: number) => {
                   this.applyAuthMode(NETWORK_MODE_VALUES[v])
                 })
             }
           })
           SettingItem({
-            title: 'API 方式',
+            title: getStr($r('app.string.settings_api_mode')),
             value: networkModeLabel(this.settings.apiMode),
             onItemClick: () => {
-              showQualityPicker('API 方式', NETWORK_MODE_OPTIONS, networkModeIndex(this.settings.apiMode),
+              showQualityPicker(getStr($r('app.string.settings_api_mode')), NETWORK_MODE_OPTIONS, networkModeIndex(this.settings.apiMode),
                 (v: number) => {
                   this.applyApiMode(NETWORK_MODE_VALUES[v])
                 })
             }
           })
 
-          Text('兼容=直连 Pixiv 真实 IP 且不发送 SNI（bypass sni + DoH）；增强=ECH（当前版本等价于兼容）；标准=直连；中继=全部经自建 Relay Server 中转')
+          Text($r('app.string.settings_net_mode_desc'))
             .fontSize(12)
             .fontColor('#999999')
             .width('100%')
             .padding({ left: 16, right: 16, top: 4, bottom: 8 })
 
           SettingItem({
-            title: '图床',
+            title: getStr($r('app.string.settings_image_host')),
             value: imageHostLabel(this.settings.imageHostType),
             onItemClick: () => {
-              showQualityPicker('图床', IMAGE_HOST_OPTIONS, imageHostIndex(this.settings.imageHostType),
+              showQualityPicker(getStr($r('app.string.settings_image_host')), IMAGE_HOST_OPTIONS, imageHostIndex(this.settings.imageHostType),
                 (v: number) => {
                   userSettingStore.setImageHostType(IMAGE_HOST_VALUES[v])
                   this.refresh()
@@ -144,8 +145,8 @@ export struct NetworkSettingsPage {
           })
           if (this.settings.imageHostType === 'custom') {
             TextInputItem({
-              title: '自定义图床',
-              placeholder: '如 i.pixiv.re',
+              title: getStr($r('app.string.settings_image_host_custom_title')),
+              placeholder: getStr($r('app.string.settings_image_host_custom_placeholder')),
               value: this.settings.imageHostCustom,
               onTextChange: (text: string) => {
                 userSettingStore.setImageHostCustom(text)

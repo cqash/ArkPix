@@ -2,6 +2,7 @@ import { router } from '@kit.ArkUI';
 import { AppSettings } from '../../models/AppSettings';
 import { userSettingStore } from '../../stores/UserSettingStore';
 import { SettingItem, SwitchItem } from './SettingWidgets';
+import { getStr, getStrf } from '../../utils/I18nUtils';
 
 @Entry
 @Component
@@ -16,13 +17,13 @@ export struct FilterSettingsPage {
     Column() {
       // 顶部导航栏
       Row() {
-        Text('< 返回')
+        Text($r('app.string.common_back_arrow'))
           .fontSize(16)
           .fontColor('#0096FA')
           .onClick(() => {
             router.back()
           })
-        Text('屏蔽与过滤')
+        Text($r('app.string.settings_cat_filter'))
           .fontSize(18)
           .fontWeight(FontWeight.Bold)
           .fontColor('#333333')
@@ -41,15 +42,15 @@ export struct FilterSettingsPage {
       Scroll() {
         Column() {
           SettingItem({
-            title: '屏蔽管理',
+            title: getStr($r('app.string.settings_mute_manager')),
             value: this.settings.muteTags.length + this.settings.muteUsers.length > 0 ?
-              (this.settings.muteTags.length + this.settings.muteUsers.length) + ' 条规则' : '',
+              getStrf($r('app.string.filter_mute_rules_count'), this.settings.muteTags.length + this.settings.muteUsers.length) : '',
             onItemClick: () => {
               router.pushUrl({ url: 'pages/settings/MutePage' })
             }
           })
           SwitchItem({
-            title: '过滤 AI 作品',
+            title: getStr($r('app.string.settings_ai_filter')),
             isOn: this.settings.aiFilter,
             onToggle: () => {
               userSettingStore.setAiFilter(!this.settings.aiFilter)

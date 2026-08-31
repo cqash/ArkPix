@@ -17,6 +17,7 @@ import {
   SELF_TEST_RUNNING
 } from '../../services/RelaySelfTestService';
 import { SettingItem, SwitchItem, TextInputItem } from './SettingWidgets';
+import { getStr, getStrf } from '../../utils/I18nUtils';
 
 /** 同步账号导出文件格式（arkpix-sync-account.json） */
 interface SyncAccountExportData {
@@ -69,7 +70,14 @@ export struct RelaySettingsPage {
   @State selfTestResults: SelfTestItemResult[] = []
   @State selfTestRunning: boolean = false
 
-  private syncDomainLabels: string[] = ['浏览历史', '搜索历史', '收藏快照', '屏蔽列表', 'EXIF 配置', '应用设置']
+  private syncDomainRess: Resource[] = [
+    $r('app.string.relay_domain_history'),
+    $r('app.string.relay_domain_search'),
+    $r('app.string.relay_domain_bookmark'),
+    $r('app.string.relay_domain_mute'),
+    $r('app.string.relay_domain_exif'),
+    $r('app.string.relay_domain_settings')
+  ]
 
   aboutToAppear(): void {
     this.refreshRelayState()
@@ -105,18 +113,18 @@ export struct RelaySettingsPage {
       return
     }
     if (this.settings.relayServerUrl.trim().length === 0) {
-      promptAction.showToast({ message: '请先填写服务器地址' })
+      promptAction.showToast({ message: $r('app.string.relay_need_server_url') })
       return
     }
     this.relayBusy = true
     try {
       await relayClient.register(this.settings.relayServerUrl, this.getDeviceName(),
         this.inviteCodeInput.trim(), this.accountKeyInput.trim())
-      promptAction.showToast({ message: '注册成功，已连接中继服务器' })
+      promptAction.showToast({ message: $r('app.string.relay_register_ok') })
     } catch (e) {
       // 注册失败展示服务端错误 message
       let msg = e instanceof Error ? e.message : String(e)
-      promptAction.showToast({ message: '注册失败: ' + msg })
+      promptAction.showToast({ message: getStrf($r('app.string.relay_register_failed'), msg) })
     } finally {
       this.relayBusy = false
       this.refreshRelayState()
@@ -128,15 +136,16 @@ export struct RelaySettingsPage {
       return
     }
     if (!syncService.isSyncReady()) {
-      promptAction.showToast({ message: '请先开启同步开关并完成中继注册' })
+      promptAction.showToast({ message: $r('app.string.relay_need_sync_ready') })
       return
     }
     this.syncBusy = true
     try {
       let ok = await syncService.syncNow()
-      promptAction.showToast({ message: ok ? '同步完成' : '部分同步失败，将自动重试' })
+      promptAction.showToast({ message: ok ? $r('app.string.relay_sync_done') : $r('app.string.relay_sync_partial') })
     } catch (e) {
-      promptAction.showToast({ message: '同步失败: ' + (e instanceof Error ? e.message : String(e)) })
+      promptAction.showToast({ message: getStrf($r('app.string.relay_sync_failed'),
+        (e instanceof Error ? e.message : String(e))) })
     } finally {
       this.syncBusy = false
     }
@@ -146,23 +155,23 @@ export struct RelaySettingsPage {
   private showExportAccountKeyDialog(): void {
     let key = relayClient.getAccountKey()
     if (key.length === 0) {
-      promptAction.showToast({ message: '无可用同步账号' })
+      promptAction.showToast({ message: $r('app.string.relay_no_account') })
       return
     }
     this.getUIContext().showAlertDialog({
-      title: '导出同步账号',
-      message: 'accountKey 等同于同步账号凭证，泄露后他人可加入你的同步账号并读取全部同步数据（历史/屏蔽/设置/收藏快照）。请仅在可信设备间使用。',
+      title: $r('app.string.relay_export_account_title'),
+      message: $r('app.string.relay_export_account_msg'),
       autoCancel: true,
       primaryButton: {
-        value: '复制 accountKey',
+        value: $r('app.string.relay_copy_accountkey'),
         action: () => {
           copyText(key).then((ok: boolean) => {
-            promptAction.showToast({ message: ok ? '已复制 accountKey' : '复制失败' })
+            promptAction.showToast({ message: ok ? $r('app.string.relay_copied_accountkey') : $r('app.string.common_copy_failed') })
           })
         }
       },
       secondaryButton: {
-        value: '导出为文件',
+        value: $r('app.string.common_export_file'),
         action: () => { this.exportAccountKeyFile(key) }
       }
     })
@@ -181,7 +190,7 @@ export struct RelaySettingsPage {
     try {
       let ctx = AppStorage.get<common.Context>('context')
       if (!ctx) {
-        promptAction.showToast({ message: '导出失败：无法获取上下文' })
+        promptAction.showToast({ message: $r('app.string.common_export_no_context') })
         return
       }
       let options = new picker.DocumentSaveOptions()
@@ -194,9 +203,9 @@ export struct RelaySettingsPage {
       let file = fileIo.openSync(uris[0], fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE)
       fileIo.writeSync(file.fd, json)
       fileIo.closeSync(file)
-      promptAction.showToast({ message: '导出成功' })
+      promptAction.showToast({ message: $r('app.string.common_export_success') })
     } catch (e) {
-      promptAction.showToast({ message: '导出失败: ' + e })
+      promptAction.showToast({ message: getStrf($r('app.string.common_export_failed'), String(e)) })
     }
   }
 
@@ -205,13 +214,13 @@ export struct RelaySettingsPage {
   /** PasteButton 安全控件点击成功后的临时授权窗口内读取剪贴板 */
   private onPasteImportClick(result: PasteButtonOnClickResult): void {
     if (result !== PasteButtonOnClickResult.SUCCESS) {
-      promptAction.showToast({ message: '粘贴授权被取消' })
+      promptAction.showToast({ message: $r('app.string.relay_paste_denied') })
       return
     }
     pasteText().then((text: string) => {
       let key = extractAccountKey(text)
       if (key.length === 0) {
-        promptAction.showToast({ message: '剪贴板中未找到有效 accountKey' })
+        promptAction.showToast({ message: $r('app.string.relay_paste_no_key') })
         return
       }
       this.confirmImportAccount(key)
@@ -223,7 +232,7 @@ export struct RelaySettingsPage {
     try {
       let ctx = AppStorage.get<common.Context>('context')
       if (!ctx) {
-        promptAction.showToast({ message: '导入失败：无法获取上下文' })
+        promptAction.showToast({ message: $r('app.string.common_import_no_context') })
         return
       }
       let options = new picker.DocumentSelectOptions()
@@ -237,7 +246,7 @@ export struct RelaySettingsPage {
       let stat = fileIo.statSync(file.fd)
       if (stat.size > 64 * 1024) {
         fileIo.closeSync(file)
-        promptAction.showToast({ message: '文件过大，不是有效的账号导出文件' })
+        promptAction.showToast({ message: $r('app.string.relay_file_too_large') })
         return
       }
       let buf = new ArrayBuffer(stat.size)
@@ -247,12 +256,12 @@ export struct RelaySettingsPage {
       let content = decoder.decodeToString(new Uint8Array(buf))
       let key = extractAccountKey(content)
       if (key.length === 0) {
-        promptAction.showToast({ message: '文件中未找到有效 accountKey' })
+        promptAction.showToast({ message: $r('app.string.relay_file_no_key') })
         return
       }
       this.confirmImportAccount(key)
     } catch (e) {
-      promptAction.showToast({ message: '导入失败: ' + e })
+      promptAction.showToast({ message: getStrf($r('app.string.common_import_failed'), String(e)) })
     }
   }
 
@@ -260,15 +269,15 @@ export struct RelaySettingsPage {
   private confirmImportAccount(key: string): void {
     let masked = key.length > 8 ? key.substring(0, 8) + '...' : key
     this.getUIContext().showAlertDialog({
-      title: '导入同步账号',
-      message: '将加入 accountKey（' + masked + '）对应的同步账号，并替换本机当前的中继注册。该账号下其他设备的同步数据将拉取到本机。',
+      title: $r('app.string.relay_import_account_title'),
+      message: getStrf($r('app.string.relay_import_account_msg'), masked),
       autoCancel: true,
       primaryButton: {
-        value: '取消',
+        value: $r('app.string.common_cancel'),
         action: () => {}
       },
       secondaryButton: {
-        value: '导入',
+        value: $r('app.string.common_import'),
         action: () => { this.doImportAccount(key) }
       }
     })
@@ -281,7 +290,7 @@ export struct RelaySettingsPage {
     this.relayBusy = true
     try {
       await relayClient.register(this.settings.relayServerUrl, this.getDeviceName(), '', key)
-      promptAction.showToast({ message: '导入成功，已加入同步账号' })
+      promptAction.showToast({ message: $r('app.string.relay_import_done') })
       // 导入成功后立即拉一轮远端数据（开关就绪时）
       if (syncService.isSyncReady()) {
         syncService.syncNow().catch((e: Object) => {
@@ -290,7 +299,7 @@ export struct RelaySettingsPage {
       }
     } catch (e) {
       let msg = e instanceof Error ? e.message : String(e)
-      promptAction.showToast({ message: '导入失败: ' + msg })
+      promptAction.showToast({ message: getStrf($r('app.string.common_import_failed'), msg) })
     } finally {
       this.relayBusy = false
       this.refreshRelayState()
@@ -318,18 +327,18 @@ export struct RelaySettingsPage {
 
   private selfTestStatusText(status: string): string {
     if (status === SELF_TEST_PASSED) {
-      return '通过'
+      return getStr($r('app.string.relay_selftest_passed'))
     }
     if (status === SELF_TEST_FAILED) {
-      return '失败'
+      return getStr($r('app.string.relay_selftest_failed'))
     }
     if (status === SELF_TEST_SKIPPED) {
-      return '跳过'
+      return getStr($r('app.string.relay_selftest_skipped'))
     }
     if (status === SELF_TEST_RUNNING) {
-      return '进行中…'
+      return getStr($r('app.string.relay_selftest_running'))
     }
-    return '等待'
+    return getStr($r('app.string.relay_selftest_waiting'))
   }
 
   private selfTestStatusColor(status: string): string {
@@ -347,30 +356,30 @@ export struct RelaySettingsPage {
 
   private selfTestSummary(): string {
     if (this.selfTestRunning) {
-      return '正在检测…'
+      return getStr($r('app.string.relay_selftest_running_summary'))
     }
     let passed = relaySelfTestService.countPassed(this.selfTestResults)
     if (passed === this.selfTestResults.length) {
-      return '后端功能全部就绪 (' + passed + '/' + this.selfTestResults.length + ')'
+      return getStrf($r('app.string.relay_selftest_all_ready'), passed, this.selfTestResults.length)
     }
-    return (this.selfTestResults.length - passed) + ' 项异常'
+    return getStrf($r('app.string.relay_selftest_abnormal'), this.selfTestResults.length - passed)
   }
 
   private confirmRelayLogout(): void {
     this.getUIContext().showAlertDialog({
-      title: '注销中继账号',
-      message: '将清除本机的中继服务令牌（不影响 Pixiv 登录态与服务器地址配置）。其他设备数据仍保留在服务器。',
+      title: $r('app.string.relay_logout_title'),
+      message: $r('app.string.relay_logout_msg'),
       autoCancel: true,
       primaryButton: {
-        value: '取消',
+        value: $r('app.string.common_cancel'),
         action: () => {}
       },
       secondaryButton: {
-        value: '注销',
+        value: $r('app.string.relay_logout_btn'),
         action: () => {
           relayClient.logout()
           this.refreshRelayState()
-          promptAction.showToast({ message: '已注销中继账号' })
+          promptAction.showToast({ message: $r('app.string.relay_logged_out') })
         }
       }
     })
@@ -380,7 +389,7 @@ export struct RelaySettingsPage {
   SelfTestOverlay() {
     Column() {
       Column() {
-        Text('后端自检')
+        Text($r('app.string.relay_selftest_title'))
           .fontSize(18)
           .fontWeight(FontWeight.Bold)
           .fontColor('#333333')
@@ -439,7 +448,7 @@ export struct RelaySettingsPage {
           .width('100%')
           .textAlign(TextAlign.Center)
           .margin({ top: 12 })
-        Text('关闭')
+        Text($r('app.string.common_close'))
           .fontSize(14)
           .fontColor('#0096FA')
           .padding({ left: 24, right: 24, top: 10, bottom: 10 })
@@ -471,13 +480,13 @@ export struct RelaySettingsPage {
       Column() {
         // 顶部导航栏
         Row() {
-          Text('< 返回')
+          Text($r('app.string.common_back_arrow'))
             .fontSize(16)
             .fontColor('#0096FA')
             .onClick(() => {
               router.back()
             })
-          Text('中继服务器与同步')
+          Text($r('app.string.relay_page_title'))
             .fontSize(18)
             .fontWeight(FontWeight.Bold)
             .fontColor('#333333')
@@ -496,7 +505,7 @@ export struct RelaySettingsPage {
         Scroll() {
           Column() {
             TextInputItem({
-              title: '服务器地址',
+              title: getStr($r('app.string.relay_server_url')),
               placeholder: 'https://relay.example.com',
               value: this.settings.relayServerUrl,
               onTextChange: (text: string) => {
@@ -506,23 +515,23 @@ export struct RelaySettingsPage {
             })
             if (!this.relayRegistered) {
               TextInputItem({
-                title: '邀请码（可选）',
-                placeholder: '服务器需要邀请码时填写',
+                title: getStr($r('app.string.relay_invite_title')),
+                placeholder: getStr($r('app.string.relay_invite_placeholder')),
                 value: this.inviteCodeInput,
                 onTextChange: (text: string) => {
                   this.inviteCodeInput = text
                 }
               })
               TextInputItem({
-                title: '同步账号（可选）',
-                placeholder: '导入 accountKey 加入已有账号',
+                title: getStr($r('app.string.relay_account_title')),
+                placeholder: getStr($r('app.string.relay_account_placeholder')),
                 value: this.accountKeyInput,
                 onTextChange: (text: string) => {
                   this.accountKeyInput = text
                 }
               })
               SettingItem({
-                title: this.relayBusy ? '注册中…' : '注册 / 登录',
+                title: this.relayBusy ? getStr($r('app.string.relay_registering')) : getStr($r('app.string.relay_register_btn')),
                 value: '',
                 onItemClick: () => {
                   this.doRegister()
@@ -530,14 +539,14 @@ export struct RelaySettingsPage {
               })
             } else {
               SettingItem({
-                title: '状态',
-                value: '已连接' +
+                title: getStr($r('app.string.common_status')),
+                value: getStr($r('app.string.relay_connected')) +
                   (this.relayServerVersion.length > 0 ? ' · v' + this.relayServerVersion : '') +
                   (this.relayAccountKeyMasked.length > 0 ? ' · ' + this.relayAccountKeyMasked : '')
               })
               if (this.relayHasSync) {
                 SwitchItem({
-                  title: '数据同步（历史/屏蔽/设置/收藏快照）',
+                  title: getStr($r('app.string.relay_sync_switch')),
                   isOn: this.settings.syncEnabled,
                   onToggle: () => {
                     let next = !this.settings.syncEnabled
@@ -550,7 +559,7 @@ export struct RelaySettingsPage {
                   }
                 })
                 SwitchItem({
-                  title: '自动同步（回到前台时，5 分钟节流）',
+                  title: getStr($r('app.string.relay_autosync_switch')),
                   isOn: this.settings.autoSyncForeground,
                   onToggle: () => {
                     userSettingStore.setAutoSyncForeground(!this.settings.autoSyncForeground)
@@ -559,28 +568,28 @@ export struct RelaySettingsPage {
                 })
                 if (this.settings.syncEnabled) {
                   SettingItem({
-                    title: '立即同步',
-                    value: this.syncBusy ? '同步中…' : '',
+                    title: getStr($r('app.string.relay_sync_now')),
+                    value: this.syncBusy ? getStr($r('app.string.relay_syncing')) : '',
                     onItemClick: () => {
                       this.doSyncNow()
                     }
                   })
                   ForEach(SYNC_DOMAINS, (domain: string, index: number) => {
                     SettingItem({
-                      title: this.syncDomainLabels[index] ?? domain,
+                      title: index < this.syncDomainRess.length ? getStr(this.syncDomainRess[index]) : domain,
                       value: syncService.getLastSyncText(domain)
                     })
                   }, (domain: string) => domain)
                 }
                 SettingItem({
-                  title: '导出同步账号',
+                  title: getStr($r('app.string.relay_export_account_title')),
                   value: '',
                   onItemClick: () => {
                     this.showExportAccountKeyDialog()
                   }
                 })
               } else {
-                Text('当前服务器不支持数据同步（capabilities 缺少 sync）')
+                Text($r('app.string.relay_no_sync_capability'))
                   .fontSize(12)
                   .fontColor('#999999')
                   .width('100%')
@@ -588,7 +597,7 @@ export struct RelaySettingsPage {
               }
               // 导入同步账号：剪贴板走 PasteButton 安全控件（点击获临时剪贴板读权限），文件走 DocumentSelectPicker
               Row() {
-                Text('从剪贴板导入同步账号')
+                Text($r('app.string.relay_import_clipboard'))
                   .fontSize(14)
                   .fontColor('#333333')
                   .layoutWeight(1)
@@ -602,28 +611,28 @@ export struct RelaySettingsPage {
               .padding({ left: 16, right: 16 })
               .backgroundColor('#FFFFFF')
               SettingItem({
-                title: '从文件导入同步账号',
+                title: getStr($r('app.string.relay_import_file')),
                 value: '',
                 onItemClick: () => {
                   this.importFromFile()
                 }
               })
               SettingItem({
-                title: '后端自检',
-                value: this.selfTestRunning ? '检测中…' : '探测六个端点',
+                title: getStr($r('app.string.relay_selftest_title')),
+                value: this.selfTestRunning ? getStr($r('app.string.relay_selftesting')) : getStr($r('app.string.relay_selftest_value')),
                 onItemClick: () => {
                   this.startSelfTest()
                 }
               })
               SettingItem({
-                title: '注销中继账号',
+                title: getStr($r('app.string.relay_logout_title')),
                 value: '',
                 onItemClick: () => {
                   this.confirmRelayLogout()
                 }
               })
             }
-            Text('中继模式下 API/OAuth/图片全部经服务器中转（需服务器配置合法 HTTPS 证书）')
+            Text($r('app.string.relay_mode_note'))
               .fontSize(12)
               .fontColor('#999999')
               .width('100%')

@@ -65,7 +65,7 @@ struct SplashPage {
         // 凭证被服务端明确判定失效后引导重新登录（临时网络故障不会走到这里）
         let needsRelogin = AppStorage.get<boolean>('needsRelogin') ?? false
         if (needsRelogin || accountStore.getNeedsRelogin()) {
-          promptAction.showToast({ message: '登录已过期，请重新登录' })
+          promptAction.showToast({ message: $r('app.string.splash_session_expired') })
           accountStore.clearNeedsRelogin()
         }
         router.replaceUrl({ url: 'pages/login/LoginPage' })

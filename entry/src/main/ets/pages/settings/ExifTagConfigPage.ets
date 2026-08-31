@@ -3,6 +3,7 @@ import { common } from '@kit.AbilityKit';
 import { picker, fileIo } from '@kit.CoreFileKit';
 import { userSettingStore } from '../../stores/UserSettingStore';
 import { AppSettings, ExifTagMergeRule } from '../../models/AppSettings';
+import { getStrf } from '../../utils/I18nUtils';
 
 interface ExifExportData {
   version: number
@@ -118,7 +119,7 @@ struct ExifTagConfigPage {
     try {
       let ctx = AppStorage.get<common.Context>('context')
       if (!ctx) {
-        promptAction.showToast({ message: '导出失败：无法获取上下文' })
+        promptAction.showToast({ message: $r('app.string.common_export_no_context') })
         return
       }
       let options = new picker.DocumentSaveOptions()
@@ -131,9 +132,9 @@ struct ExifTagConfigPage {
       let file = fileIo.openSync(uris[0], fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE)
       fileIo.writeSync(file.fd, json)
       fileIo.closeSync(file)
-      promptAction.showToast({ message: '导出成功' })
+      promptAction.showToast({ message: $r('app.string.common_export_success') })
     } catch (e) {
-      promptAction.showToast({ message: '导出失败: ' + e })
+      promptAction.showToast({ message: getStrf($r('app.string.common_export_failed'), String(e)) })
     }
   }
 
@@ -141,7 +142,7 @@ struct ExifTagConfigPage {
     try {
       let ctx = AppStorage.get<common.Context>('context')
       if (!ctx) {
-        promptAction.showToast({ message: '导入失败：无法获取上下文' })
+        promptAction.showToast({ message: $r('app.string.common_import_no_context') })
         return
       }
       let selectOptions = new picker.DocumentSelectOptions()
@@ -157,11 +158,11 @@ struct ExifTagConfigPage {
 
       // Validate version
       if (parsed.version !== 1) {
-        promptAction.showToast({ message: '不支持该格式版本' })
+        promptAction.showToast({ message: $r('app.string.exif_import_bad_version') })
         return
       }
       if (!parsed.exifMutedTags || !parsed.exifMergedTags || !parsed.exifTagPriority) {
-        promptAction.showToast({ message: '文件格式不正确' })
+        promptAction.showToast({ message: $r('app.string.exif_import_bad_format') })
         return
       }
 
@@ -193,9 +194,9 @@ struct ExifTagConfigPage {
       userSettingStore.setExifTagPriority(currentPriority)
 
       this.refresh()
-      promptAction.showToast({ message: '导入成功' })
+      promptAction.showToast({ message: $r('app.string.common_import_success') })
     } catch (e) {
-      promptAction.showToast({ message: '导入失败: ' + e })
+      promptAction.showToast({ message: getStrf($r('app.string.common_import_failed'), String(e)) })
     }
   }
 
@@ -203,13 +204,13 @@ struct ExifTagConfigPage {
     Column() {
       // 顶部导航栏
       Row() {
-        Text('< 返回')
+        Text($r('app.string.common_back_arrow'))
           .fontSize(16)
           .fontColor('#0096FA')
           .onClick(() => {
             router.back()
           })
-        Text('EXIF 标签管理')
+        Text($r('app.string.exif_tag_config_title'))
           .fontSize(18)
           .fontWeight(FontWeight.Bold)
           .fontColor('#333333')
@@ -229,19 +230,19 @@ struct ExifTagConfigPage {
         // ====== 备注屏蔽标签 ======
         ListItem() {
           Column() {
-            Text('备注屏蔽标签')
+            Text($r('app.string.exif_section_muted'))
               .fontSize(12)
               .fontColor('#999999')
               .width('100%')
               .padding({ left: 16, bottom: 4 })
 
             Row() {
-              TextInput({ placeholder: '输入要屏蔽的标签名', text: $$this.newMutedTag })
+              TextInput({ placeholder: $r('app.string.exif_muted_placeholder'), text: $$this.newMutedTag })
                 .height(40)
                 .layoutWeight(1)
                 .backgroundColor('#FFFFFF')
                 .onSubmit(() => { this.addMutedTag() })
-              Button('添加')
+              Button($r('app.string.common_add'))
                 .height(40)
                 .backgroundColor('#0096FA')
                 .margin({ left: 8 })
@@ -252,7 +253,7 @@ struct ExifTagConfigPage {
             .backgroundColor('#FFFFFF')
 
             if (this.settings.exifMutedTags.length === 0) {
-              Text('暂无屏蔽标签（可在详情页标签长按菜单中添加）')
+              Text($r('app.string.exif_muted_empty'))
                 .fontSize(13)
                 .fontColor('#CCCCCC')
                 .width('100%')
@@ -266,7 +267,7 @@ struct ExifTagConfigPage {
                   .fontSize(14)
                   .fontColor('#333333')
                   .layoutWeight(1)
-                Text('删除')
+                Text($r('app.string.common_delete'))
                   .fontSize(12)
                   .fontColor('#FF4444')
                   .onClick(() => { this.removeMutedTag(tag) })
@@ -284,13 +285,13 @@ struct ExifTagConfigPage {
         // ====== 备注合并规则 ======
         ListItem() {
           Column() {
-            Text('备注合并规则')
+            Text($r('app.string.exif_section_merge'))
               .fontSize(12)
               .fontColor('#999999')
               .width('100%')
               .padding({ left: 16, bottom: 4 })
 
-            Text('下载时，从属标签将被主标签替代，节省备注空间')
+            Text($r('app.string.exif_merge_desc'))
               .fontSize(11)
               .fontColor('#AAAAAA')
               .width('100%')
@@ -298,11 +299,11 @@ struct ExifTagConfigPage {
 
             Column() {
               Row() {
-                Text('主标签：')
+                Text($r('app.string.exif_merge_main_label'))
                   .fontSize(12)
                   .fontColor('#666666')
                   .width(60)
-                TextInput({ placeholder: '如: 女孩子', text: $$this.newMergeMainTag })
+                TextInput({ placeholder: $r('app.string.exif_merge_main_placeholder'), text: $$this.newMergeMainTag })
                   .height(36)
                   .layoutWeight(1)
                   .backgroundColor('#F5F5F5')
@@ -311,11 +312,11 @@ struct ExifTagConfigPage {
               .margin({ bottom: 6 })
 
               Row() {
-                Text('从属：')
+                Text($r('app.string.exif_merge_from_label'))
                   .fontSize(12)
                   .fontColor('#666666')
                   .width(60)
-                TextInput({ placeholder: '逗号分隔，如: 女の子,girl', text: $$this.newMergeFromTags })
+                TextInput({ placeholder: $r('app.string.exif_merge_from_placeholder'), text: $$this.newMergeFromTags })
                   .height(36)
                   .layoutWeight(1)
                   .backgroundColor('#F5F5F5')
@@ -323,7 +324,7 @@ struct ExifTagConfigPage {
               .width('100%')
               .margin({ bottom: 8 })
 
-              Button('添加合并规则')
+              Button($r('app.string.exif_merge_add_btn'))
                 .height(36)
                 .backgroundColor('#0096FA')
                 .fontColor('#FFFFFF')
@@ -336,7 +337,7 @@ struct ExifTagConfigPage {
             .backgroundColor('#FFFFFF')
 
             if (this.settings.exifMergedTags.length === 0) {
-              Text('暂无合并规则（可在详情页标签长按菜单中添加）')
+              Text($r('app.string.exif_merge_empty'))
                 .fontSize(13)
                 .fontColor('#CCCCCC')
                 .width('100%')
@@ -358,7 +359,7 @@ struct ExifTagConfigPage {
                     .margin({ top: 2 })
                 }
                 .layoutWeight(1)
-                Text('删除')
+                Text($r('app.string.common_delete'))
                   .fontSize(12)
                   .fontColor('#FF4444')
                   .onClick(() => { this.removeMergeRule(rule.mainTag) })
@@ -375,25 +376,25 @@ struct ExifTagConfigPage {
         // ====== 优先级排序 ======
         ListItem() {
           Column() {
-            Text('优先级排序')
+            Text($r('app.string.exif_section_priority'))
               .fontSize(12)
               .fontColor('#999999')
               .width('100%')
               .padding({ left: 16, bottom: 4 })
 
-            Text('下载时标签按此优先级排序写入备注，索引越小越优先')
+            Text($r('app.string.exif_priority_desc'))
               .fontSize(11)
               .fontColor('#AAAAAA')
               .width('100%')
               .padding({ left: 16, bottom: 8 })
 
             Row() {
-              TextInput({ placeholder: '输入标签名', text: $$this.newPriorityTag })
+              TextInput({ placeholder: $r('app.string.exif_priority_placeholder'), text: $$this.newPriorityTag })
                 .height(40)
                 .layoutWeight(1)
                 .backgroundColor('#FFFFFF')
                 .onSubmit(() => { this.addPriorityTag() })
-              Button('添加')
+              Button($r('app.string.common_add'))
                 .height(40)
                 .backgroundColor('#0096FA')
                 .margin({ left: 8 })
@@ -404,7 +405,7 @@ struct ExifTagConfigPage {
             .backgroundColor('#FFFFFF')
 
             if (this.settings.exifTagPriority.length === 0) {
-              Text('暂无优先级规则（优先级为空时标签按原始顺序排列）')
+              Text($r('app.string.exif_priority_empty'))
                 .fontSize(13)
                 .fontColor('#CCCCCC')
                 .width('100%')
@@ -423,7 +424,7 @@ struct ExifTagConfigPage {
                   .fontSize(14)
                   .fontColor('#333333')
                   .layoutWeight(1)
-                Text('删除')
+                Text($r('app.string.common_delete'))
                   .fontSize(12)
                   .fontColor('#FF4444')
                   .onClick(() => { this.removePriorityTag(tag) })
@@ -441,26 +442,26 @@ struct ExifTagConfigPage {
         // ====== 导入导出 ======
         ListItem() {
           Column() {
-            Text('导入导出')
+            Text($r('app.string.exif_section_io'))
               .fontSize(12)
               .fontColor('#999999')
               .width('100%')
               .padding({ left: 16, bottom: 4 })
 
-            Text('将规则导出为 JSON 文件，或从 JSON 文件导入（导入时与现有规则合并去重）')
+            Text($r('app.string.exif_io_desc'))
               .fontSize(11)
               .fontColor('#AAAAAA')
               .width('100%')
               .padding({ left: 16, bottom: 8 })
 
             Row({ space: 12 }) {
-              Button('导出')
+              Button($r('app.string.common_export'))
                 .fontSize(14)
                 .backgroundColor('#0096FA')
                 .fontColor('#FFFFFF')
                 .layoutWeight(1)
                 .onClick(() => { this.exportData() })
-              Button('导入')
+              Button($r('app.string.common_import'))
                 .fontSize(14)
                 .backgroundColor('#FF8800')
                 .fontColor('#FFFFFF')

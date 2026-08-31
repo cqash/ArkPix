@@ -1,5 +1,7 @@
 import { http } from '@kit.NetworkKit';
 import { HttpInterceptor, HttpRequestOptions } from './HttpClient';
+import { userSettingStore } from '../stores/UserSettingStore';
+import { effectiveAcceptLanguage } from '../utils/I18nUtils';
 
 export class AuthInterceptor implements HttpInterceptor {
   private static readonly REFRESH_THROTTLE_MS: number = 120000
@@ -44,8 +46,8 @@ export class AuthInterceptor implements HttpInterceptor {
     if (this.accessToken) {
       options.header['Authorization'] = 'Bearer ' + this.accessToken
     }
-    // Accept-Language: 让 Pixiv API 返回 tag 的 translated_name 翻译
-    options.header['Accept-Language'] = 'zh-CN'
+    // Accept-Language: 让 Pixiv API 返回 tag 的 translated_name 翻译；跟随应用语言偏好动态取值
+    options.header['Accept-Language'] = effectiveAcceptLanguage(userSettingStore.getSettings().language)
     try {
       let response = await next(options)
       if (AuthInterceptor.isAuthErrorResponse(response)) {

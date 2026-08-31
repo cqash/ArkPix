@@ -7,6 +7,7 @@ import { bookmarkStateStore } from '../../stores/BookmarkStateStore';
 import { MuteFilter } from '../../utils/MuteFilter';
 import { IllustCard } from './IllustCard';
 import { ErrorView, LoadingView } from '../common/CommonViews';
+import { getStrf } from '../../utils/I18nUtils';
 
 /** 分页数据包：各列表页 fetchFirst 回调的返回类型 */
 export interface IllustListPage {
@@ -159,7 +160,7 @@ export struct IllustWaterfall {
       this.acceptPage(page, true)
     } catch (e) {
       if (this.dataSource.totalCount() === 0) {
-        this.errorMessage = '加载失败: ' + e
+        this.errorMessage = getStrf($r('app.string.common_load_failed_detail'), String(e))
       }
       console.error('Waterfall first page failed: ' + e)
     } finally {
@@ -246,7 +247,7 @@ export struct IllustWaterfall {
           .width(20)
           .height(20)
           .color('#0096FA')
-        Text('加载中...')
+        Text($r('app.string.common_loading'))
           .fontSize(12)
           .fontColor('#999999')
           .margin({ left: 8 })
@@ -256,7 +257,7 @@ export struct IllustWaterfall {
       .justifyContent(FlexAlign.Center)
     } else if (this.footerState === 'noMore') {
       Row() {
-        Text('没有更多了')
+        Text($r('app.string.waterfall_no_more'))
           .fontSize(12)
           .fontColor('#999999')
       }
@@ -265,7 +266,7 @@ export struct IllustWaterfall {
       .justifyContent(FlexAlign.Center)
     } else if (this.footerState === 'error') {
       Row() {
-        Text('加载失败，点击重试')
+        Text($r('app.string.waterfall_load_failed_retry'))
           .fontSize(12)
           .fontColor('#0096FA')
       }

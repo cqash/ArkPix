@@ -2,6 +2,7 @@ import { http } from '@kit.NetworkKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { relayClient, RelayAuthError, RelayRequestInput } from '../network/RelayClient';
 import { parseRelayError } from '../models/RelayModels';
+import { getStr, getStrf } from '../utils/I18nUtils';
 
 /** 自检项状态 */
 export const SELF_TEST_PENDING: string = 'pending'
@@ -60,12 +61,12 @@ export class RelaySelfTestService {
   /** 初始 6 项（pending），供 UI 先渲染占位 */
   initialResults(): SelfTestItemResult[] {
     return [
-      makeItem('存活探针 /healthz'),
-      makeItem('服务令牌有效性'),
-      makeItem('API 中继 /relay/v1/request'),
-      makeItem('图片中继 /img/v1/fetch'),
-      makeItem('同步回环 /sync/v1/push+pull'),
-      makeItem('恢复端点 /recover/v1/illust')
+      makeItem(getStr($r('app.string.svc_selftest_health'))),
+      makeItem(getStr($r('app.string.svc_selftest_token'))),
+      makeItem(getStr($r('app.string.svc_selftest_relay'))),
+      makeItem(getStr($r('app.string.svc_selftest_image'))),
+      makeItem(getStr($r('app.string.svc_selftest_sync'))),
+      makeItem(getStr($r('app.string.svc_selftest_recover')))
     ]
   }
 
@@ -77,7 +78,7 @@ export class RelaySelfTestService {
     // 1. 存活探针
     let healthOk = await this.runItem(results, 0, onUpdate, (item: SelfTestItemResult) => this.checkHealth(item))
     if (!healthOk) {
-      this.skipRange(results, 1, 5, 'healthz 不可达')
+      this.skipRange(results, 1, 5, getStr($r('app.string.svc_selftest_health_unreachable')))
       onUpdate(results.slice())
       return
     }
@@ -85,7 +86,7 @@ export class RelaySelfTestService {
     // 2. 服务令牌（401 自动刷新链路走 RelayClient.authorizedRequest 既有实现）
     let tokenOk = await this.runItem(results, 1, onUpdate, (item: SelfTestItemResult) => this.checkToken(item))
     if (!tokenOk) {
-      this.skipRange(results, 2, 5, '服务令牌不可用')
+      this.skipRange(results, 2, 5, getStr($r('app.string.svc_selftest_token_unusable')))
       onUpdate(results.slice())
       return
     }
@@ -177,7 +178,7 @@ export class RelaySelfTestService {
   private async checkHealth(item: SelfTestItemResult): Promise<boolean> {
     let base = relayClient.getServerUrl()
     if (base.length === 0) {
-      item.errorMessage = '未配置中继服务器地址'
+      item.errorMessage = getStr($r('app.string.svc_selftest_no_server'))
       return false
     }
     let header: Record<string, string> = {}
@@ -189,10 +190,10 @@ export class RelaySelfTestService {
     }
     let body = String(resp.result)
     if (body.indexOf('"ok"') < 0) {
-      item.errorMessage = '响应缺少 status:"ok"'
+      item.errorMessage = getStr($r('app.string.svc_selftest_missing_ok'))
       return false
     }
-    item.detail = '服务存活'
+    item.detail = getStr($r('app.string.svc_selftest_alive'))
     return true
   }
 
@@ -204,7 +205,7 @@ export class RelaySelfTestService {
       this.fillServerError(item, String(resp.result))
       return false
     }
-    item.detail = '令牌有效（含 401 自动刷新）'
+    item.detail = getStr($r('app.string.svc_selftest_token_valid'))
     return true
   }
 
@@ -221,10 +222,10 @@ export class RelaySelfTestService {
     let upstream = resp.responseCode
     item.httpStatus = upstream
     if (upstream === 200 || upstream === 401 || upstream === 403) {
-      item.detail = '上游 status=' + upstream
+      item.detail = getStrf($r('app.string.svc_selftest_upstream_detail'), upstream)
       return true
     }
-    item.errorMessage = '上游 status=' + upstream + '（预期 200/401/403）'
+    item.errorMessage = getStrf($r('app.string.svc_selftest_upstream_unexpected'), upstream)
     return false
   }
 
@@ -240,7 +241,7 @@ export class RelaySelfTestService {
     }
     let contentType = this.headerValue(resp.header, 'content-type')
     if (contentType.indexOf('image') < 0) {
-      item.errorMessage = 'Content-Type 非图片: ' + contentType
+      item.errorMessage = getStrf($r('app.string.svc_selftest_content_type_not_image'), contentType)
       return false
     }
     item.detail = 'Content-Type: ' + contentType
@@ -264,7 +265,7 @@ export class RelaySelfTestService {
       // 400/404/409 分别报告（错误体含 code）
       this.fillServerError(item, String(pushResp.result))
       if (item.errorMessage.length === 0) {
-        item.errorMessage = 'push 失败 (HTTP ' + pushResp.responseCode + ')'
+        item.errorMessage = getStrf($r('app.string.svc_selftest_push_failed'), pushResp.responseCode)
       }
       return false
     }
@@ -298,10 +299,10 @@ export class RelaySelfTestService {
     // 无论是否回读到，都推墓碑清理
     await this.cleanupSyncItem(key)
     if (!found) {
-      item.errorMessage = 'push 成功但 pull 未回读到测试条目'
+      item.errorMessage = getStr($r('app.string.svc_selftest_pull_missed'))
       return false
     }
-    item.detail = 'push→pull 回读成功，墓碑已清理'
+    item.detail = getStr($r('app.string.svc_selftest_loop_ok'))
     return true
   }
 
@@ -324,13 +325,13 @@ export class RelaySelfTestService {
         let raw = JSON.parse(String(resp.result)) as RawSelfTestRecover
         let status = raw?.status ?? ''
         if (status === 'ready' || status === 'fetching' || status === 'not_found') {
-          item.detail = '端点可用，实际命中: ' + status + ' (HTTP ' + resp.responseCode + ')'
+          item.detail = getStrf($r('app.string.svc_selftest_endpoint_hit'), status, resp.responseCode)
           return true
         }
-        item.errorMessage = 'status 字段非法: ' + status
+        item.errorMessage = getStrf($r('app.string.svc_selftest_bad_status'), status)
         return false
       } catch (e) {
-        item.errorMessage = '响应 JSON 解析失败'
+        item.errorMessage = getStr($r('app.string.svc_selftest_json_parse'))
         return false
       }
     }

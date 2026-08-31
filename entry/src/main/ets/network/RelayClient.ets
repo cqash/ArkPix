@@ -5,6 +5,7 @@ import { promptAction } from '@kit.ArkUI';
 import { preferenceService } from '../services/PreferenceService';
 import { userSettingStore } from '../stores/UserSettingStore';
 import { Constants } from '../utils/Constants';
+import { getStr, getStrf } from '../utils/I18nUtils';
 import {
   RelayRegisterResult,
   relayRegisterResultFromJson,
@@ -158,7 +159,7 @@ export class RelayClient {
       base = base.substring(0, base.length - 1)
     }
     if (base.length === 0) {
-      throw new Error('请先填写中继服务器地址')
+      throw new Error(getStr($r('app.string.net_relay_no_server')))
     }
     let fields: Record<string, string> = { 'deviceName': deviceName }
     if (inviteCode !== undefined && inviteCode.length > 0) {
@@ -172,11 +173,12 @@ export class RelayClient {
     let body = String(response.result)
     if (response.responseCode !== 200) {
       let errInfo = parseRelayError(body)
-      throw new Error(errInfo.message.length > 0 ? errInfo.message : '注册失败 (HTTP ' + response.responseCode + ')')
+      throw new Error(errInfo.message.length > 0 ? errInfo.message :
+        getStrf($r('app.string.net_relay_register_failed'), response.responseCode))
     }
     let result = relayRegisterResultFromJson(JSON.parse(body))
     if (result.accessToken.length === 0 || result.refreshToken.length === 0) {
-      throw new Error('注册响应无效（缺少服务令牌）')
+      throw new Error(getStr($r('app.string.net_relay_register_invalid')))
     }
     // 注册成功后持久化服务器地址 + 令牌对 + accountKey + capabilities
     userSettingStore.setRelayServerUrl(base)
@@ -220,11 +222,11 @@ export class RelayClient {
           this.logout()
           return false
         }
-        throw new Error('中继令牌刷新失败 (HTTP ' + response.responseCode + ')')
+        throw new Error(getStrf($r('app.string.net_relay_token_refresh_failed'), response.responseCode))
       }
       let result = relayRegisterResultFromJson(JSON.parse(body))
       if (result.accessToken.length === 0 || result.refreshToken.length === 0) {
-        throw new Error('中继令牌刷新响应无效')
+        throw new Error(getStr($r('app.string.net_relay_token_refresh_invalid')))
       }
       preferenceService.setString(KEY_ACCESS_TOKEN, result.accessToken)
       preferenceService.setString(KEY_REFRESH_TOKEN, result.refreshToken)
@@ -266,15 +268,15 @@ export class RelayClient {
   async relayRequest(input: RelayRequestInput): Promise<http.HttpResponse> {
     let base = this.getServerUrl()
     if (base.length === 0) {
-      throw new Error('中继服务器未配置')
+      throw new Error(getStr($r('app.string.net_relay_not_configured')))
     }
     if (!input.url.startsWith('https://')) {
       // 服务端强制 https URL，否则 400；客户端提前拦截
-      throw new Error('中继仅支持 https URL: ' + input.url)
+      throw new Error(getStrf($r('app.string.net_relay_https_only'), input.url))
     }
     let token = await this.getValidToken()
     if (token.length === 0) {
-      throw new RelayAuthError('中继服务未登录或令牌已失效，请在设置页重新注册/导入')
+      throw new RelayAuthError(getStr($r('app.string.net_relay_auth_required')))
     }
     let response = await this.doRelayPost(base, input, token)
     if (response.responseCode === 401) {
@@ -285,16 +287,17 @@ export class RelayClient {
         response = await this.doRelayPost(base, input, newToken)
       }
       if (response.responseCode === 401) {
-        throw new RelayAuthError('中继服务登录失效，请重新注册或导入账号')
+        throw new RelayAuthError(getStr($r('app.string.net_relay_auth_expired')))
       }
     }
     if (response.responseCode === 502) {
       this.recordFailure()
-      throw new Error('中继服务器错误 (HTTP 502)')
+      throw new Error(getStr($r('app.string.net_relay_server_502')))
     }
     if (response.responseCode !== 200) {
       let errInfo = parseRelayError(String(response.result))
-      let msg = errInfo.message.length > 0 ? errInfo.message : '中继请求失败 (HTTP ' + response.responseCode + ')'
+      let msg = errInfo.message.length > 0 ? errInfo.message :
+        getStrf($r('app.string.net_relay_request_failed'), response.responseCode)
       throw new Error(msg)
     }
     this.resetFailures()
@@ -318,11 +321,11 @@ export class RelayClient {
   async authorizedRequest(path: string, method: http.RequestMethod, body?: string): Promise<http.HttpResponse> {
     let base = this.getServerUrl()
     if (base.length === 0) {
-      throw new Error('中继服务器未配置')
+      throw new Error(getStr($r('app.string.net_relay_not_configured')))
     }
     let token = await this.getValidToken()
     if (token.length === 0) {
-      throw new RelayAuthError('中继服务未登录或令牌已失效，请在设置页重新注册/导入')
+      throw new RelayAuthError(getStr($r('app.string.net_relay_auth_required')))
     }
     let header: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -337,7 +340,7 @@ export class RelayClient {
         response = await this.rawRequest(base + path, method, header, body)
       }
       if (response.responseCode === 401) {
-        throw new RelayAuthError('中继服务登录失效，请重新注册或导入账号')
+        throw new RelayAuthError(getStr($r('app.string.net_relay_auth_expired')))
       }
     }
     return response
@@ -452,7 +455,7 @@ export class RelayClient {
       if (Constants.isRelayMode(settings.apiMode)) {
         userSettingStore.setApiMode(settings.prevApiMode)
       }
-      promptAction.showToast({ message: '中继服务器连续失败，已回落到上一网络模式' })
+      promptAction.showToast({ message: getStr($r('app.string.net_relay_fallback_toast')) })
     } catch (e) {
       console.error('Relay fallback failed: ' + e)
     }

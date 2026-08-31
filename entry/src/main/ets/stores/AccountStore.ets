@@ -1,6 +1,7 @@
 import { preferenceService } from '../services/PreferenceService';
 import { oauthService, CredentialInvalidError } from '../network/OAuthService';
 import { authInterceptor } from '../network/AuthInterceptor';
+import { getStr } from '../utils/I18nUtils';
 
 export interface AccountOptions {
   id?: number
@@ -175,9 +176,9 @@ export class AccountStore {
     } catch (e) {
       console.error('Token login failed: ' + e)
       if (e instanceof CredentialInvalidError) {
-        return 'Token 无效或已失效。注意：Refresh Token 为轮换制，若 pixez 在您导出后又运行过，导出的 Token 已被作废，请重新导出后立即使用'
+        return getStr($r('app.string.store_token_invalid'))
       }
-      return '网络请求失败，请检查网络后重试'
+      return getStr($r('app.string.store_network_failed'))
     }
   }
 

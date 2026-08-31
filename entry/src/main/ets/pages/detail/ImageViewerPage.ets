@@ -79,15 +79,15 @@ struct ImageViewerPage {
     let downloaded = await downloadService.isDownloaded(this.illust.id, this.currentIndex)
     if (downloaded) {
       this.getUIContext().showAlertDialog({
-        title: '提示',
-        message: '该图片已下载过',
+        title: $r('app.string.common_tip'),
+        message: $r('app.string.common_img_downloaded'),
         autoCancel: true,
         primaryButton: {
-          value: '取消',
+          value: $r('app.string.common_cancel'),
           action: () => {}
         },
         secondaryButton: {
-          value: '仍要下载',
+          value: $r('app.string.common_download_anyway'),
           action: () => { this.doSave() }
         }
       })
@@ -98,7 +98,7 @@ struct ImageViewerPage {
 
   private async doSave(): Promise<void> {
     downloadService.enqueue(this.downloadUrls[this.currentIndex], this.illust, this.currentIndex)
-    promptAction.showToast({ message: '已加入下载任务' })
+    promptAction.showToast({ message: $r('app.string.common_added_download') })
     // 下载时自动收藏联动，走 BookmarkStateStore 保证跨页同步
     if (userSettingStore.getSettings().autoBookmarkOnDownload && this.illust.id > 0 &&
       bookmarkStateStore.stateOf(this.illust.id, this.illust.isBookmarked) !== BOOKMARK_DONE) {
@@ -113,7 +113,7 @@ struct ImageViewerPage {
           Text('🔒')
             .fontSize(32)
             .opacity(0.25)
-          Text('点击显示')
+          Text($r('app.string.detail_tap_to_show'))
             .fontSize(13)
             .fontColor('rgba(255, 255, 255, 0.3)')
             .margin({ top: 12 })
@@ -145,7 +145,7 @@ struct ImageViewerPage {
 
       Column() {
         Row() {
-          Button('返回')
+          Button($r('app.string.common_back'))
             .fontSize(12)
             .backgroundColor('rgba(0, 0, 0, 0.5)')
             .onClick(() => { router.back() })

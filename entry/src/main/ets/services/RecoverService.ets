@@ -1,5 +1,6 @@
 import { http } from '@kit.NetworkKit';
 import { relayClient } from '../network/RelayClient';
+import { getStrf } from '../utils/I18nUtils';
 import {
   RecoverResult,
   recoverResultFromJson,
@@ -58,7 +59,8 @@ export class RecoverService {
       return recoverResultFromJson(parsed, resp.responseCode)
     }
     let errInfo = parseRelayError(String(resp.result))
-    throw new Error(errInfo.message.length > 0 ? errInfo.message : '恢复查询失败 (HTTP ' + resp.responseCode + ')')
+    throw new Error(errInfo.message.length > 0 ? errInfo.message :
+      getStrf($r('app.string.svc_recover_query_failed'), resp.responseCode))
   }
 
   /**

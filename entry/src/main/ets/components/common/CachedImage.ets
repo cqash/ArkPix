@@ -67,7 +67,7 @@ export struct CachedImage {
             .width(24)
             .height(24)
             .color('#0096FA')
-          Text('加载中...')
+          Text($r('app.string.common_loading'))
             .fontSize(10)
             .fontColor('#999999')
             .margin({ top: 4 })
@@ -77,10 +77,10 @@ export struct CachedImage {
         .justifyContent(FlexAlign.Center)
       } else {
         Column() {
-          Text('加载失败')
+          Text($r('app.string.common_load_failed'))
             .fontSize(12)
             .fontColor('#999999')
-          Text('点击重试')
+          Text($r('app.string.common_tap_retry'))
             .fontSize(10)
             .fontColor('#0096FA')
             .margin({ top: 4 })

@@ -144,7 +144,7 @@ export struct ZoomableImage {
             .width(48)
             .height(48)
             .color('#FFFFFF')
-          Text('大图加载中...')
+          Text($r('app.string.viewer_loading'))
             .fontSize(12)
             .fontColor('#CCCCCC')
             .margin({ top: 8 })
@@ -152,10 +152,10 @@ export struct ZoomableImage {
         .justifyContent(FlexAlign.Center)
       } else {
         Column() {
-          Text('图片加载失败')
+          Text($r('app.string.viewer_load_failed'))
             .fontSize(16)
             .fontColor('#FFFFFF')
-          Text('点击重试')
+          Text($r('app.string.common_tap_retry'))
             .fontSize(12)
             .fontColor('#0096FA')
             .margin({ top: 8 })

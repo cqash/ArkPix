@@ -8,6 +8,7 @@ import { authInterceptor } from './AuthInterceptor';
 import { relayClient, RelayRequestInput } from './RelayClient';
 import { preferenceService } from '../services/PreferenceService';
 import { hoster } from './Hoster';
+import { getStr, getStrf } from '../utils/I18nUtils';
 
 /** 凭证失效：服务端明确拒绝 refresh token，必须重新登录 */
 export class CredentialInvalidError extends Error {
@@ -114,28 +115,28 @@ export class OAuthService {
     try {
       response = await this.postToken(body)
     } catch (e) {
-      throw new NetworkError('刷新 token 网络请求失败: ' + e)
+      throw new NetworkError(getStrf($r('app.string.net_oauth_refresh_network'), String(e)))
     }
 
     if (response.code !== 200) {
       console.error('OAuth refresh response: ' + response.code + ' ' + response.body)
       if (response.code === 400 || response.code === 401 || response.code === 403) {
-        throw new CredentialInvalidError('登录凭证已被服务端拒绝 (HTTP ' + response.code + ')')
+        throw new CredentialInvalidError(getStrf($r('app.string.net_oauth_credential_rejected'), response.code))
       }
-      throw new NetworkError('刷新 token 服务器错误 (HTTP ' + response.code + ')')
+      throw new NetworkError(getStrf($r('app.string.net_oauth_refresh_server_error'), response.code))
     }
 
     let raw: RawTokenResponse
     try {
       raw = JSON.parse(response.body) as RawTokenResponse
     } catch (e) {
-      throw new NetworkError('刷新 token 响应解析失败: ' + e)
+      throw new NetworkError(getStrf($r('app.string.net_oauth_refresh_parse_failed'), String(e)))
     }
 
     // 有效性校验通过前不写回任何 token，杜绝错误 JSON 静默写坏登录态
     if (raw.access_token === undefined || raw.access_token.length === 0 ||
       raw.user === undefined || raw.user.id.length === 0) {
-      throw new CredentialInvalidError('刷新 token 响应无效（缺少 access_token），请重新登录')
+      throw new CredentialInvalidError(getStr($r('app.string.net_oauth_refresh_invalid')))
     }
 
     let result: TokenResponse = {

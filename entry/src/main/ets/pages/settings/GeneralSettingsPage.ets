@@ -3,7 +3,8 @@ import { imageCacheService } from '../../services/ImageCacheService';
 import { distributedSyncService } from '../../services/DistributedSyncService';
 import { userSettingStore } from '../../stores/UserSettingStore';
 import { AppSettings } from '../../models/AppSettings';
-import { SettingItem, SwitchItem, SectionHeader } from './SettingWidgets';
+import { SettingItem, SwitchItem, SectionHeader, showQualityPicker, LANGUAGE_OPTIONS, LANGUAGE_VALUES, languageIndex, languageLabel } from './SettingWidgets';
+import { getStr } from '../../utils/I18nUtils';
 
 @Entry
 @Component
@@ -24,7 +25,7 @@ export struct GeneralSettingsPage {
   private enableDeviceSync() {
     distributedSyncService.setEnabled(true, (success: boolean) => {
       if (!success) {
-        this.getUIContext().getPromptAction().showToast({ message: '未授权跨设备数据同步，可在系统设置中开启后重试' })
+        this.getUIContext().getPromptAction().showToast({ message: $r('app.string.settings_device_sync_denied_toast') })
       }
       this.refreshSyncState()
     })
@@ -36,22 +37,23 @@ export struct GeneralSettingsPage {
 
   private deviceSyncStatusText(): string {
     if (!this.settings.deviceSyncEnabled) {
-      return '未开启'
+      return getStr($r('app.string.settings_sync_off'))
     }
-    return this.deviceSyncActive ? '已加入会话' : '未授权'
+    return this.deviceSyncActive ? getStr($r('app.string.settings_sync_joined')) :
+      getStr($r('app.string.settings_sync_unauthorized'))
   }
 
   build() {
     Column() {
       // 顶部导航栏
       Row() {
-        Text('< 返回')
+        Text($r('app.string.common_back_arrow'))
           .fontSize(16)
           .fontColor('#0096FA')
           .onClick(() => {
             router.back()
           })
-        Text('通用')
+        Text($r('app.string.settings_cat_general'))
           .fontSize(18)
           .fontWeight(FontWeight.Bold)
           .fontColor('#333333')
@@ -69,9 +71,9 @@ export struct GeneralSettingsPage {
 
       Scroll() {
         Column() {
-          SectionHeader({ title: '设备间同步' })
+          SectionHeader({ title: getStr($r('app.string.settings_section_device_sync')) })
           SwitchItem({
-            title: '设备间同步（设置/屏蔽/历史）',
+            title: getStr($r('app.string.settings_device_sync_item')),
             isOn: this.settings.deviceSyncEnabled,
             onToggle: () => {
               let next = !this.settings.deviceSyncEnabled
@@ -85,48 +87,60 @@ export struct GeneralSettingsPage {
             }
           })
           SettingItem({
-            title: '同步状态',
+            title: getStr($r('app.string.settings_sync_status')),
             value: this.deviceSyncStatusText()
           })
-          SectionHeader({ title: '通用' })
+          SectionHeader({ title: getStr($r('app.string.settings_cat_general')) })
           SettingItem({
-            title: '我的收藏',
+            title: getStr($r('app.string.settings_language')),
+            value: languageLabel(this.settings.language),
+            onItemClick: () => {
+              showQualityPicker(getStr($r('app.string.settings_language')), LANGUAGE_OPTIONS,
+                languageIndex(this.settings.language), (v: number) => {
+                  // showQualityPicker 回调的是 value 字段，这里直接用索引语义（value===index）
+                  userSettingStore.setLanguage(LANGUAGE_VALUES[v])
+                  this.settings = userSettingStore.getSettings()
+                })
+            }
+          })
+          SettingItem({
+            title: getStr($r('app.string.settings_my_bookmarks')),
             value: '',
             onItemClick: () => {
               router.pushUrl({ url: 'pages/bookmark/BookmarkPage' })
             }
           })
           SettingItem({
-            title: '历史记录',
+            title: getStr($r('app.string.settings_history')),
             value: '',
             onItemClick: () => {
               router.pushUrl({ url: 'pages/settings/HistoryPage' })
             }
           })
           SettingItem({
-            title: '清理图片缓存',
+            title: getStr($r('app.string.settings_clear_cache')),
             value: '',
             onItemClick: () => {
               this.getUIContext().showAlertDialog({
-                title: '清理缓存',
-                message: '确定要清理所有图片缓存吗？',
+                title: $r('app.string.settings_clear_cache_title'),
+                message: $r('app.string.settings_clear_cache_msg'),
                 autoCancel: true,
                 primaryButton: {
-                  value: '取消',
+                  value: $r('app.string.common_cancel'),
                   action: () => {}
                 },
                 secondaryButton: {
-                  value: '确定',
+                  value: $r('app.string.common_confirm'),
                   action: () => {
                     imageCacheService.clearCache()
-                    promptAction.showToast({ message: '图片缓存已清理' })
+                    promptAction.showToast({ message: $r('app.string.settings_cache_cleared') })
                   }
                 }
               })
             }
           })
           SettingItem({
-            title: '关于 ArkPix',
+            title: getStr($r('app.string.settings_about')),
             value: 'v1.0.0',
             onItemClick: () => {
               router.pushUrl({ url: 'pages/settings/AboutPage' })

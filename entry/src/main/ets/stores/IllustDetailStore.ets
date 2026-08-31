@@ -22,6 +22,7 @@ import {
   filterTagsForExif,
   isCommentOverLimit
 } from '../services/ImageExifService';
+import { getStr, getStrf } from '../utils/I18nUtils';
 
 /** 恢复流程状态机 */
 export const RECOVER_STATE_IDLE: string = 'idle'
@@ -97,14 +98,14 @@ export class IllustDetailStore {
       let raw = (response as IllustDetailResponse).illust
       if (!raw) {
         if (!hasCache) {
-          this.errorMessage = '返回数据无效，请重试'
+          this.errorMessage = getStr($r('app.string.store_detail_invalid_data'))
         }
         return hasCache
       }
       let parsed = Illust.fromJson(raw)
       if (!parsed.id || !parsed.title) {
         if (!hasCache) {
-          this.errorMessage = '作品数据解析失败'
+          this.errorMessage = getStr($r('app.string.store_detail_parse_failed'))
         }
         return hasCache
       }
@@ -130,7 +131,7 @@ export class IllustDetailStore {
         }
       }
       if (!hasCache) {
-        this.errorMessage = '加载失败: ' + e
+        this.errorMessage = getStrf($r('app.string.common_load_failed_detail'), String(e))
       }
       console.error('Load detail failed: ' + e)
       return hasCache
@@ -166,7 +167,7 @@ export class IllustDetailStore {
       return
     }
     if (!this.canRecover()) {
-      this.showToast('中继恢复能力不可用，请先在设置页配置并注册中继服务器')
+      this.showToast(getStr($r('app.string.store_recover_unavailable')))
       return
     }
     this.recoverState = RECOVER_STATE_POLLING
@@ -175,7 +176,7 @@ export class IllustDetailStore {
     this.recoverToken = token
     try {
       let result = await recoverService.pollUntilReady(snapshot.illustId, (attempt: number, retryAfterSec: number) => {
-        this.recoverProgressText = '正在从第三方恢复（第 ' + attempt + ' 次查询，约 ' + retryAfterSec + ' 秒后重试）'
+        this.recoverProgressText = getStrf($r('app.string.store_recover_progress'), attempt, retryAfterSec)
         if (onProgress !== undefined) {
           onProgress(this.recoverProgressText)
         }
@@ -188,11 +189,11 @@ export class IllustDetailStore {
         this.recoverProgressText = ''
       } else {
         this.recoverState = RECOVER_STATE_FAILED
-        this.showToast('暂无法从第三方恢复该作品')
+        this.showToast(getStr($r('app.string.store_recover_not_found')))
       }
     } catch (e) {
       this.recoverState = RECOVER_STATE_FAILED
-      this.showToast('恢复查询失败: ' + (e instanceof Error ? e.message : String(e)))
+      this.showToast(getStrf($r('app.string.store_recover_failed'), e instanceof Error ? e.message : String(e)))
     } finally {
       this.recoverToken = null
     }
@@ -346,15 +347,15 @@ export class IllustDetailStore {
     let ctx = this.uiContext
     if (downloaded && ctx !== undefined) {
       ctx.showAlertDialog({
-        title: '提示',
-        message: '该图片已下载过',
+        title: getStr($r('app.string.common_tip')),
+        message: getStr($r('app.string.common_img_downloaded')),
         autoCancel: true,
         primaryButton: {
-          value: '取消',
+          value: getStr($r('app.string.common_cancel')),
           action: () => {}
         },
         secondaryButton: {
-          value: '仍要下载',
+          value: getStr($r('app.string.common_download_anyway')),
           action: () => { this.doSavePage(pageIndex) }
         }
       })
@@ -367,7 +368,7 @@ export class IllustDetailStore {
     let quality = userSettingStore.getSettings().downloadQuality
     let url = pickDetailUrl(this.illust, pageIndex, quality)
     downloadService.enqueue(url, this.illust, pageIndex)
-    this.showToast('已加入下载任务')
+    this.showToast(getStr($r('app.string.common_added_download')))
     await this.maybeAutoBookmark()
   }
 
@@ -391,15 +392,15 @@ export class IllustDetailStore {
         }
       }
       ctx.showAlertDialog({
-        title: '重复下载确认',
-        message: '其中 ' + downloadedPages.length + ' 页已下载过',
+        title: getStr($r('app.string.store_dup_confirm_title')),
+        message: getStrf($r('app.string.store_pages_downloaded'), downloadedPages.length),
         autoCancel: true,
         primaryButton: {
-          value: '跳过已下载页',
+          value: getStr($r('app.string.store_skip_downloaded')),
           action: () => { this.doSavePages(freshPages) }
         },
         secondaryButton: {
-          value: '全部重新下载',
+          value: getStr($r('app.string.store_redownload_all')),
           action: () => { this.doSavePages(pageIndexes) }
         }
       })
@@ -411,7 +412,7 @@ export class IllustDetailStore {
   /** 循环入队（fire-and-forget，不再 await 下载结果）；汇总 toast 语义为"已加入 N 个下载任务" */
   private async doSavePages(pageIndexes: number[]): Promise<void> {
     if (pageIndexes.length === 0) {
-      this.showToast('没有需要下载的页')
+      this.showToast(getStr($r('app.string.store_no_pages_to_download')))
       return
     }
     let quality = userSettingStore.getSettings().downloadQuality
@@ -419,7 +420,7 @@ export class IllustDetailStore {
       let url = pickDetailUrl(this.illust, pageIndexes[i], quality)
       downloadService.enqueue(url, this.illust, pageIndexes[i])
     }
-    this.showToast('已加入 ' + pageIndexes.length + ' 个下载任务')
+    this.showToast(getStrf($r('app.string.store_added_downloads'), pageIndexes.length))
     await this.maybeAutoBookmark()
   }
 
@@ -436,15 +437,15 @@ export class IllustDetailStore {
     let ctx = this.uiContext
     if (downloadedPages.length > 0 && ctx !== undefined) {
       ctx.showAlertDialog({
-        title: '重复下载确认',
-        message: '其中 ' + downloadedPages.length + ' 页已下载过',
+        title: getStr($r('app.string.store_dup_confirm_title')),
+        message: getStrf($r('app.string.store_pages_downloaded'), downloadedPages.length),
         autoCancel: true,
         primaryButton: {
-          value: '跳过已下载页',
+          value: getStr($r('app.string.store_skip_downloaded')),
           action: () => { this.doSaveAll(downloadedPages) }
         },
         secondaryButton: {
-          value: '全部重新下载',
+          value: getStr($r('app.string.store_redownload_all')),
           action: () => { this.doSaveAll([]) }
         }
       })

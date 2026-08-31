@@ -5,6 +5,7 @@ import { IllustWaterfall, IllustListPage, parseIllustListPage } from '../../comp
 import { UserPreview } from '../../models/Illust';
 import { CachedImage } from '../../components/common/CachedImage';
 import { EmptyView, ErrorView, LoadingView } from '../../components/common/CommonViews';
+import { getStr, getStrf } from '../../utils/I18nUtils';
 
 interface TrendingTagsResponse {
   trend_tags: string[]
@@ -163,7 +164,7 @@ export struct SearchPage {
       this.userNextUrl = this.userSearchNextUrl(response)
       this.userLoadedOnce = true
     } catch (e) {
-      this.userError = '加载失败: ' + e
+      this.userError = getStrf($r('app.string.common_load_failed_detail'), String(e))
       console.error('Search users failed: ' + e)
     } finally {
       this.userLoading = false
@@ -212,14 +213,14 @@ export struct SearchPage {
   build() {
     Column() {
       Row() {
-        TextInput({ placeholder: '搜索插画', text: $$this.searchKeyword })
+        TextInput({ placeholder: $r('app.string.search_placeholder'), text: $$this.searchKeyword })
           .width('80%')
           .height(40)
           .backgroundColor('#F5F5F5')
           .borderRadius(20)
           .padding({ left: 16, right: 16 })
           .onSubmit(() => { this.search() })
-        Button('搜索')
+        Button($r('app.string.search_button'))
           .width('18%')
           .height(40)
           .backgroundColor('#0096FA')
@@ -239,12 +240,12 @@ export struct SearchPage {
         Column() {
           if (this.searchHistory.length > 0) {
             Row() {
-              Text('搜索历史')
+              Text($r('app.string.search_history_title'))
                 .fontSize(16)
                 .fontWeight(FontWeight.Bold)
                 .fontColor('#333333')
                 .layoutWeight(1)
-              Text('清除')
+              Text($r('app.string.search_clear'))
                 .fontSize(12)
                 .fontColor('#FF4444')
                 .onClick(() => { this.clearSearchHistory() })
@@ -269,7 +270,7 @@ export struct SearchPage {
             .width('100%')
             .margin({ bottom: 16 })
           }
-          Text('热门标签')
+          Text($r('app.string.search_trending'))
             .fontSize(16)
             .fontWeight(FontWeight.Bold)
             .fontColor('#333333')
@@ -303,11 +304,11 @@ export struct SearchPage {
               reloadToken: this.reloadToken
             })
           }
-          .tabBar('插画')
+          .tabBar($r('app.string.search_tab_illust'))
           TabContent() {
             this.UserResultTab()
           }
-          .tabBar('画师')
+          .tabBar($r('app.string.search_tab_user'))
         }
         .layoutWeight(1)
         .barHeight(40)
@@ -325,7 +326,7 @@ export struct SearchPage {
   NumericDirectEntries() {
     Column() {
       Row() {
-        Text('插画 ID 直达：' + this.searchKeyword.trim())
+        Text(getStrf($r('app.string.search_pid_direct'), this.searchKeyword.trim()))
           .fontSize(14)
           .fontColor('#0096FA')
           .layoutWeight(1)
@@ -347,7 +348,7 @@ export struct SearchPage {
         })
       })
       Row() {
-        Text('画师 ID 直达：' + this.searchKeyword.trim())
+        Text(getStrf($r('app.string.search_uid_direct'), this.searchKeyword.trim()))
           .fontSize(14)
           .fontColor('#0096FA')
           .layoutWeight(1)
@@ -379,7 +380,7 @@ export struct SearchPage {
     } else if (this.userLoading && !this.userLoadedOnce) {
       LoadingView()
     } else if (this.userLoadedOnce && this.userResults.length === 0) {
-      EmptyView({ message: '未找到匹配的画师' })
+      EmptyView({ message: getStr($r('app.string.search_no_users')) })
     } else {
       List() {
         ForEach(this.userResults, (user: UserPreview) => {

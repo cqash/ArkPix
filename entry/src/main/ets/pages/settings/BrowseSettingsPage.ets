@@ -11,6 +11,7 @@ import {
   ILLUST_MANGA_QUALITY_OPTIONS,
   CROSS_COUNT_OPTIONS
 } from './SettingWidgets';
+import { getStr } from '../../utils/I18nUtils';
 
 @Entry
 @Component
@@ -25,13 +26,13 @@ export struct BrowseSettingsPage {
     Column() {
       // 顶部导航栏
       Row() {
-        Text('< 返回')
+        Text($r('app.string.common_back_arrow'))
           .fontSize(16)
           .fontColor('#0096FA')
           .onClick(() => {
             router.back()
           })
-        Text('浏览与显示')
+        Text($r('app.string.settings_cat_browse'))
           .fontSize(18)
           .fontWeight(FontWeight.Bold)
           .fontColor('#333333')
@@ -50,55 +51,55 @@ export struct BrowseSettingsPage {
       Scroll() {
         Column() {
           SettingItem({
-            title: '预览图质量',
+            title: getStr($r('app.string.settings_preview_quality')),
             value: labelOf(PREVIEW_QUALITY_OPTIONS, this.settings.previewQuality),
             onItemClick: () => {
-              showQualityPicker('预览图质量', PREVIEW_QUALITY_OPTIONS, this.settings.previewQuality,
+              showQualityPicker(getStr($r('app.string.settings_preview_quality')), PREVIEW_QUALITY_OPTIONS, this.settings.previewQuality,
                 (v: number) => { userSettingStore.setPreviewQuality(v); this.refresh() })
             }
           })
           SettingItem({
-            title: '详情页质量',
+            title: getStr($r('app.string.settings_detail_quality')),
             value: labelOf(DETAIL_QUALITY_OPTIONS, this.settings.detailQuality),
             onItemClick: () => {
-              showQualityPicker('详情页质量', DETAIL_QUALITY_OPTIONS, this.settings.detailQuality,
+              showQualityPicker(getStr($r('app.string.settings_detail_quality')), DETAIL_QUALITY_OPTIONS, this.settings.detailQuality,
                 (v: number) => { userSettingStore.setDetailQuality(v); this.refresh() })
             }
           })
           SettingItem({
-            title: '全屏查看质量',
+            title: getStr($r('app.string.settings_fullscreen_quality')),
             value: labelOf(DETAIL_QUALITY_OPTIONS, this.settings.fullScreenQuality),
             onItemClick: () => {
-              showQualityPicker('全屏查看质量', DETAIL_QUALITY_OPTIONS, this.settings.fullScreenQuality,
+              showQualityPicker(getStr($r('app.string.settings_fullscreen_quality')), DETAIL_QUALITY_OPTIONS, this.settings.fullScreenQuality,
                 (v: number) => { userSettingStore.setFullScreenQuality(v); this.refresh() })
             }
           })
           SettingItem({
-            title: '插画质量',
+            title: getStr($r('app.string.settings_illust_quality')),
             value: labelOf(ILLUST_MANGA_QUALITY_OPTIONS, this.settings.pictureQuality),
             onItemClick: () => {
-              showQualityPicker('插画质量', ILLUST_MANGA_QUALITY_OPTIONS, this.settings.pictureQuality,
+              showQualityPicker(getStr($r('app.string.settings_illust_quality')), ILLUST_MANGA_QUALITY_OPTIONS, this.settings.pictureQuality,
                 (v: number) => { userSettingStore.setPictureQuality(v); this.refresh() })
             }
           })
           SettingItem({
-            title: '漫画质量',
+            title: getStr($r('app.string.settings_manga_quality')),
             value: labelOf(ILLUST_MANGA_QUALITY_OPTIONS, this.settings.mangaQuality),
             onItemClick: () => {
-              showQualityPicker('漫画质量', ILLUST_MANGA_QUALITY_OPTIONS, this.settings.mangaQuality,
+              showQualityPicker(getStr($r('app.string.settings_manga_quality')), ILLUST_MANGA_QUALITY_OPTIONS, this.settings.mangaQuality,
                 (v: number) => { userSettingStore.setMangaQuality(v); this.refresh() })
             }
           })
           SettingItem({
-            title: '网格列数',
+            title: getStr($r('app.string.settings_cross_count')),
             value: this.settings.crossCount.toString(),
             onItemClick: () => {
-              showQualityPicker('网格列数', CROSS_COUNT_OPTIONS, this.settings.crossCount,
+              showQualityPicker(getStr($r('app.string.settings_cross_count')), CROSS_COUNT_OPTIONS, this.settings.crossCount,
                 (v: number) => { userSettingStore.setCrossCount(v); this.refresh() })
             }
           })
           SwitchItem({
-            title: '显示翻译标签',
+            title: getStr($r('app.string.settings_show_translated')),
             isOn: this.settings.showTranslatedTags,
             onToggle: () => {
               userSettingStore.setShowTranslatedTags(!this.settings.showTranslatedTags)
@@ -106,7 +107,7 @@ export struct BrowseSettingsPage {
             }
           })
           SwitchItem({
-            title: '显示 R18 榜单',
+            title: getStr($r('app.string.settings_show_r18_rank')),
             isOn: this.settings.showR18Rank,
             onToggle: () => {
               userSettingStore.setShowR18Rank(!this.settings.showR18Rank)
@@ -114,7 +115,7 @@ export struct BrowseSettingsPage {
             }
           })
           SwitchItem({
-            title: '防社死模式',
+            title: getStr($r('app.string.settings_anti_social')),
             isOn: this.settings.antiSocialDeath,
             onToggle: () => {
               userSettingStore.setAntiSocialDeath(!this.settings.antiSocialDeath)

@@ -41,7 +41,6 @@ export interface AppSettingsOptions {
   exifMutedTags?: string[]
   exifMergedTags?: ExifTagMergeRule[]
   exifTagPriority?: string[]
-  autoMergeTranslatedTags?: boolean
   downloadConcurrency?: number
   proxyType?: string
   proxyHost?: string
@@ -68,7 +67,8 @@ export class AppSettings {
   fullScreenQuality: number = 0
   downloadQuality: number = 1
   theme: string = 'system'
-  language: string = 'zh-CN'
+  /** 界面语言偏好：'system'（跟随系统，默认）/ 'zh-Hans' / 'zh-Hant' / 'en-Latn-US'；设备本地，不参与任何同步域 */
+  language: string = 'system'
   authMode: string = 'standard'
   apiMode: string = 'standard'
   // 以下 2 个浏览布局字段为设备本地，不参与设备间同步（FR-012）
@@ -88,7 +88,6 @@ export class AppSettings {
   exifMutedTags: string[] = []
   exifMergedTags: ExifTagMergeRule[] = []
   exifTagPriority: string[] = []
-  autoMergeTranslatedTags: boolean = false
   downloadConcurrency: number = 3
   proxyType: string = 'http'
   proxyHost: string = ''
@@ -116,7 +115,7 @@ export class AppSettings {
       this.fullScreenQuality = options.fullScreenQuality ?? 0
       this.downloadQuality = options.downloadQuality ?? 1
       this.theme = options.theme ?? 'system'
-      this.language = options.language ?? 'zh-CN'
+      this.language = options.language ?? 'system'
       this.authMode = options.authMode ?? 'standard'
       this.apiMode = options.apiMode ?? 'standard'
       this.crossCount = options.crossCount ?? 2
@@ -137,7 +136,6 @@ export class AppSettings {
         (rule: ExifTagMergeRule) => new ExifTagMergeRule({ mainTag: rule.mainTag, fromTags: rule.fromTags.slice() })
       )
       this.exifTagPriority = options.exifTagPriority ?? []
-      this.autoMergeTranslatedTags = options.autoMergeTranslatedTags ?? false
       this.downloadConcurrency = options.downloadConcurrency ?? 3
       this.proxyType = options.proxyType ?? 'http'
       this.proxyHost = options.proxyHost ?? ''

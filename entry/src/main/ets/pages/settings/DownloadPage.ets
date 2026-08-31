@@ -3,6 +3,7 @@ import { getDbService, DownloadTaskItem } from '../../services/DatabaseService';
 import { downloadService, RetryAllResult, TaskChangeListener } from '../../services/DownloadService';
 import { apiService } from '../../network/ApiService';
 import { Illust } from '../../models/Illust';
+import { getStr, getStrf } from '../../utils/I18nUtils';
 
 interface IllustDetailResponse {
   illust: Object
@@ -63,36 +64,36 @@ export struct DownloadPage {
       let response = await apiService.getIllustDetail(task.illust_id)
       let illustObj = (response as IllustDetailResponse).illust
       if (!illustObj) {
-        promptAction.showToast({ message: '获取作品信息失败' })
+        promptAction.showToast({ message: $r('app.string.dl_fetch_failed') })
         return
       }
       let illust = Illust.fromJson(illustObj)
       downloadService.enqueue(task.image_url, illust, task.page_index)
-      promptAction.showToast({ message: '已加入下载任务' })
+      promptAction.showToast({ message: $r('app.string.common_added_download') })
       await this.refreshTasksSilently()
     } catch (e) {
       console.error('Retry task failed: ' + e)
-      promptAction.showToast({ message: '重试失败: ' + e })
+      promptAction.showToast({ message: getStrf($r('app.string.dl_retry_failed'), String(e)) })
       await this.loadTasks()
     }
   }
 
   async clearCompleted() {
     let count = await downloadService.clearTasksByStatus('completed')
-    promptAction.showToast({ message: '已清空 ' + count + ' 条完成记录' })
+    promptAction.showToast({ message: getStrf($r('app.string.dl_cleared_completed'), count) })
     await this.loadTasks()
   }
 
   async doRetryAllFailed() {
     let result: RetryAllResult = await downloadService.retryAllFailed(() => { this.refreshTasksSilently() })
     if (result.started === 0 && result.skipped === 0 && result.failed === 0) {
-      promptAction.showToast({ message: '没有可重试的失败任务' })
+      promptAction.showToast({ message: $r('app.string.dl_no_failed_tasks') })
     } else {
       // 入队为 fire-and-forget：started=入队数，成功/失败由任务体异步落库，列表轮询反映
       promptAction.showToast({
-        message: '已重新加入 ' + result.started + ' 个下载任务' +
-          (result.failed > 0 ? '，重建失败 ' + result.failed : '') +
-          (result.skipped > 0 ? '，跳过 ' + result.skipped : '')
+        message: getStrf($r('app.string.dl_retry_readded'), result.started) +
+          (result.failed > 0 ? getStrf($r('app.string.dl_retry_failed_part'), result.failed) : '') +
+          (result.skipped > 0 ? getStrf($r('app.string.dl_retry_skipped_part'), result.skipped) : '')
       })
     }
     await this.refreshTasksSilently()
@@ -100,7 +101,7 @@ export struct DownloadPage {
 
   async doClearFailed() {
     let count = await downloadService.clearTasksByStatus('failed')
-    promptAction.showToast({ message: '已清空 ' + count + ' 条失败记录' })
+    promptAction.showToast({ message: getStrf($r('app.string.dl_cleared_failed'), count) })
     await this.loadTasks()
   }
 
@@ -110,21 +111,21 @@ export struct DownloadPage {
       message: message,
       autoCancel: true,
       primaryButton: {
-        value: '取消',
+        value: $r('app.string.common_cancel'),
         action: () => {}
       },
       secondaryButton: {
-        value: '确定',
+        value: $r('app.string.common_confirm'),
         action: onConfirm
       }
     })
   }
 
   private statusText(status: string): string {
-    if (status === 'completed') { return '已完成' }
-    if (status === 'downloading') { return '下载中' }
-    if (status === 'pending') { return '排队中' }
-    if (status === 'failed') { return '失败' }
+    if (status === 'completed') { return getStr($r('app.string.dl_status_completed')) }
+    if (status === 'downloading') { return getStr($r('app.string.dl_status_downloading')) }
+    if (status === 'pending') { return getStr($r('app.string.dl_status_pending')) }
+    if (status === 'failed') { return getStr($r('app.string.dl_status_failed')) }
     return status
   }
 
@@ -139,30 +140,33 @@ export struct DownloadPage {
   build() {
     Column() {
       Row() {
-        Text('下载管理')
+        Text($r('app.string.settings_download_manager'))
           .fontSize(18)
           .fontWeight(FontWeight.Bold)
           .fontColor('#333333')
           .layoutWeight(1)
-        Button('重试失败')
+        Button($r('app.string.dl_retry_failed_btn'))
           .fontSize(12)
           .backgroundColor('#0096FA')
           .onClick(() => {
-            this.confirmBatchAction('一键重试', '将重试全部失败任务', () => { this.doRetryAllFailed() })
+            this.confirmBatchAction(getStr($r('app.string.dl_retry_all_title')),
+              getStr($r('app.string.dl_retry_all_msg')), () => { this.doRetryAllFailed() })
           })
-        Button('清空失败')
+        Button($r('app.string.dl_clear_failed_btn'))
           .fontSize(12)
           .backgroundColor('#FFAA00')
           .margin({ left: 8 })
           .onClick(() => {
-            this.confirmBatchAction('清空失败', '将移除全部失败任务记录（不删除文件）', () => { this.doClearFailed() })
+            this.confirmBatchAction(getStr($r('app.string.dl_clear_failed_btn')),
+              getStr($r('app.string.dl_clear_failed_msg')), () => { this.doClearFailed() })
           })
-        Button('清空完成')
+        Button($r('app.string.dl_clear_completed_btn'))
           .fontSize(12)
           .backgroundColor('#FF4444')
           .margin({ left: 8 })
           .onClick(() => {
-            this.confirmBatchAction('清空已完成', '将移除全部已完成任务记录（不删除文件）', () => { this.clearCompleted() })
+            this.confirmBatchAction(getStr($r('app.string.dl_clear_completed_title')),
+              getStr($r('app.string.dl_clear_completed_msg')), () => { this.clearCompleted() })
           })
       }
       .width('100%')
@@ -178,7 +182,7 @@ export struct DownloadPage {
           .color('#0096FA')
           .margin({ top: 32 })
       } else if (this.tasks.length === 0) {
-        Text('暂无下载任务')
+        Text($r('app.string.dl_empty'))
           .fontSize(14)
           .fontColor('#999999')
           .margin({ top: 32 })
@@ -188,14 +192,15 @@ export struct DownloadPage {
             ListItem() {
               Row() {
                 Column() {
-                  Text('作品 ' + task.illust_id + (task.page_index > 0 ? ' 第' + (task.page_index + 1) + '页' : ''))
+                  Text(getStrf($r('app.string.dl_task_prefix'), task.illust_id) +
+                    (task.page_index > 0 ? getStrf($r('app.string.dl_task_page'), task.page_index + 1) : ''))
                     .fontSize(14)
                     .fontColor('#333333')
-                  Text('状态: ' + this.statusText(task.status))
+                  Text(getStrf($r('app.string.dl_task_status'), this.statusText(task.status)))
                     .fontSize(12)
                     .fontColor(this.statusColor(task.status))
                   if (task.status === 'downloading') {
-                    Text('进度: ' + task.progress + '%')
+                    Text(getStrf($r('app.string.dl_task_progress'), task.progress))
                       .fontSize(12)
                       .fontColor('#999999')
                   }
@@ -204,7 +209,7 @@ export struct DownloadPage {
                 .layoutWeight(1)
 
                 if (task.status === 'failed') {
-                  Button('重试')
+                  Button($r('app.string.common_retry'))
                     .fontSize(12)
                     .backgroundColor('#0096FA')
                     .onClick(() => { this.retryTask(task) })

@@ -8,7 +8,6 @@ export class Constants {
   static readonly REDIRECT_URI: string = 'https://app-api.pixiv.net/web/v1/users/auth/pixiv/callback'
   static readonly USER_AGENT: string = 'PixivAndroidApp/5.0.234 (Android 14; Pixel 7)'
   static readonly IMAGE_USER_AGENT: string = 'PixivIOSApp/5.8.0'
-  static readonly ACCEPT_LANGUAGE: string = 'zh-CN'
   static readonly APP_VERSION: string = '5.0.234'
   static readonly OS_VERSION: string = 'Android 14'
   static readonly PROXY_HOST: string = ''
@@ -24,6 +23,18 @@ export class Constants {
   // 图床
   static readonly IMAGE_HOST_DEFAULT: string = 'i.pximg.net'
   static readonly IMAGE_HOST_OPTIONAL: string = 'i.pixiv.re'
+
+  // 下载传输参数（流式下载改造）
+  /** 读取超时：相邻数据块间隔上限，弱网停滞容忍（流式模式下语义为块间隔而非整传输） */
+  static readonly DOWNLOAD_READ_TIMEOUT: number = 60000
+  /** 连接超时 */
+  static readonly DOWNLOAD_CONNECT_TIMEOUT: number = 30000
+  /** 单任务最大尝试次数（1 初始 + 2 重试） */
+  static readonly DOWNLOAD_MAX_ATTEMPTS: number = 3
+  /** 重试退避基数（毫秒）：第 n 次重试前等待 base * 2^(n-1)（1s → 2s） */
+  static readonly DOWNLOAD_RETRY_BASE_DELAY_MS: number = 1000
+  /** 下载中半成品临时文件前缀（cacheDir/downloads/part_<taskId>.<ext>，文件大小即续传偏移） */
+  static readonly DOWNLOAD_PART_PREFIX: string = 'part_'
 
   // Pixiv 直连 IP（兼容模式：连直连 IP + 不发 SNI + 跳过证书校验，绕过 GFW SNI 封锁）
   static readonly DIRECT_IP_API: string = '210.140.139.155'

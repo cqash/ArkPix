@@ -1,6 +1,7 @@
 import { router } from '@kit.ArkUI';
 import { userSettingStore } from '../../stores/UserSettingStore';
 import { AppSettings } from '../../models/AppSettings';
+import { getStrf } from '../../utils/I18nUtils';
 
 @Entry
 @Component
@@ -32,13 +33,13 @@ struct MutePage {
     Column() {
       // 顶部导航栏
       Row() {
-        Text('< 返回')
+        Text($r('app.string.common_back_arrow'))
           .fontSize(16)
           .fontColor('#0096FA')
           .onClick(() => {
             router.back()
           })
-        Text('屏蔽管理')
+        Text($r('app.string.settings_mute_manager'))
           .fontSize(18)
           .fontWeight(FontWeight.Bold)
           .fontColor('#333333')
@@ -58,19 +59,19 @@ struct MutePage {
         // 屏蔽词
         ListItem() {
           Column() {
-            Text('屏蔽词（标题/标签）')
+            Text($r('app.string.mute_tags_section'))
               .fontSize(12)
               .fontColor('#999999')
               .width('100%')
               .padding({ left: 16, bottom: 4 })
 
             Row() {
-              TextInput({ placeholder: '输入屏蔽词', text: $$this.newMuteTag })
+              TextInput({ placeholder: $r('app.string.mute_tag_placeholder'), text: $$this.newMuteTag })
                 .height(40)
                 .layoutWeight(1)
                 .backgroundColor('#FFFFFF')
                 .onSubmit(() => { this.addMuteTag() })
-              Button('添加')
+              Button($r('app.string.common_add'))
                 .height(40)
                 .backgroundColor('#0096FA')
                 .margin({ left: 8 })
@@ -81,7 +82,7 @@ struct MutePage {
             .backgroundColor('#FFFFFF')
 
             if (this.settings.muteTags.length === 0) {
-              Text('暂无屏蔽词')
+              Text($r('app.string.mute_no_tags'))
                 .fontSize(13)
                 .fontColor('#CCCCCC')
                 .width('100%')
@@ -95,7 +96,7 @@ struct MutePage {
                   .fontSize(14)
                   .fontColor('#333333')
                   .layoutWeight(1)
-                Text('删除')
+                Text($r('app.string.common_delete'))
                   .fontSize(12)
                   .fontColor('#FF4444')
                   .onClick(() => { this.removeMuteTag(tag) })
@@ -113,14 +114,14 @@ struct MutePage {
         // 屏蔽作者
         ListItem() {
           Column() {
-            Text('屏蔽作者')
+            Text($r('app.string.mute_users_section'))
               .fontSize(12)
               .fontColor('#999999')
               .width('100%')
               .padding({ left: 16, bottom: 4 })
 
             if (this.settings.muteUsers.length === 0) {
-              Text('暂无屏蔽作者（可在插画卡片长按菜单中添加）')
+              Text($r('app.string.mute_no_users'))
                 .fontSize(13)
                 .fontColor('#CCCCCC')
                 .width('100%')
@@ -131,11 +132,11 @@ struct MutePage {
 
             ForEach(this.settings.muteUsers, (userId: number) => {
               Row() {
-                Text('用户 ID: ' + userId)
+                Text(getStrf($r('app.string.mute_user_id'), userId))
                   .fontSize(14)
                   .fontColor('#333333')
                   .layoutWeight(1)
-                Text('删除')
+                Text($r('app.string.common_delete'))
                   .fontSize(12)
                   .fontColor('#FF4444')
                   .onClick(() => { this.removeMuteUser(userId) })

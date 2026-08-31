@@ -3,6 +3,8 @@
  * 从 SettingsPage 原样抽取（组件实现与选项数组逐项一致），供 7 个分类子页与设置首页复用。
  */
 
+import { getStr } from '../../utils/I18nUtils';
+
 @Component
 export struct SettingItem {
   @Prop title: string = ''
@@ -125,7 +127,8 @@ export struct TextInputItem {
 }
 
 export interface QualityOption {
-  label: string
+  /** 选项文案资源（运行时按当前语言解析，避免模块加载期固化） */
+  labelRes: Resource
   value: number
 }
 
@@ -135,7 +138,7 @@ export function showQualityPicker(title: string, options: QualityOption[], curre
   let labels: string[] = []
   let selectedIndex: number = 0
   for (let i = 0; i < options.length; i++) {
-    labels.push(options[i].label)
+    labels.push(getStr(options[i].labelRes))
     if (options[i].value === currentValue) {
       selectedIndex = i
     }
@@ -160,69 +163,99 @@ export function showQualityPicker(title: string, options: QualityOption[], curre
 export function labelOf(options: QualityOption[], value: number): string {
   for (let i = 0; i < options.length; i++) {
     if (options[i].value === value) {
-      return options[i].label
+      return getStr(options[i].labelRes)
     }
   }
   return ''
 }
 
 export const PREVIEW_QUALITY_OPTIONS: QualityOption[] = [
-  { label: '缩略图', value: 0 },
-  { label: '中图', value: 1 },
-  { label: '大图', value: 2 }
+  { labelRes: $r('app.string.settings_quality_thumbnail'), value: 0 },
+  { labelRes: $r('app.string.settings_quality_medium'), value: 1 },
+  { labelRes: $r('app.string.settings_quality_large'), value: 2 }
 ]
 
 export const DETAIL_QUALITY_OPTIONS: QualityOption[] = [
-  { label: '大图', value: 0 },
-  { label: '原图', value: 1 }
+  { labelRes: $r('app.string.settings_quality_large'), value: 0 },
+  { labelRes: $r('app.string.settings_quality_original'), value: 1 }
 ]
 
 export const ILLUST_MANGA_QUALITY_OPTIONS: QualityOption[] = [
-  { label: '中', value: 0 },
-  { label: '大', value: 1 },
-  { label: '原图', value: 2 }
+  { labelRes: $r('app.string.settings_quality_medium_short'), value: 0 },
+  { labelRes: $r('app.string.settings_quality_large_short'), value: 1 },
+  { labelRes: $r('app.string.settings_quality_original'), value: 2 }
 ]
 
 export const NETWORK_MODE_OPTIONS: QualityOption[] = [
-  { label: '标准', value: 0 },
-  { label: '兼容', value: 1 },
-  { label: '增强', value: 2 },
-  { label: '中继', value: 3 }
+  { labelRes: $r('app.string.settings_net_mode_standard'), value: 0 },
+  { labelRes: $r('app.string.settings_net_mode_compatible'), value: 1 },
+  { labelRes: $r('app.string.settings_net_mode_ech'), value: 2 },
+  { labelRes: $r('app.string.settings_net_mode_relay'), value: 3 }
 ]
 
 export const NETWORK_MODE_VALUES: string[] = ['standard', 'compatible', 'ech', 'relay']
 
 export const IMAGE_HOST_OPTIONS: QualityOption[] = [
-  { label: '默认 (i.pximg.net)', value: 0 },
-  { label: '可选 (i.pixiv.re)', value: 1 },
-  { label: '自定义', value: 2 }
+  { labelRes: $r('app.string.settings_image_host_default'), value: 0 },
+  { labelRes: $r('app.string.settings_image_host_optional'), value: 1 },
+  { labelRes: $r('app.string.settings_image_host_custom'), value: 2 }
 ]
 
 export const IMAGE_HOST_VALUES: string[] = ['default', 'optional', 'custom']
 
 export const PROXY_TYPE_OPTIONS: QualityOption[] = [
-  { label: 'HTTP', value: 0 },
-  { label: 'SOCKS5', value: 1 }
+  { labelRes: $r('app.string.settings_proxy_http'), value: 0 },
+  { labelRes: $r('app.string.settings_proxy_socks5'), value: 1 }
 ]
 
 export const DOWNLOAD_CONCURRENCY_OPTIONS: QualityOption[] = [
-  { label: '1 线程', value: 1 },
-  { label: '2 线程', value: 2 },
-  { label: '3 线程', value: 3 },
-  { label: '4 线程', value: 4 },
-  { label: '5 线程', value: 5 }
+  { labelRes: $r('app.string.settings_concurrency_1'), value: 1 },
+  { labelRes: $r('app.string.settings_concurrency_2'), value: 2 },
+  { labelRes: $r('app.string.settings_concurrency_3'), value: 3 },
+  { labelRes: $r('app.string.settings_concurrency_4'), value: 4 },
+  { labelRes: $r('app.string.settings_concurrency_5'), value: 5 }
 ]
 
 export const CROSS_COUNT_OPTIONS: QualityOption[] = [
-  { label: '2 列', value: 2 },
-  { label: '3 列', value: 3 }
+  { labelRes: $r('app.string.settings_cross_2'), value: 2 },
+  { labelRes: $r('app.string.settings_cross_3'), value: 3 }
 ]
 
-/** 网络模式字符串 → label（如 'standard' → '标准'），用于子页 value 列与首页摘要 */
+/** 语言偏好选项（值与 AppSettings.language 取值一一对应） */
+export const LANGUAGE_OPTIONS: QualityOption[] = [
+  { labelRes: $r('app.string.settings_lang_system'), value: 0 },
+  { labelRes: $r('app.string.settings_lang_zh_hans'), value: 1 },
+  { labelRes: $r('app.string.settings_lang_zh_hant'), value: 2 },
+  { labelRes: $r('app.string.settings_lang_en'), value: 3 }
+]
+
+export const LANGUAGE_VALUES: string[] = ['system', 'zh-Hans', 'zh-Hant', 'en-Latn-US']
+
+/** 语言偏好字符串 → label，用于设置行 value 列与首页摘要 */
+export function languageLabel(pref: string): string {
+  for (let i = 0; i < LANGUAGE_VALUES.length; i++) {
+    if (LANGUAGE_VALUES[i] === pref) {
+      return getStr(LANGUAGE_OPTIONS[i].labelRes)
+    }
+  }
+  return getStr(LANGUAGE_OPTIONS[0].labelRes)
+}
+
+/** 语言偏好字符串 → 选项索引（Picker 当前选中用） */
+export function languageIndex(pref: string): number {
+  for (let i = 0; i < LANGUAGE_VALUES.length; i++) {
+    if (LANGUAGE_VALUES[i] === pref) {
+      return i
+    }
+  }
+  return 0
+}
+
+/** 网络模式字符串 → label（如 'standard' → 当前语言的"标准"），用于子页 value 列与首页摘要 */
 export function networkModeLabel(mode: string): string {
   for (let i = 0; i < NETWORK_MODE_VALUES.length; i++) {
     if (NETWORK_MODE_VALUES[i] === mode) {
-      return NETWORK_MODE_OPTIONS[i].label
+      return getStr(NETWORK_MODE_OPTIONS[i].labelRes)
     }
   }
   return ''
@@ -242,7 +275,7 @@ export function networkModeIndex(mode: string): number {
 export function imageHostLabel(hostType: string): string {
   for (let i = 0; i < IMAGE_HOST_VALUES.length; i++) {
     if (IMAGE_HOST_VALUES[i] === hostType) {
-      return IMAGE_HOST_OPTIONS[i].label
+      return getStr(IMAGE_HOST_OPTIONS[i].labelRes)
     }
   }
   return ''

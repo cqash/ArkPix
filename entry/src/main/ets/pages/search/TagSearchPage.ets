@@ -37,7 +37,7 @@ struct TagSearchPage {
   build() {
     Column() {
       Row() {
-        Button('返回')
+        Button($r('app.string.common_back'))
           .fontSize(14)
           .backgroundColor('#F5F5F5')
           .fontColor('#333333')

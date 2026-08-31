@@ -5,6 +5,7 @@ import { getDbService, HistoryItem, SearchHistoryItem } from '../../services/Dat
 import { CachedImage } from '../../components/common/CachedImage';
 import { EmptyView, LoadingView } from '../../components/common/CommonViews';
 import { buildHistoryExportJson, buildHistoryPidText } from '../../utils/HistoryExport';
+import { getStr, getStrf } from '../../utils/I18nUtils';
 
 @Entry
 @Component
@@ -34,15 +35,15 @@ struct HistoryPage {
 
   private confirmClearBrowseHistory(): void {
     this.getUIContext().showAlertDialog({
-      title: '清空浏览历史',
-      message: '确定要清空全部浏览历史吗？该操作不可恢复。',
+      title: $r('app.string.history_clear_browse_title'),
+      message: $r('app.string.history_clear_browse_msg'),
       autoCancel: true,
       primaryButton: {
-        value: '取消',
+        value: $r('app.string.common_cancel'),
         action: () => {}
       },
       secondaryButton: {
-        value: '清空',
+        value: $r('app.string.common_clear'),
         action: () => {
           this.clearBrowseHistory()
         }
@@ -68,7 +69,7 @@ struct HistoryPage {
   /** 导出浏览历史：asJson=true 导出完整字段 JSON，false 导出纯文本 PID 列表 */
   private async exportHistory(asJson: boolean): Promise<void> {
     if (this.browseHistory.length === 0) {
-      this.showToast('暂无历史记录')
+      this.showToast(getStr($r('app.string.history_empty_toast')))
       return
     }
     let content = asJson ? buildHistoryExportJson(this.browseHistory) : buildHistoryPidText(this.browseHistory)
@@ -76,7 +77,7 @@ struct HistoryPage {
     try {
       let ctx = AppStorage.get<common.Context>('context')
       if (!ctx) {
-        this.showToast('导出失败：无法获取上下文')
+        this.showToast(getStr($r('app.string.common_export_no_context')))
         return
       }
       let options = new picker.DocumentSaveOptions()
@@ -89,9 +90,9 @@ struct HistoryPage {
       let file = fileIo.openSync(uris[0], fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE)
       fileIo.writeSync(file.fd, content)
       fileIo.closeSync(file)
-      this.showToast('导出成功')
+      this.showToast(getStr($r('app.string.common_export_success')))
     } catch (e) {
-      this.showToast('导出失败: ' + e)
+      this.showToast(getStrf($r('app.string.common_export_failed'), String(e)))
     }
   }
 
@@ -106,19 +107,19 @@ struct HistoryPage {
   @Builder
   MenuBuilder() {
     Column() {
-      Text('导出 JSON')
+      Text($r('app.string.history_export_json'))
         .fontSize(14)
         .fontColor('#333333')
         .width('100%')
         .padding({ left: 16, right: 16, top: 10, bottom: 10 })
         .onClick(() => { this.runAfterMenuClosed(() => { this.exportHistory(true) }) })
-      Text('导出 PID 列表')
+      Text($r('app.string.history_export_pid'))
         .fontSize(14)
         .fontColor('#333333')
         .width('100%')
         .padding({ left: 16, right: 16, top: 10, bottom: 10 })
         .onClick(() => { this.runAfterMenuClosed(() => { this.exportHistory(false) }) })
-      Text('清空浏览历史')
+      Text($r('app.string.history_clear_browse_title'))
         .fontSize(14)
         .fontColor('#FF4444')
         .width('100%')
@@ -131,15 +132,15 @@ struct HistoryPage {
 
   private confirmClearSearchHistory(): void {
     this.getUIContext().showAlertDialog({
-      title: '清空搜索历史',
-      message: '确定要清空全部搜索历史吗？',
+      title: $r('app.string.history_clear_search_title'),
+      message: $r('app.string.history_clear_search_msg'),
       autoCancel: true,
       primaryButton: {
-        value: '取消',
+        value: $r('app.string.common_cancel'),
         action: () => {}
       },
       secondaryButton: {
-        value: '清空',
+        value: $r('app.string.common_clear'),
         action: () => {
           this.clearSearchHistory()
         }
@@ -160,7 +161,7 @@ struct HistoryPage {
   @Builder
   BrowseHistoryTab() {
     if (this.browseHistory.length === 0) {
-      EmptyView({ message: '暂无浏览历史' })
+      EmptyView({ message: getStr($r('app.string.history_empty_browse')) })
     } else {
       Grid() {
         ForEach(this.browseHistory, (item: HistoryItem) => {
@@ -202,10 +203,10 @@ struct HistoryPage {
   /** 搜索历史类型标识（illust/user/pid/uid → 插画/画师/PID/UID） */
   private searchTypeLabel(searchType: string): string {
     if (searchType === 'illust') {
-      return '插画'
+      return getStr($r('app.string.search_tab_illust'))
     }
     if (searchType === 'user') {
-      return '画师'
+      return getStr($r('app.string.search_tab_user'))
     }
     if (searchType === 'pid') {
       return 'PID'
@@ -232,15 +233,15 @@ struct HistoryPage {
   @Builder
   SearchHistoryTab() {
     if (this.searchHistory.length === 0) {
-      EmptyView({ message: '暂无搜索历史' })
+      EmptyView({ message: getStr($r('app.string.history_empty_search')) })
     } else {
       Column() {
         Row() {
-          Text('共 ' + this.searchHistory.length + ' 条')
+          Text(getStrf($r('app.string.history_total_count'), this.searchHistory.length))
             .fontSize(12)
             .fontColor('#999999')
             .layoutWeight(1)
-          Text('清空')
+          Text($r('app.string.common_clear'))
             .fontSize(13)
             .fontColor('#FF4444')
             .onClick(() => { this.confirmClearSearchHistory() })
@@ -282,13 +283,13 @@ struct HistoryPage {
     Column() {
       // 顶部标题栏
       Row() {
-        Text('< 返回')
+        Text($r('app.string.common_back_arrow'))
           .fontSize(16)
           .fontColor('#0096FA')
           .onClick(() => {
             router.back()
           })
-        Text('历史记录')
+        Text($r('app.string.settings_history'))
           .fontSize(18)
           .fontWeight(FontWeight.Bold)
           .fontColor('#333333')
@@ -317,11 +318,11 @@ struct HistoryPage {
           TabContent() {
             this.BrowseHistoryTab()
           }
-          .tabBar('浏览历史')
+          .tabBar($r('app.string.history_tab_browse'))
           TabContent() {
             this.SearchHistoryTab()
           }
-          .tabBar('搜索历史')
+          .tabBar($r('app.string.search_history_title'))
         }
         .width('100%')
         .layoutWeight(1)

@@ -167,11 +167,8 @@ export function filterTagsForExif(tags: ExifTag[], settings: AppSettings): ExifT
     }
   }
 
-  // Step 2.5: Auto-merge tags with same translatedName (via exifMergedTags rules)
-  // When autoMergeTranslatedTags is enabled, the manual exifMergedTags rules already
-  // handle known synonym groups (including user-reviewed ones). No auto-discovery here —
-  // new synonym groups are detected by findUnresolvedMergeGroups and presented to the user
-  // for review, after which they are persisted into exifMergedTags.
+  // Step 2.5: 自动合并步骤已移除——同义组由 findUnresolvedMergeGroups 检测并经
+  // 审查弹窗由用户确认后持久化进 exifMergedTags，由上方手动合并步骤统一处理。
 
   // Step 3: Sort by exifTagPriority
   if (settings.exifTagPriority.length > 0) {
@@ -217,10 +214,7 @@ export interface MergeGroup {
 // 注意：Method A 使用原始 translatedName（不过滤），因为 CJK→ASCII 翻译虽然
 // 对显示无意义，但暗示了 tag 间的关联性（如 爱莉希雅→Elysia + Elysia 在列表中）
 export function findUnresolvedMergeGroups(tags: ExifTag[], settings: AppSettings): MergeGroup[] {
-  // Note: merge detection always runs regardless of autoMergeTranslatedTags switch.
-  // The switch only controls whether the old "auto-merge without asking" behavior was used.
-  // Now the merge review dialog always pops up for unresolved groups, requiring user confirmation.
-  // This ensures EXIF tag deduplication works even when the switch is off.
+  // 合并检测始终执行：未解决的同义组会弹审查弹窗，须经用户确认后才写入规则。
 
   // Build a set of all tag names already covered by exifMergedTags rules
   let coveredTags: string[] = []
