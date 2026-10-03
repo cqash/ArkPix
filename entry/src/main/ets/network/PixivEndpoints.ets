@@ -25,6 +25,7 @@ export class PixivEndpoints {
   static userDetail(id: number): string { return PixivEndpoints.API_BASE + '/v1/user/detail?user_id=' + id }
   static userIllusts(id: number, type: string): string { return PixivEndpoints.API_BASE + '/v1/user/illusts?user_id=' + id + '&type=' + type + '&filter=for_android' }
   static userBookmarksIllust(id: number, restrict: string): string { return PixivEndpoints.API_BASE + '/v1/user/bookmarks/illust?user_id=' + id + '&restrict=' + restrict + '&filter=for_android' }
+  static userBookmarkTagsIllust(restrict: string): string { return PixivEndpoints.API_BASE + '/v1/user/bookmark-tags/illust?restrict=' + restrict }
   static userFollowAdd(): string { return PixivEndpoints.API_BASE + '/v1/user/follow/add' }
   static userFollowDelete(): string { return PixivEndpoints.API_BASE + '/v1/user/follow/delete' }
   static userFollowDetail(id: number): string { return PixivEndpoints.API_BASE + '/v1/user/follow/detail?user_id=' + id }

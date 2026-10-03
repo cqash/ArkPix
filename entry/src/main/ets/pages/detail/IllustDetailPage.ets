@@ -1,1511 +1,292 @@
-import { router, promptAction } from '@kit.ArkUI';
-import { pasteboard } from '@kit.BasicServicesKit';
-import { imageCacheService } from '../../services/ImageCacheService';
-import { apiService } from '../../network/ApiService';
-import { buildLocalSuggestions } from '../../utils/MergeSuggest';
-import { Illust, Tag } from '../../models/Illust';
-import { AppSettings } from '../../models/AppSettings';
-import { userSettingStore } from '../../stores/UserSettingStore';
-import { BOOKMARK_LOADING, BOOKMARK_DONE } from '../../stores/BookmarkStateStore';
-import { IllustDetailStore, DetailRow, RECOVER_STATE_IDLE, RECOVER_STATE_POLLING, RECOVER_STATE_READY }
-  from '../../stores/IllustDetailStore';
-import { BookmarkSnapshot } from '../../models/RelayModels';
-import { Constants } from '../../utils/Constants';
-import { copyText } from '../../utils/ClipboardUtils';
+import { router } from '@kit.ArkUI';
+import { IllustDetailPane } from '../../components/detail/IllustDetailPane';
 import { continuationService } from '../../services/ContinuationService';
 import { ContinuationPayload, CONTINUATION_PAGE_ILLUST_DETAIL } from '../../models/ContinuationPayload';
-import { formatCreateDate } from '../../utils/DateUtils';
-import { buildPageUrls } from '../../utils/ImageUrlUtils';
-import { CachedImage } from '../../components/common/CachedImage';
-import { IllustCard } from '../../components/illust/IllustCard';
-import { ErrorView, LoadingView } from '../../components/common/CommonViews';
-import {
-  ExifTag,
-  ExifInfo,
-  filterTagsForExif,
-  isCommentOverLimit,
-  renderCommentWithTags,
-  renderCommentBytes,
-  utf8ByteLength,
-  EXIF_FIELD_MAX_BYTES,
-  findUnresolvedMergeGroups,
-  MergeGroup
-} from '../../services/ImageExifService';
-import { getStr, getStrf } from '../../utils/I18nUtils';
+import { DetailListContextRegistry, DetailListContext } from '../../services/DetailListContextRegistry';
+import { IllustListPage } from '../../components/illust/IllustWaterfall';
+import { apiService } from '../../network/ApiService';
+import { getDbService } from '../../services/DatabaseService';
+import { userSettingStore } from '../../stores/UserSettingStore';
+import { Illust } from '../../models/Illust';
+import { pickDetailUrl } from '../../utils/ImageUrlUtils';
+import { prefetchCachedImage } from '../../components/common/CachedImage';
 
 interface RouteParams {
   illustId: number
+  contextToken?: string
+  contextIndex?: number
 }
 
-interface ExifPickerItem {
-  name: string
-  translatedName: string
-  checked: boolean
-  withinBudget: boolean
+/** 详情接口响应（仅内部断言层使用，与 IllustDetailStore 同模式） */
+interface IllustDetailResponse {
+  illust: Object
 }
 
-/** /v2/search/autocomplete 响应 tags[] 元素 */
-interface RawAutoCompleteTag {
-  name?: string
-  translated_name?: string
+/** 作品间滑动的 id 序列数据源（Swiper + LazyForEach；末尾预取追加经 onDataAdd 驱动） */
+class DetailIdDataSource implements IDataSource {
+  private listeners: DataChangeListener[] = []
+  public items: number[] = []
+
+  totalCount(): number {
+    return this.items.length
+  }
+
+  getData(index: number): number {
+    return this.items[index]
+  }
+
+  registerDataChangeListener(listener: DataChangeListener): void {
+    if (this.listeners.indexOf(listener) < 0) {
+      this.listeners.push(listener)
+    }
+  }
+
+  unregisterDataChangeListener(listener: DataChangeListener): void {
+    let pos = this.listeners.indexOf(listener)
+    if (pos >= 0) {
+      this.listeners.splice(pos, 1)
+    }
+  }
+
+  setItems(items: number[]): void {
+    this.items = items
+    this.listeners.forEach((listener: DataChangeListener) => {
+      listener.onDataReloaded()
+    })
+  }
+
+  appendItems(items: number[]): void {
+    if (items.length === 0) {
+      return
+    }
+    let start = this.items.length
+    this.items = this.items.concat(items)
+    for (let i = 0; i < items.length; i++) {
+      let index = start + i
+      this.listeners.forEach((listener: DataChangeListener) => {
+        listener.onDataAdd(index)
+      })
+    }
+  }
 }
 
-interface RawAutoCompleteResponse {
-  tags?: Object[]
-}
-
+/**
+ * 详情页壳：详情内容已抽取至 IllustDetailPane。
+ * 无 contextToken（历史/深链/PID 直达等非列表入口）→ 单 Pane，行为与现状一致；
+ * 有 contextToken（列表页进入）→ Swiper + LazyForEach 作品间左右滑动（cachedCount 1），
+ * 滑至倒数第 2 项且有续页游标时自动预取，无更多数据时尾部追加 No More/加载/重试占位页。
+ * 多端流转接续登记（当前作品 illustId）由本壳统一管理。
+ */
 @Entry
 @Component
 struct IllustDetailPage {
-  private store: IllustDetailStore = new IllustDetailStore()
-  @State illust: Illust = new Illust()
-  @State rows: DetailRow[] = []
-  @State isLoading: boolean = false
-  @State errorMessage: string = ''
   @State illustId: number = 0
-  @State deletedSnapshot: BookmarkSnapshot | null = null
-  @State recoverState: string = RECOVER_STATE_IDLE
-  @State recoverProgressText: string = ''
-  @State userAvatarPath: string = ''
-  @State revealedR18: boolean = false
-  @State bookmarkMenuShown: boolean = false
-  @State tagMenuShown: boolean = false
-  @State tagMenuTarget: string = ''
-  @State saveMenuShown: boolean = false
-  @State saveMenuPageIndex: number = 0
-  @State mergeDialogShown: boolean = false
-  @State mergeFromTag: string = ''
-  @State mergeInputText: string = ''
-  /** 合并对话框补全建议（名称 + 对齐的翻译副标题），输入为空时不显示 */
-  @State mergeSuggestions: string[] = []
-  @State mergeSuggestionSubs: string[] = []
-  private mergeSuggestTimer: number = -1
-  @State exifPickerShown: boolean = false
-  /** EXIF Picker 确认/跳过后续走的页集合（单页=[index]，全部=全集，选页=子集） */
-  @State exifPickerPendingPages: number[] = []
-  @State exifPickerWritableItems: ExifPickerItem[] = []
-  @State exifPickerMutedItems: ExifPickerItem[] = []
-  @State exifPickerPreviewText: string = ''
-  @State exifPickerPreviewBytes: number = 0
-  @State exifPickerMuteConfirmTarget: string = ''
-  @State mergeReviewShown: boolean = false
-  @State mergeReviewGroups: MergeGroup[] = []
-  @State mergeReviewSelected: string[] = []  // 每组选中的主 tag 名
-  // 选页弹窗状态
-  @State pageSelectShown: boolean = false
-  @State pageSelectChecked: boolean[] = []
-  private pageSelectThumbUrls: string[] = []
-  /** 拖选：PanGestureOptions 动态 distance（普通 10000vp 让位 Grid 滚动，长按激活后 1vp 跟手拖选） */
-  private pageSelectPanOptions: PanGestureOptions = new PanGestureOptions({ fingers: 1, distance: 10000 })
-  private pageSelectDragging: boolean = false
-  private pageSelectStartIndex: number = -1
-  private pageSelectTargetState: boolean = false
-  private pageSelectPreDrag: boolean[] = []
-  private pageSelectGridWidth: number = 0
-  private pageSelectScrollOffset: number = 0
-  private pageSelectSuppressClick: boolean = false
-  @StorageLink('bookmarkStates') bookmarkStates: Map<number, number> = new Map<number, number>()
-  @StorageLink('appSettings') appSettings: AppSettings = new AppSettings()
+  @State currentIndex: number = 0
+  @State hasMoreContext: boolean = false
+  /** 末尾预取失败态（尾部占位页显示"加载失败，点击重试"） */
+  @State prefetchError: boolean = false
+  private dataSource: DetailIdDataSource = new DetailIdDataSource()
+  private contextToken: string = ''
+  private prefetching: boolean = false
+  /** R7：已预取（含在途）的作品 id，会话级去重防重复请求；失败时移除允许下次触发重试 */
+  private neighborPrefetchedIds: Set<number> = new Set<number>()
+  /** R7：相邻预取代数，每次触发递增；在途预取检测到代数变化即中止（快速连滑防请求堆积） */
+  private prefetchGen: number = 0
 
   aboutToAppear() {
-    this.store.uiContext = this.getUIContext()
     let params = router.getParams() as RouteParams
-    if (params && params.illustId) {
-      this.illustId = params.illustId
-      this.loadDetail(params.illustId)
-      // 多端流转：登记当前页面状态（供 onContinue 构建接续载荷）
-      continuationService.setCurrentPageState(new ContinuationPayload({
-        page: CONTINUATION_PAGE_ILLUST_DETAIL,
-        illustId: params.illustId
-      }))
+    if (!params || !params.illustId) {
+      return
     }
+    this.illustId = params.illustId
+    if (params.contextToken !== undefined && params.contextToken.length > 0) {
+      let ctx = DetailListContextRegistry.get(params.contextToken)
+      if (ctx !== null && ctx.ids.length > 0) {
+        this.contextToken = params.contextToken
+        this.dataSource.setItems(ctx.ids.slice())
+        this.hasMoreContext = ctx.nextUrl.length > 0
+        let idx = params.contextIndex !== undefined ? params.contextIndex : ctx.ids.indexOf(params.illustId)
+        if (idx < 0 || idx >= ctx.ids.length) {
+          idx = 0
+        }
+        this.currentIndex = idx
+      }
+    }
+    // 多端流转：登记当前页面状态（供 onContinue 构建接续载荷）
+    this.registerContinuation(this.currentIllustId())
   }
 
   aboutToDisappear() {
-    // 页面退出：停止恢复轮询，不残留后台任务
-    this.store.cancelRecover()
-    // 多端流转：清除页面状态登记
     continuationService.setCurrentPageState(null)
   }
 
-  async loadDetail(id: number, forceRefresh: boolean = false) {
-    if (this.rows.length === 0) {
-      this.isLoading = true
+  private currentIllustId(): number {
+    if (this.dataSource.totalCount() > 0 && this.currentIndex < this.dataSource.totalCount()) {
+      return this.dataSource.getData(this.currentIndex)
     }
-    this.errorMessage = ''
-    this.deletedSnapshot = null
-    let ok = await this.store.load(id, forceRefresh)
-    if (ok || this.store.illust.id > 0) {
-      this.illust = this.store.illust
-      this.rebuildRows()
-      this.loadAvatar()
-      this.store.loadRelated().then(() => {
-        this.rebuildRows()
-      }).catch((e: Object) => {
-        console.error('Load related failed: ' + e)
-      })
-    } else if (this.store.deletedSnapshot !== null) {
-      // 404 + 有收藏快照：快照兜底分支（不显示普通错误页）
-      this.deletedSnapshot = this.store.deletedSnapshot
-      this.recoverState = RECOVER_STATE_IDLE
-      this.recoverProgressText = ''
-    } else {
-      this.errorMessage = this.store.errorMessage || getStr($r('app.string.common_load_failed'))
+    return this.illustId
+  }
+
+  private registerContinuation(illustId: number): void {
+    continuationService.setCurrentPageState(new ContinuationPayload({
+      page: CONTINUATION_PAGE_ILLUST_DETAIL,
+      illustId: illustId
+    }))
+  }
+
+  private onSwiperChange(index: number): void {
+    this.currentIndex = index
+    if (index < this.dataSource.totalCount()) {
+      this.registerContinuation(this.dataSource.getData(index))
     }
-    this.isLoading = false
-  }
-
-  /** 点击"尝试从第三方恢复"：轮询编排交 store，状态镜像回页面 */
-  private startRecover(): void {
-    this.recoverState = RECOVER_STATE_POLLING
-    this.store.startRecover((text: string) => {
-      this.recoverProgressText = text
-    }).then(() => {
-      this.recoverState = this.store.recoverState
-      if (this.store.recoverState === RECOVER_STATE_READY && this.store.recoveredImageUrls.length > 0) {
-        this.openRecoveredViewer(this.store.recoveredImageUrls)
-      }
-    }).catch((e: Object) => {
-      console.error('Recover failed: ' + e)
-      this.recoverState = this.store.recoverState
-    })
-  }
-
-  private cancelRecover(): void {
-    this.store.cancelRecover()
-    this.recoverState = RECOVER_STATE_IDLE
-    this.recoverProgressText = ''
-  }
-
-  /** 恢复成功：用快照元数据构造 Illust 跳查看器（图片 URL 直接可用） */
-  private openRecoveredViewer(urls: string[]): void {
-    let snapshot = this.deletedSnapshot
-    let recovered: Illust = new Illust()
-    if (snapshot !== null) {
-      recovered = new Illust({
-        id: snapshot.illustId,
-        title: snapshot.title,
-        pageCount: snapshot.pageCount,
-        width: snapshot.width,
-        height: snapshot.height,
-        createDate: snapshot.createDate,
-        user: { id: snapshot.userId, name: snapshot.userName }
-      })
-    }
-    router.pushUrl({
-      url: 'pages/detail/ImageViewerPage',
-      params: { urls: urls, downloadUrls: urls, illust: recovered, pageIndex: 0 }
-    })
-  }
-
-  private rebuildRows(): void {
-    this.rows = this.store.buildRows(userSettingStore.getSettings().detailQuality)
-  }
-
-  private async loadAvatar(): Promise<void> {
-    let url = this.illust.user.profileImageUrls.medium
-    if (url) {
-      this.userAvatarPath = await imageCacheService.getLocalPath(url)
+    // 末尾预取：滑至倒数第 2 项且仍有续页游标
+    if (this.hasMoreContext && index >= this.dataSource.totalCount() - 2) {
+      this.prefetchNext()
     }
   }
 
-  private bookmarkState(): number {
-    let state = this.bookmarkStates.get(this.illust.id)
-    if (state !== undefined) {
-      return state
-    }
-    return this.illust.isBookmarked ? BOOKMARK_DONE : 0
-  }
-
-  private isR18(): boolean {
-    return this.illust.xRestrict === 1 || this.illust.xRestrict === 2
-  }
-
-  private hasUnresolvedMergeGroups(): boolean {
-    let settings = userSettingStore.getSettings()
-    let exifTags: ExifTag[] = this.illust.tags.map((t: Tag): ExifTag => {
-      return { name: t.name, translatedName: t.translatedName }
-    })
-    let groups = findUnresolvedMergeGroups(exifTags, settings)
-    return groups.length > 0
-  }
-
-  private checkMergeReview(): void {
-    let settings = userSettingStore.getSettings()
-    let exifTags: ExifTag[] = this.illust.tags.map((t: Tag): ExifTag => {
-      return { name: t.name, translatedName: t.translatedName }
-    })
-    let groups = findUnresolvedMergeGroups(exifTags, settings)
-    if (groups.length === 0) {
+  /** 末尾预取下一批：经上下文 fetchNext 闭包拉取，追加 ids 到 Registry 与本页数据源 */
+  private async prefetchNext(): Promise<void> {
+    if (this.prefetching || this.contextToken.length === 0 || !this.hasMoreContext) {
       return
     }
-    this.mergeReviewGroups = groups
-    // Default: select the first tag in each group as main
-    this.mergeReviewSelected = []
-    for (let i = 0; i < groups.length; i++) {
-      if (groups[i].tags.length > 0) {
-        this.mergeReviewSelected.push(groups[i].tags[0].name)
-      }
-    }
-    this.mergeReviewShown = true
-  }
-
-  private confirmMergeReview(): void {
-    for (let i = 0; i < this.mergeReviewGroups.length; i++) {
-      let group = this.mergeReviewGroups[i]
-      let mainTag = this.mergeReviewSelected[i]
-      if (!mainTag || mainTag.length === 0) {
-        continue
-      }
-      let fromTags: string[] = []
-      for (let j = 0; j < group.tags.length; j++) {
-        if (group.tags[j].name !== mainTag) {
-          fromTags.push(group.tags[j].name)
-        }
-      }
-      if (fromTags.length > 0) {
-        userSettingStore.addExifMergeRule(mainTag, fromTags)
-      }
-    }
-    this.mergeReviewShown = false
-    this.mergeReviewGroups = []
-    this.mergeReviewSelected = []
-    promptAction.showToast({ message: $r('app.string.detail_merge_rule_saved') })
-  }
-
-  private needMask(): boolean {
-    return this.appSettings.antiSocialDeath && this.isR18() && !this.revealedR18
-  }
-
-  private clearMergeSuggestState(): void {
-    if (this.mergeSuggestTimer >= 0) {
-      clearTimeout(this.mergeSuggestTimer)
-      this.mergeSuggestTimer = -1
-    }
-    this.mergeSuggestions = []
-    this.mergeSuggestionSubs = []
-  }
-
-  private closeMergeDialog(): void {
-    this.clearMergeSuggestState()
-    this.mergeDialogShown = false
-  }
-
-  /** 合并输入变化：本地来源（合并规则+本作品 tag）即时匹配；本地零匹配且停顿 ≥300ms 才调 API */
-  private onMergeInputChange(value: string): void {
-    this.mergeInputText = value
-    if (this.mergeSuggestTimer >= 0) {
-      clearTimeout(this.mergeSuggestTimer)
-      this.mergeSuggestTimer = -1
-    }
-    let prefix = value.trim()
-    if (prefix.length === 0) {
-      this.mergeSuggestions = []
-      this.mergeSuggestionSubs = []
+    let ctx = DetailListContextRegistry.get(this.contextToken)
+    if (ctx === null || ctx.nextUrl.length === 0) {
       return
     }
-    let settings = userSettingStore.getSettings()
-    let illustTagNames: string[] = this.illust.tags.map((t: Tag) => t.name)
-    let local = buildLocalSuggestions(prefix, settings.exifMergedTags, illustTagNames)
-    if (local.length > 0) {
-      // 本地有匹配 → 不发起 API 请求
-      this.mergeSuggestions = local
-      this.mergeSuggestionSubs = local.map((): string => '')
-      return
-    }
-    this.mergeSuggestions = []
-    this.mergeSuggestionSubs = []
-    this.mergeSuggestTimer = setTimeout(() => {
-      this.mergeSuggestTimer = -1
-      this.fetchApiSuggestions(prefix)
-    }, 300)
-  }
-
-  /** API 联想词兜底：仅在本地零匹配时触发；失败静默降级不影响本地建议 */
-  private async fetchApiSuggestions(prefix: string): Promise<void> {
+    this.prefetching = true
+    this.prefetchError = false
     try {
-      let response = await apiService.getAutoComplete(prefix)
-      // 输入已变化则丢弃过期结果
-      if (!this.mergeDialogShown || this.mergeInputText.trim() !== prefix) {
-        return
+      let page: IllustListPage = await ctx.fetchNext(ctx.nextUrl)
+      DetailListContextRegistry.append(this.contextToken, page)
+      let newIds: number[] = []
+      for (let i = 0; i < page.illusts.length; i++) {
+        newIds.push(page.illusts[i].id)
       }
-      let raw = response as RawAutoCompleteResponse
-      let tags = raw.tags ?? []
-      let names: string[] = []
-      let subs: string[] = []
-      for (let i = 0; i < tags.length; i++) {
-        let item = tags[i] as RawAutoCompleteTag
-        let name = item.name ?? ''
-        if (name.length === 0 || names.includes(name)) {
-          continue
-        }
-        names.push(name)
-        subs.push(Constants.filterTranslatedName(name, item.translated_name ?? ''))
-      }
-      this.mergeSuggestions = names
-      this.mergeSuggestionSubs = subs
+      this.dataSource.appendItems(newIds)
+      this.hasMoreContext = page.nextUrl.length > 0
     } catch (e) {
-      console.error('Autocomplete failed: ' + e)
+      console.error('Detail list prefetch failed: ' + e)
+      this.prefetchError = true
+    } finally {
+      this.prefetching = false
     }
   }
 
-  /** 点选建议：回填输入框并收起建议区 */
-  private pickMergeSuggestion(name: string): void {
-    this.mergeInputText = name
-    this.clearMergeSuggestState()
+  private showTailSlide(): boolean {
+    // 尾部占位：预取中（转圈）/ 预取失败（重试）/ 无更多（No More），对齐 pixez PictureListNextPage 三态
+    return this.dataSource.totalCount() > 0 && (this.prefetching || this.prefetchError || !this.hasMoreContext)
   }
 
-  openViewer(pageIndex: number) {
-    let settings = userSettingStore.getSettings()
-    let urls = buildPageUrls(this.illust, settings.fullScreenQuality)
-    let downloadUrls = buildPageUrls(this.illust, settings.downloadQuality)
-    router.pushUrl({
-      url: 'pages/detail/ImageViewerPage',
-      params: { urls: urls, downloadUrls: downloadUrls, illust: this.illust, pageIndex: pageIndex }
-    })
-  }
-
-  @Builder
-  BookmarkMenuBuilder() {
-    Column() {
-      Text($r('app.string.detail_bookmark_public'))
-        .fontSize(14)
-        .fontColor('#333333')
-        .width('100%')
-        .padding({ left: 16, right: 16, top: 10, bottom: 10 })
-        .onClick(() => { this.store.starWithRestrict('public') })
-      Text($r('app.string.detail_bookmark_private'))
-        .fontSize(14)
-        .fontColor('#333333')
-        .width('100%')
-        .padding({ left: 16, right: 16, top: 10, bottom: 10 })
-        .onClick(() => { this.store.starWithRestrict('private') })
-    }
-    .width(140)
-    .padding({ top: 4, bottom: 4 })
-  }
-
-  @Builder
-  SaveMenuBuilder() {
-    Column() {
-      Text($r('app.string.detail_save_current_page'))
-        .fontSize(14)
-        .fontColor('#333333')
-        .width('100%')
-        .padding({ left: 16, right: 16, top: 10, bottom: 10 })
-        .onClick(() => { this.handleSavePage(this.saveMenuPageIndex) })
-      if (this.illust.pageCount > 1) {
-        Text($r('app.string.detail_save_all_pages'))
-          .fontSize(14)
-          .fontColor('#333333')
-          .width('100%')
-          .padding({ left: 16, right: 16, top: 10, bottom: 10 })
-          .onClick(() => { this.handleSaveAll() })
-      }
-    }
-    .width(140)
-    .padding({ top: 4, bottom: 4 })
-  }
-
-  @Builder
-  TagMenuBuilder() {
-    Column() {
-      Text($r('app.string.detail_copy_tag'))
-        .fontSize(14)
-        .fontColor('#333333')
-        .width('100%')
-        .padding({ left: 16, right: 16, top: 10, bottom: 10 })
-        .onClick(() => {
-          let data = pasteboard.createPlainTextData(this.tagMenuTarget)
-          pasteboard.getSystemPasteboard().setData(data)
-        })
-      Text($r('app.string.detail_mute_tag'))
-        .fontSize(14)
-        .fontColor('#333333')
-        .width('100%')
-        .padding({ left: 16, right: 16, top: 10, bottom: 10 })
-        .onClick(() => {
-          userSettingStore.addMuteTag(this.tagMenuTarget)
-        })
-      Text($r('app.string.detail_exif_mute'))
-        .fontSize(14)
-        .fontColor('#333333')
-        .width('100%')
-        .padding({ left: 16, right: 16, top: 10, bottom: 10 })
-        .onClick(() => {
-          userSettingStore.addExifMutedTag(this.tagMenuTarget)
-          promptAction.showToast({ message: getStrf($r('app.string.detail_exif_muted_toast'), this.tagMenuTarget) })
-        })
-      Text($r('app.string.detail_exif_merge'))
-        .fontSize(14)
-        .fontColor('#333333')
-        .width('100%')
-        .padding({ left: 16, right: 16, top: 10, bottom: 10 })
-        .onClick(() => {
-          this.mergeFromTag = this.tagMenuTarget
-          this.mergeInputText = ''
-          this.clearMergeSuggestState()
-          this.mergeDialogShown = true
-        })
-    }
-    .width(140)
-    .padding({ top: 4, bottom: 4 })
-  }
-
-  goToUserProfile() {
-    if (this.illust.user.id > 0) {
-      router.pushUrl({ url: 'pages/user/UserProfilePage', params: { userId: this.illust.user.id } })
-    }
-  }
-
-  /** 保存单页：先检测合并审查，再检测 EXIF 超限 */
-  private handleSavePage(pageIndex: number): void {
-    if (this.hasUnresolvedMergeGroups()) {
-      this.checkMergeReview()
+  /**
+   * R7：当前作品详情加载完成后，对相邻 ±1 作品（与 cachedCount 深度对齐）静默预取：
+   * DB 详情缓存 + 当前 detailQuality 档位首图，滑动激活时直接命中秒出。
+   * 仅 contextToken（列表入口）模式启用；单作品模式直接返回。
+   * 红线：预取绝不走 IllustDetailStore.load()（会写浏览历史污染未看过的作品），
+   * 也不播种收藏注册表、不产生任何用户可见副作用（toast/状态变更）。
+   */
+  private prefetchNeighbors(index: number): void {
+    if (this.contextToken.length === 0 || this.dataSource.totalCount() === 0) {
       return
     }
-    if (this.store.isExifOverLimit()) {
-      this.exifPickerPendingPages = [pageIndex]
-      this.initExifPickerItems()
-      this.exifPickerShown = true
-    } else {
-      this.store.savePage(pageIndex)
+    this.prefetchGen++
+    let gen = this.prefetchGen
+    if (index - 1 >= 0) {
+      this.prefetchOne(this.dataSource.getData(index - 1), gen)
+    }
+    if (index + 1 < this.dataSource.totalCount()) {
+      this.prefetchOne(this.dataSource.getData(index + 1), gen)
     }
   }
 
-  /** 保存全部页：先检测合并审查，再检测 EXIF 超限 */
-  private handleSaveAll(): void {
-    if (this.hasUnresolvedMergeGroups()) {
-      this.checkMergeReview()
+  /**
+   * 单个相邻作品预取（fire-and-forget）：
+   * DB 缓存命中 → 仅补首图预取；未命中 → getIllustDetail → 解析校验 → 落 DB 缓存 → 首图预取。
+   * 每个 await 后校验代数，快速连滑时旧预取中止；异常/无效数据静默放弃并移出去重集允许重试。
+   */
+  private async prefetchOne(id: number, gen: number): Promise<void> {
+    if (id <= 0 || this.neighborPrefetchedIds.has(id)) {
       return
     }
-    if (this.store.isExifOverLimit()) {
-      let pages: number[] = []
-      for (let i = 0; i < this.illust.pageCount; i++) {
-        pages.push(i)
-      }
-      this.exifPickerPendingPages = pages
-      this.initExifPickerItems()
-      this.exifPickerShown = true
-    } else {
-      this.store.saveAll()
-    }
-  }
-
-  /** 保存指定页集合（选页弹窗确认入口）：空集合不发起；先检测合并审查，再检测 EXIF 超限 */
-  private handleSavePages(pageIndexes: number[]): void {
-    if (pageIndexes.length === 0) {
-      return
-    }
-    if (this.hasUnresolvedMergeGroups()) {
-      this.checkMergeReview()
-      return
-    }
-    if (this.store.isExifOverLimit()) {
-      this.exifPickerPendingPages = pageIndexes.slice()
-      this.initExifPickerItems()
-      this.exifPickerShown = true
-    } else {
-      this.store.savePages(pageIndexes)
-    }
-  }
-
-  /** EXIF Picker 确认/跳过后的续走：单页→savePage，全集→saveAll，子集→savePages */
-  private resumeSaveAfterPicker(): void {
-    let pages = this.exifPickerPendingPages
-    if (pages.length === 1) {
-      this.store.savePage(pages[0])
-    } else if (pages.length === this.illust.pageCount && pages.length > 1) {
-      this.store.saveAll()
-    } else if (pages.length > 0) {
-      this.store.savePages(pages)
-    }
-  }
-
-  /** 选页弹窗：缩略图 URL（方图缩略档优先） */
-  private pageThumbUrl(pageIndex: number): string {
-    let hasMetaPage = this.illust.pageCount > 1 && pageIndex >= 0 && pageIndex < this.illust.metaPages.length
-    let urls = hasMetaPage ? this.illust.metaPages[pageIndex].imageUrls : this.illust.imageUrls
-    return urls.squareMedium || urls.medium || urls.large
-  }
-
-  /** 打开选页弹窗（仅多页）：默认全选，重置拖选/滚动状态 */
-  private openPageSelect(): void {
-    let count = this.illust.pageCount
-    if (count <= 1) {
-      return
-    }
-    let checked: boolean[] = []
-    let thumbs: string[] = []
-    for (let i = 0; i < count; i++) {
-      checked.push(true)
-      thumbs.push(this.pageThumbUrl(i))
-    }
-    this.pageSelectChecked = checked
-    this.pageSelectThumbUrls = thumbs
-    this.pageSelectScrollOffset = 0
-    this.pageSelectDragging = false
-    this.pageSelectSuppressClick = false
-    this.pageSelectPanOptions.setDistance(10000)
-    this.pageSelectShown = true
-  }
-
-  private closePageSelect(): void {
-    this.pageSelectShown = false
-    this.endPageSelectDrag()
-  }
-
-  private pageSelectCount(): number {
-    let n = 0
-    for (let i = 0; i < this.pageSelectChecked.length; i++) {
-      if (this.pageSelectChecked[i]) {
-        n++
-      }
-    }
-    return n
-  }
-
-  /** 确认下载：空选择不发起 */
-  private confirmPageSelect(): void {
-    let selected: number[] = []
-    for (let i = 0; i < this.pageSelectChecked.length; i++) {
-      if (this.pageSelectChecked[i]) {
-        selected.push(i)
-      }
-    }
-    if (selected.length === 0) {
-      return
-    }
-    this.closePageSelect()
-    this.handleSavePages(selected)
-  }
-
-  private setAllPageSelect(value: boolean): void {
-    let next: boolean[] = []
-    for (let i = 0; i < this.pageSelectChecked.length; i++) {
-      next.push(value)
-    }
-    this.pageSelectChecked = next
-  }
-
-  /** 单击单格切换（长按后的抬起 click 被吞掉，避免撤销拖选起始格的置位） */
-  private togglePageSelect(index: number): void {
-    if (this.pageSelectSuppressClick) {
-      this.pageSelectSuppressClick = false
-      return
-    }
-    if (index < 0 || index >= this.pageSelectChecked.length) {
-      return
-    }
-    let next = this.pageSelectChecked.slice()
-    next[index] = !next[index]
-    this.pageSelectChecked = next
-  }
-
-  /** 长按（≥300ms）激活拖选：起始格定方向（选中↔未选），记录拖前快照供区间重算 */
-  private startPageSelectDrag(index: number): void {
-    if (index < 0 || index >= this.pageSelectChecked.length) {
-      return
-    }
-    this.pageSelectDragging = true
-    this.pageSelectSuppressClick = true
-    this.pageSelectStartIndex = index
-    this.pageSelectTargetState = !this.pageSelectChecked[index]
-    this.pageSelectPreDrag = this.pageSelectChecked.slice()
-    this.pageSelectPanOptions.setDistance(1)
-    this.applyPageSelectRange(index)
-  }
-
-  /** 拖选区间置位：起始格与当前格之间的连续区间（行优先序）统一置为目标状态 */
-  private applyPageSelectRange(currentIndex: number): void {
-    if (this.pageSelectStartIndex < 0) {
-      return
-    }
-    let start = Math.min(this.pageSelectStartIndex, currentIndex)
-    let end = Math.max(this.pageSelectStartIndex, currentIndex)
-    let next = this.pageSelectPreDrag.slice()
-    for (let i = start; i <= end && i < next.length; i++) {
-      next[i] = this.pageSelectTargetState
-    }
-    this.pageSelectChecked = next
-  }
-
-  private endPageSelectDrag(): void {
-    if (!this.pageSelectDragging) {
-      return
-    }
-    this.pageSelectDragging = false
-    this.pageSelectStartIndex = -1
-    this.pageSelectPanOptions.setDistance(10000)
-  }
-
-  /** 单格边长（4 列，gap 8vp） */
-  private pageSelectCellSize(): number {
-    if (this.pageSelectGridWidth <= 0) {
-      return 0
-    }
-    return (this.pageSelectGridWidth - 24) / 4
-  }
-
-  /** 触点坐标（相对 Grid，vp）→ 格子索引；含滚动偏移换算，越界钳制 */
-  private pageSelectIndexAt(x: number, y: number): number {
-    let cell = this.pageSelectCellSize()
-    if (cell <= 0 || this.pageSelectChecked.length === 0) {
-      return -1
-    }
-    let col = Math.floor(x / (cell + 8))
-    if (col < 0) {
-      col = 0
-    }
-    if (col > 3) {
-      col = 3
-    }
-    let row = Math.floor((y + this.pageSelectScrollOffset) / (cell + 8))
-    let index = row * 4 + col
-    if (index < 0) {
-      index = 0
-    }
-    if (index >= this.pageSelectChecked.length) {
-      index = this.pageSelectChecked.length - 1
-    }
-    return index
-  }
-
-  /** 拖选滑动更新：按经过格区间批量置目标状态 */
-  private onPageSelectPanUpdate(event: GestureEvent): void {
-    if (!this.pageSelectDragging || event.fingerList.length === 0) {
-      return
-    }
-    let finger = event.fingerList[0]
-    let index = this.pageSelectIndexAt(finger.localX, finger.localY)
-    if (index >= 0) {
-      this.applyPageSelectRange(index)
-    }
-  }
-
-  /** 初始化 EXIF 标签选择器的数据 */
-  private initExifPickerItems(): void {
-    let settings = userSettingStore.getSettings()
-    let filteredTags = filterTagsForExif(this.illust.tags.map((t: Tag): ExifTag => {
-      return { name: t.name, translatedName: t.translatedName }
-    }), settings)
-
-    let writable: ExifPickerItem[] = []
-    let muted: ExifPickerItem[] = []
-
-    for (let i = 0; i < filteredTags.length; i++) {
-      let tag = filteredTags[i]
-      let isMuted = settings.exifMutedTags.includes(tag.name)
-      let item: ExifPickerItem = {
-        name: tag.name,
-        translatedName: tag.translatedName,
-        checked: !isMuted,
-        withinBudget: true
-      }
-      if (isMuted) {
-        muted.push(item)
-      } else {
-        writable.push(item)
-      }
-    }
-
-    // Also add muted tags not in filteredTags
-    let filteredNames: string[] = []
-    for (let i = 0; i < filteredTags.length; i++) {
-      filteredNames.push(filteredTags[i].name)
-    }
-    for (let i = 0; i < this.illust.tags.length; i++) {
-      let tag = this.illust.tags[i]
-      if (settings.exifMutedTags.includes(tag.name) && !filteredNames.includes(tag.name)) {
-        let item: ExifPickerItem = {
-          name: tag.name,
-          translatedName: tag.translatedName,
-          checked: false,
-          withinBudget: false
-        }
-        let alreadyInMuted = false
-        for (let m = 0; m < muted.length; m++) {
-          if (muted[m].name === tag.name) {
-            alreadyInMuted = true
-            break
-          }
-        }
-        if (!alreadyInMuted) {
-          muted.push(item)
-        }
-      }
-    }
-
-    this.exifPickerWritableItems = writable
-    this.exifPickerMutedItems = muted
-    this.recalculateExifPickerPreview()
-  }
-
-  /** 重新计算 EXIF 选择器预览 */
-  private recalculateExifPickerPreview(): void {
-    let info = this.store.buildExifInfo()
-    let checkedTags: ExifTag[] = []
-    for (let i = 0; i < this.exifPickerWritableItems.length; i++) {
-      if (this.exifPickerWritableItems[i].checked) {
-        let t: ExifTag = {
-          name: this.exifPickerWritableItems[i].name,
-          translatedName: this.exifPickerWritableItems[i].translatedName
-        }
-        checkedTags.push(t)
-      }
-    }
-
-    let rendered = renderCommentWithTags(info, checkedTags)
-    let totalBytes = utf8ByteLength(rendered)
-    this.exifPickerPreviewText = rendered
-    this.exifPickerPreviewBytes = totalBytes
-
-    // Calculate withinBudget for each writable item
-    let budgetTags: ExifTag[] = []
-    for (let i = 0; i < this.exifPickerWritableItems.length; i++) {
-      if (this.exifPickerWritableItems[i].checked) {
-        let t: ExifTag = {
-          name: this.exifPickerWritableItems[i].name,
-          translatedName: this.exifPickerWritableItems[i].translatedName
-        }
-        budgetTags.push(t)
-        let partialBytes = renderCommentBytes(info, budgetTags)
-        this.exifPickerWritableItems[i].withinBudget = partialBytes <= EXIF_FIELD_MAX_BYTES
-      } else {
-        this.exifPickerWritableItems[i].withinBudget = false
-      }
-    }
-  }
-
-  /** EXIF Picker 确认回调：更新 exifMutedTags 和 exifTagPriority 后继续保存 */
-  private onExifPickerConfirm(): void {
-    let selectedTags: string[] = []
-    let allTagsOrdered: string[] = []
-    for (let i = 0; i < this.exifPickerWritableItems.length; i++) {
-      allTagsOrdered.push(this.exifPickerWritableItems[i].name)
-      if (this.exifPickerWritableItems[i].checked) {
-        selectedTags.push(this.exifPickerWritableItems[i].name)
-      }
-    }
-
-    // 只有在屏蔽区中的标签才持久化屏蔽（取消勾选只是跳过本次）
-    let settings = userSettingStore.getSettings()
-    let currentMuted: string[] = settings.exifMutedTags.slice()
-    for (let i = 0; i < this.exifPickerMutedItems.length; i++) {
-      if (!currentMuted.includes(this.exifPickerMutedItems[i].name)) {
-        currentMuted.push(this.exifPickerMutedItems[i].name)
-      }
-    }
-    userSettingStore.setExifMutedTags(currentMuted)
-
-    // 更新优先级排序（拖拽后的顺序持久化）
-    userSettingStore.updateExifTagPriority(allTagsOrdered)
-
-    this.exifPickerShown = false
-
-    // 继续保存流程
-    this.resumeSaveAfterPicker()
-  }
-
-  /** EXIF Picker 跳过回调：直接保存不做过滤 */
-  private onExifPickerSkip(): void {
-    this.exifPickerShown = false
-    this.resumeSaveAfterPicker()
-   }
-
-  /** 长按可写入标签 → 移入屏蔽区（永久屏蔽） */
-  private muteExifPickerTag(tagName: string): void {
-    let targetIdx = -1
-    for (let i = 0; i < this.exifPickerWritableItems.length; i++) {
-      if (this.exifPickerWritableItems[i].name === tagName) {
-        targetIdx = i
-        break
-      }
-    }
-    if (targetIdx < 0) {
-      this.exifPickerMuteConfirmTarget = ''
-      return
-    }
-    let movedItem = this.exifPickerWritableItems[targetIdx]
-    let newWritable: ExifPickerItem[] = []
-    for (let i = 0; i < this.exifPickerWritableItems.length; i++) {
-      if (i !== targetIdx) {
-        newWritable.push(this.exifPickerWritableItems[i])
-      }
-    }
-    this.exifPickerWritableItems = newWritable
-    let mutedItem: ExifPickerItem = {
-      name: movedItem.name,
-      translatedName: movedItem.translatedName,
-      checked: false,
-      withinBudget: false
-    }
-    let newMuted: ExifPickerItem[] = []
-    for (let i = 0; i < this.exifPickerMutedItems.length; i++) {
-      newMuted.push(this.exifPickerMutedItems[i])
-    }
-    newMuted.push(mutedItem)
-    this.exifPickerMutedItems = newMuted
-    this.exifPickerMuteConfirmTarget = ''
-    this.recalculateExifPickerPreview()
-  }
-
-  /** 从屏蔽区恢复标签到可写入区 */
-  private restoreExifPickerMutedTag(index: number): void {
-    if (index < 0 || index >= this.exifPickerMutedItems.length) {
-      return
-    }
-    let item = this.exifPickerMutedItems[index]
-    let newMuted: ExifPickerItem[] = []
-    for (let i = 0; i < this.exifPickerMutedItems.length; i++) {
-      if (i !== index) {
-        newMuted.push(this.exifPickerMutedItems[i])
-      }
-    }
-    this.exifPickerMutedItems = newMuted
-    let restoredItem: ExifPickerItem = {
-      name: item.name,
-      translatedName: item.translatedName,
-      checked: true,
-      withinBudget: false
-    }
-    let newWritable: ExifPickerItem[] = []
-    for (let i = 0; i < this.exifPickerWritableItems.length; i++) {
-      newWritable.push(this.exifPickerWritableItems[i])
-    }
-    newWritable.push(restoredItem)
-    this.exifPickerWritableItems = newWritable
-    this.recalculateExifPickerPreview()
-  }
-
-   private getDisplayTranslation(tagName: string, translatedName: string): string {
-     return Constants.filterTranslatedName(tagName, translatedName)
-  }
-
-  @Builder
-  TagChip(tag: Tag) {
-    if (userSettingStore.getSettings().showTranslatedTags && tag.translatedName &&
-      this.getDisplayTranslation(tag.name, tag.translatedName).length > 0) {
-      Column() {
-        Text(tag.name)
-          .fontSize(10)
-          .fontColor('#0096FA')
-        Text(this.getDisplayTranslation(tag.name, tag.translatedName))
-          .fontSize(8)
-          .fontColor('#0096FA')
-          .opacity(0.8)
-      }
-      .backgroundColor('#E6F4FF')
-      .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-      .borderRadius(12)
-      .margin({ right: 4, bottom: 4 })
-      .onClick(() => {
-        router.pushUrl({ url: 'pages/search/TagSearchPage', params: { keyword: tag.name } })
-      })
-      .gesture(
-        LongPressGesture({ duration: 500 })
-          .onAction(() => {
-            this.tagMenuTarget = tag.name
-            this.tagMenuShown = true
-          })
-      )
-      .bindContextMenu(this.tagMenuShown && this.tagMenuTarget === tag.name, this.TagMenuBuilder, {
-        onDisappear: () => { this.tagMenuShown = false }
-      })
-    } else {
-      Text(tag.name)
-        .fontSize(10)
-        .fontColor('#0096FA')
-        .backgroundColor('#E6F4FF')
-        .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-        .borderRadius(12)
-        .margin({ right: 4, bottom: 4 })
-        .onClick(() => {
-          router.pushUrl({ url: 'pages/search/TagSearchPage', params: { keyword: tag.name } })
-        })
-        .gesture(
-          LongPressGesture({ duration: 500 })
-            .onAction(() => {
-              this.tagMenuTarget = tag.name
-              this.tagMenuShown = true
-            })
-        )
-        .bindContextMenu(this.tagMenuShown && this.tagMenuTarget === tag.name, this.TagMenuBuilder, {
-          onDisappear: () => { this.tagMenuShown = false }
-        })
-    }
-  }
-
-  @Builder
-  ImageRow(row: DetailRow) {
-    Stack({ alignContent: Alignment.TopEnd }) {
-      if (this.needMask()) {
-        Column() {
-          Text('🔒')
-            .fontSize(28)
-            .opacity(0.4)
-          Text($r('app.string.detail_tap_to_show'))
-            .fontSize(12)
-            .fontColor('rgba(255, 255, 255, 0.35)')
-            .margin({ top: 8 })
-        }
-        .width('100%')
-        .aspectRatio(row.ratio)
-        .justifyContent(FlexAlign.Center)
-        .backgroundColor('#E0E0E0')
-        .borderRadius(8)
-        .onClick(() => { this.revealedR18 = true })
-      } else {
-        CachedImage({ url: row.imageUrl, ratio: row.ratio, fit: ImageFit.Contain })
-      }
-      if (this.illust.pageCount > 1 && !this.needMask()) {
-        Text((row.pageIndex + 1) + '/' + this.illust.pageCount)
-          .fontSize(10)
-          .fontColor('#FFFFFF')
-          .backgroundColor('rgba(0, 0, 0, 0.6)')
-          .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-          .borderRadius(8)
-          .margin(6)
-      }
-    }
-    .width('100%')
-    .onClick(() => {
-      if (this.needMask()) {
-        this.revealedR18 = true
+    this.neighborPrefetchedIds.add(id)
+    try {
+      let db = await getDbService()
+      if (gen !== this.prefetchGen) {
+        console.info('Prefetch neighbor aborted: ' + id + ' gen=' + gen)
         return
       }
-      this.openViewer(row.pageIndex)
-    })
-    .gesture(
-      LongPressGesture({ duration: 500 })
-        .onAction(() => {
-          if (!this.needMask()) {
-            if (this.illust.pageCount > 1) {
-              this.saveMenuPageIndex = row.pageIndex
-              this.saveMenuShown = true
-            } else {
-              this.handleSavePage(row.pageIndex)
-            }
+      let cached = await db.getIllustDetailCache(id)
+      if (gen !== this.prefetchGen) {
+        console.info('Prefetch neighbor aborted: ' + id + ' gen=' + gen)
+        return
+      }
+      let illust: Illust = new Illust()
+      let ready = false
+      if (cached) {
+        let rawCached = (JSON.parse(cached) as IllustDetailResponse).illust
+        if (rawCached) {
+          let parsed = Illust.fromJson(rawCached)
+          if (parsed.id && parsed.title) {
+            illust = parsed
+            ready = true
           }
-        })
-    )
-    .bindContextMenu(this.saveMenuShown && this.saveMenuPageIndex === row.pageIndex, this.SaveMenuBuilder, {
-      onDisappear: () => { this.saveMenuShown = false }
-    })
+        }
+      }
+      if (!ready) {
+        let response = await apiService.getIllustDetail(id)
+        if (gen !== this.prefetchGen) {
+          console.info('Prefetch neighbor aborted: ' + id + ' gen=' + gen)
+          return
+        }
+        let raw = (response as IllustDetailResponse).illust
+        let parsed = raw ? Illust.fromJson(raw) : new Illust()
+        if (!raw || !parsed.id || !parsed.title) {
+          // 解析失败/无效数据：静默放弃，移出去重集允许下次触发重试
+          this.neighborPrefetchedIds.delete(id)
+          return
+        }
+        illust = parsed
+        await db.setIllustDetailCache(id, JSON.stringify(response as object))
+        if (gen !== this.prefetchGen) {
+          console.info('Prefetch neighbor aborted: ' + id + ' gen=' + gen)
+          return
+        }
+      }
+      // 首图预取：档位必须取当前 detailQuality 设置（与详情图行一致），否则激活时不命中
+      console.info('Prefetch neighbor ok: ' + id + (ready ? ' (cache)' : ' (api)'))
+      prefetchCachedImage(pickDetailUrl(illust, 0, userSettingStore.getSettings().detailQuality))
+    } catch (e) {
+      console.error('Prefetch neighbor detail failed: ' + e)
+      this.neighborPrefetchedIds.delete(id)
+    }
   }
 
   @Builder
-  InfoRow() {
+  TailSlide() {
     Column() {
-      Row() {
-        Text(this.illust.title)
-          .fontSize(18)
-          .fontWeight(FontWeight.Bold)
-          .fontColor('#333333')
-          .layoutWeight(1)
-      }
-      .width('100%')
-      .padding({ left: 16, right: 16, top: 8 })
-
-      Row() {
-        if (this.userAvatarPath) {
-          Image('file://' + this.userAvatarPath)
-            .width(32)
-            .height(32)
-            .borderRadius(16)
-        } else {
-          Column()
-            .width(32)
-            .height(32)
-            .borderRadius(16)
-            .backgroundColor('#F5F5F5')
-        }
-        Text(this.illust.user.name)
+      if (this.prefetching) {
+        LoadingProgress()
+          .width(28)
+          .height(28)
+          .color('#0096FA')
+        Text($r('app.string.common_loading'))
+          .fontSize(13)
+          .fontColor('#999999')
+          .margin({ top: 12 })
+      } else if (this.prefetchError) {
+        Text($r('app.string.waterfall_load_failed_retry'))
           .fontSize(14)
           .fontColor('#0096FA')
-          .margin({ left: 8 })
-      }
-      .width('100%')
-      .padding({ left: 16, right: 16, top: 8 })
-      .onClick(() => { this.goToUserProfile() })
-
-      Row() {
-        Text(getStrf($r('app.string.detail_stat_bookmarks'), this.illust.totalBookmarks))
-          .fontSize(12)
-          .fontColor('#999999')
-        Text(getStrf($r('app.string.detail_stat_views'), this.illust.totalView))
-          .fontSize(12)
-          .fontColor('#999999')
-          .margin({ left: 16 })
-      }
-      .width('100%')
-      .padding({ left: 16, right: 16, top: 8 })
-
-      // 发布日期（本地时区 yyyy-MM-dd HH:mm；解析失败返回 '' 不渲染该行）
-      if (formatCreateDate(this.illust.createDate).length > 0) {
-        Row() {
-          Text(getStrf($r('app.string.detail_published_at'), formatCreateDate(this.illust.createDate)))
-            .fontSize(12)
-            .fontColor('#999999')
-        }
-        .width('100%')
-        .padding({ left: 16, right: 16, top: 8 })
-      }
-
-      Row() {
-        Text('PID: ' + this.illust.id)
-          .fontSize(12)
-          .fontColor('#999999')
-          .gesture(
-            LongPressGesture({ duration: 500 })
-              .onAction(() => {
-                copyText(this.illust.id.toString()).then((ok: boolean) => {
-                  promptAction.showToast({ message: ok ? $r('app.string.detail_pid_copied') : $r('app.string.common_copy_failed') })
-                })
-              })
-          )
-      }
-      .width('100%')
-      .padding({ left: 16, right: 16, top: 8 })
-
-      Flex({ wrap: FlexWrap.Wrap }) {
-        ForEach(this.illust.tags, (tag: Tag) => {
-          this.TagChip(tag)
-        }, (tag: Tag) => tag.name)
-      }
-      .width('100%')
-      .padding({ left: 16, right: 16, top: 8 })
-
-      // 查看评论：tag 云之后、相关作品之前的居中小号文字按钮（原按钮区已迁移至右下角双 FAB）
-      Text($r('app.string.detail_view_comments'))
-        .fontSize(12)
-        .fontColor('#999999')
-        .width('100%')
-        .textAlign(TextAlign.Center)
-        .padding({ top: 12, bottom: 16 })
-        .onClick(() => {
-          router.pushUrl({
-            url: 'pages/detail/CommentPage',
-            params: { illustId: this.illust.id, illustTitle: this.illust.title }
-          })
-        })
-    }
-    .width('100%')
-  }
-
-  @Builder
-  RelatedHeaderRow() {
-    Row() {
-      Text($r('app.string.detail_related'))
-        .fontSize(16)
-        .fontWeight(FontWeight.Bold)
-        .fontColor('#333333')
-    }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 8, bottom: 8 })
-  }
-
-  @Builder
-  RelatedRow(row: DetailRow) {
-    Row() {
-      ForEach(row.related, (item: Illust) => {
-        Column() {
-          IllustCard({
-            illust: item,
-            onCardClick: (target: Illust) => {
-              router.pushUrl({ url: 'pages/detail/IllustDetailPage', params: { illustId: target.id } })
-            }
-          })
-        }
-        .width('33.3%')
-      }, (item: Illust) => item.id.toString())
-    }
-    .width('100%')
-  }
-
-  /** 右下角双 FAB：收藏（点按收藏/取消，长按公开/私密菜单；未收藏=浅灰♡，已收藏=红❤）+
-   *  下载（蓝底白↓；单击=保存全部页/单页保存，长按仅多页=选页弹窗） */
-  @Builder
-  FabOverlay() {
-    Column({ space: 12 }) {
-      // 收藏 FAB
-      Stack({ alignContent: Alignment.Center }) {
-        Text(this.bookmarkState() === BOOKMARK_DONE ? '❤' : '♡')
-          .fontSize(22)
-          .fontColor(this.bookmarkState() === BOOKMARK_DONE ? '#FF4081' :
-            this.bookmarkState() === BOOKMARK_LOADING ? '#CCCCCC' : '#999999')
-      }
-      .width(52)
-      .height(52)
-      .borderRadius(26)
-      .backgroundColor('#FFFFFF')
-      .shadow({ radius: 8, color: 'rgba(0, 0, 0, 0.2)', offsetY: 2 })
-      .onClick(() => { this.store.toggleBookmark() })
-      .gesture(
-        LongPressGesture({ duration: 500 })
-          .onAction(() => {
-            if (this.bookmarkState() === 0) {
-              this.bookmarkMenuShown = true
-            }
-          })
-      )
-      .bindContextMenu(this.bookmarkMenuShown, this.BookmarkMenuBuilder, {
-        onDisappear: () => { this.bookmarkMenuShown = false }
-      })
-
-      // 下载 FAB：SaveButton 安全控件（点击获 1 分钟临时图库写权限，实现静默保存；
-      // 首次点击系统弹一次授权，之后不再弹）；长按仅多页=选页弹窗
-      Stack({ alignContent: Alignment.Center }) {
-        SaveButton({ icon: SaveIconStyle.FULL_FILLED, buttonType: ButtonType.Circle })
-          .width(52)
-          .height(52)
-          .backgroundColor('#0096FA')
-          .onClick((event: ClickEvent, result: SaveButtonOnClickResult) => {
-            if (result === SaveButtonOnClickResult.SUCCESS) {
-              if (this.illust.pageCount > 1) {
-                this.handleSaveAll()
-              } else {
-                this.handleSavePage(0)
-              }
-            } else {
-              this.getUIContext().getPromptAction().showToast({ message: $r('app.string.detail_save_auth_cancelled') })
-            }
-          })
-      }
-      .width(52)
-      .height(52)
-      .borderRadius(26)
-      .backgroundColor('#0096FA')
-      .shadow({ radius: 8, color: 'rgba(0, 0, 0, 0.2)', offsetY: 2 })
-      .gesture(
-        LongPressGesture({ duration: 500 })
-          .onAction(() => {
-            if (this.illust.pageCount > 1) {
-              this.openPageSelect()
-            }
-          })
-      )
-    }
-    .margin({ right: 16, bottom: 32 })
-  }
-
-  /** 选页弹窗单格：缩略图 + 勾选角标 + 页码；防社死模式下 R18 页纯色遮罩（弹层内不揭示） */
-  @Builder
-  PageSelectCell(url: string, index: number) {
-    Stack({ alignContent: Alignment.TopEnd }) {
-      if (this.appSettings.antiSocialDeath && this.isR18()) {
-        Column() {
-          Text('🔒')
-            .fontSize(16)
-            .opacity(0.4)
-        }
-        .width('100%')
-        .aspectRatio(1)
-        .justifyContent(FlexAlign.Center)
-        .backgroundColor('#E0E0E0')
-        .borderRadius(6)
-      } else {
-        CachedImage({ url: url, ratio: 1, fit: ImageFit.Cover })
-      }
-      // 勾选角标（右上）
-      if (index < this.pageSelectChecked.length && this.pageSelectChecked[index]) {
-        Text('✓')
-          .fontSize(12)
-          .fontColor('#FFFFFF')
-          .width(20)
-          .height(20)
-          .borderRadius(10)
-          .backgroundColor('#0096FA')
-          .textAlign(TextAlign.Center)
-          .margin(4)
-      } else {
-        Column()
-          .width(20)
-          .height(20)
-          .borderRadius(10)
-          .backgroundColor('rgba(0, 0, 0, 0.3)')
-          .border({ width: 1, color: '#FFFFFF' })
-          .margin(4)
-      }
-      // 页码（左下）
-      Text('P' + (index + 1))
-        .fontSize(10)
-        .fontColor('#FFFFFF')
-        .backgroundColor('rgba(0, 0, 0, 0.6)')
-        .padding({ left: 4, right: 4, top: 1, bottom: 1 })
-        .borderRadius(4)
-        .margin(4)
-        .align(Alignment.BottomStart)
-    }
-    .width('100%')
-    .aspectRatio(1)
-    .clip(true)
-    .borderRadius(6)
-    .border({
-      width: 2,
-      color: index < this.pageSelectChecked.length && this.pageSelectChecked[index] ? '#0096FA' : '#00000000'
-    })
-    .onClick(() => { this.togglePageSelect(index) })
-    .gesture(
-      LongPressGesture({ duration: 300 })
-        .onAction(() => { this.startPageSelectDrag(index) })
-    )
-  }
-
-  /** 选页弹窗：半透明遮罩 + 底部弹层（4 列缩略图网格；单击切换，长按≥300ms 激活拖选后滑动连选） */
-  @Builder
-  PageSelectOverlay() {
-    Column() {
-      Column() {
-        // 头部：计数 + 全选/清空
-        Row() {
-          Text(getStrf($r('app.string.detail_page_select_title'), this.pageSelectCount(), this.pageSelectChecked.length))
-            .fontSize(16)
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#333333')
-            .layoutWeight(1)
-          Text($r('app.string.detail_select_all'))
-            .fontSize(13)
-            .fontColor('#0096FA')
-            .onClick(() => { this.setAllPageSelect(true) })
-          Text($r('app.string.common_clear'))
-            .fontSize(13)
-            .fontColor('#999999')
-            .margin({ left: 16 })
-            .onClick(() => { this.setAllPageSelect(false) })
-        }
-        .width('100%')
-        .margin({ bottom: 12 })
-
-        // 缩略图网格：priorityGesture 动态 distance——普通状态 10000vp 让位 Grid 滚动，
-        // 长按激活拖选后 1vp 即触，滑动按经过格区间批量置目标状态
-        Grid() {
-          ForEach(this.pageSelectThumbUrls, (url: string, index: number) => {
-            GridItem() {
-              this.PageSelectCell(url, index)
-            }
-          }, (url: string, index: number) => index.toString() + '_' +
-            (index < this.pageSelectChecked.length && this.pageSelectChecked[index] ? '1' : '0'))
-        }
-        .columnsTemplate('1fr 1fr 1fr 1fr')
-        .columnsGap(8)
-        .rowsGap(8)
-        .width('100%')
-        .layoutWeight(1)
-        .onAreaChange((_oldArea: Area, newArea: Area) => {
-          this.pageSelectGridWidth = newArea.width as number
-        })
-        .onDidScroll((scrollOffset: number, _scrollState: ScrollState) => {
-          this.pageSelectScrollOffset += scrollOffset
-        })
-        .priorityGesture(
-          PanGesture(this.pageSelectPanOptions)
-            .onActionUpdate((event: GestureEvent) => { this.onPageSelectPanUpdate(event) })
-            .onActionEnd(() => { this.endPageSelectDrag() })
-            .onActionCancel(() => { this.endPageSelectDrag() })
-        )
-
-        // 底部按钮：取消 / 确定下载(N)，空选择不发起
-        Row({ space: 12 }) {
-          Button($r('app.string.common_cancel'))
-            .fontSize(14)
-            .backgroundColor('#EEEEEE')
-            .fontColor('#333333')
-            .layoutWeight(1)
-            .onClick(() => { this.closePageSelect() })
-          Button(this.pageSelectCount() > 0 ?
-            getStrf($r('app.string.detail_download_confirm_count'), this.pageSelectCount()) :
-            getStr($r('app.string.detail_download_confirm')))
-            .fontSize(14)
-            .backgroundColor(this.pageSelectCount() > 0 ? '#0096FA' : '#CCCCCC')
-            .fontColor('#FFFFFF')
-            .layoutWeight(1)
-            .onClick(() => { this.confirmPageSelect() })
-        }
-        .width('100%')
-        .margin({ top: 12 })
-      }
-      .width('100%')
-      .height('75%')
-      .padding(16)
-      .backgroundColor('#FFFFFF')
-      .borderRadius({ topLeft: 16, topRight: 16 })
-      // 内层消费点击防冒泡到遮罩关闭
-      .onClick(() => {})
-    }
-    .width('100%')
-    .height('100%')
-    .backgroundColor('rgba(0, 0, 0, 0.4)')
-    .justifyContent(FlexAlign.End)
-    .onClick(() => { this.closePageSelect() })
-  }
-
-  @Builder
-  MergeDialogOverlay() {
-    Column() {
-      Column() {
-        Text($r('app.string.detail_merge_dialog_title'))
-          .fontSize(18)
-          .fontWeight(FontWeight.Bold)
-          .fontColor('#333333')
-          .margin({ bottom: 12 })
-        Text(getStrf($r('app.string.detail_merge_prompt'), this.mergeFromTag))
-          .fontSize(14)
-          .fontColor('#666666')
-          .margin({ bottom: 16 })
-        TextInput({ placeholder: $r('app.string.detail_merge_input_placeholder'), text: this.mergeInputText })
-          .onChange((value: string) => {
-            this.onMergeInputChange(value)
-          })
-          .width('100%')
-          .margin({ bottom: 8 })
-        // 输入补全建议区：本地来源即时、API 防抖兜底；点选回填
-        if (this.mergeSuggestions.length > 0) {
-          Column() {
-            ForEach(this.mergeSuggestions, (name: string, index: number) => {
-              Row() {
-                Text(name)
-                  .fontSize(14)
-                  .fontColor('#333333')
-                  .layoutWeight(1)
-                if (index < this.mergeSuggestionSubs.length && this.mergeSuggestionSubs[index].length > 0) {
-                  Text(this.mergeSuggestionSubs[index])
-                    .fontSize(11)
-                    .fontColor('#999999')
-                    .margin({ left: 8 })
-                }
-              }
-              .width('100%')
-              .padding({ left: 12, right: 12, top: 8, bottom: 8 })
-              .onClick(() => {
-                this.pickMergeSuggestion(name)
-              })
-            }, (name: string, index: number) => name + '_' + index)
-          }
-          .width('100%')
-          .backgroundColor('#F8F8F8')
-          .borderRadius(8)
-          .margin({ bottom: 16 })
-        }
-        Row({ space: 12 }) {
-          Button($r('app.string.common_cancel'))
-            .fontSize(14)
-            .backgroundColor('#EEEEEE')
-            .fontColor('#333333')
-            .layoutWeight(1)
-            .onClick(() => {
-              this.closeMergeDialog()
-            })
-          Button($r('app.string.detail_merge_confirm_btn'))
-            .fontSize(14)
-            .backgroundColor('#0096FA')
-            .fontColor('#FFFFFF')
-            .layoutWeight(1)
-            .onClick(() => {
-              if (this.mergeInputText.length > 0) {
-                userSettingStore.addExifMergeRule(this.mergeInputText, [this.mergeFromTag])
-                promptAction.showToast({ message: getStrf($r('app.string.detail_merge_done'), this.mergeFromTag, this.mergeInputText) })
-                this.closeMergeDialog()
-              }
-            })
-        }
-        .width('100%')
-      }
-      .padding(20)
-      .backgroundColor('#FFFFFF')
-      .borderRadius(12)
-      .width('85%')
-      // 内层消费点击防冒泡到遮罩关闭（hitTestBehavior(Block) 会挡住输入框/按钮交互，已禁用）
-      .onClick(() => {})
-    }
-    .width('100%')
-    .height('100%')
-    .backgroundColor('rgba(0, 0, 0, 0.4)')
-    .justifyContent(FlexAlign.Center)
-    .onClick(() => {
-      this.closeMergeDialog()
-    })
-  }
-
-  /** 404 快照兜底卡片：快照元数据（标题/作者/页数/标签）+ 恢复入口 + 轮询进度/取消 */
-  @Builder
-  DeletedSnapshotCard(snapshot: BookmarkSnapshot) {
-    Column() {
-      Text($r('app.string.detail_deleted_notice'))
-        .fontSize(14)
-        .fontColor('#999999')
-        .margin({ bottom: 12 })
-      Column() {
-        Text(snapshot.title)
-          .fontSize(16)
-          .fontWeight(FontWeight.Bold)
-          .fontColor('#333333')
-          .width('100%')
-          .margin({ bottom: 8 })
-        Text(getStrf($r('app.string.detail_deleted_author'), snapshot.userName, snapshot.userId))
-          .fontSize(13)
-          .fontColor('#666666')
-          .width('100%')
-          .margin({ bottom: 4 })
-        Text(getStrf($r('app.string.detail_deleted_meta'), snapshot.pageCount, snapshot.illustId))
-          .fontSize(13)
-          .fontColor('#666666')
-          .width('100%')
-          .margin({ bottom: 4 })
-        if (snapshot.tags.length > 0) {
-          Text(snapshot.tags.join(' / '))
-            .fontSize(12)
-            .fontColor('#0096FA')
-            .width('100%')
-            .margin({ bottom: 4 })
-        }
-        if (snapshot.createDate.length > 0) {
-          Text(getStrf($r('app.string.detail_published_at'), formatCreateDate(snapshot.createDate)))
-            .fontSize(12)
-            .fontColor('#999999')
-            .width('100%')
-        }
-      }
-      .width('85%')
-      .padding(16)
-      .backgroundColor('#FFFFFF')
-      .borderRadius(12)
-      .margin({ bottom: 16 })
-
-      if (this.recoverState === RECOVER_STATE_POLLING) {
-        Text(this.recoverProgressText.length > 0 ? this.recoverProgressText : getStr($r('app.string.detail_recover_querying')))
-          .fontSize(13)
-          .fontColor('#666666')
-          .margin({ bottom: 8 })
-        Text($r('app.string.common_cancel'))
-          .fontSize(14)
-          .fontColor('#0096FA')
-          .padding({ left: 24, right: 24, top: 8, bottom: 8 })
+          .padding({ left: 24, right: 24, top: 10, bottom: 10 })
           .onClick(() => {
-            this.cancelRecover()
-          })
-      } else if (this.store.canRecover()) {
-        Text($r('app.string.detail_recover_try'))
-          .fontSize(14)
-          .fontColor('#FFFFFF')
-          .backgroundColor('#0096FA')
-          .borderRadius(8)
-          .padding({ left: 24, right: 24, top: 8, bottom: 8 })
-          .onClick(() => {
-            this.startRecover()
+            this.hasMoreContext = true
+            this.prefetchNext()
           })
       } else {
-        Text($r('app.string.detail_recover_need_relay'))
-          .fontSize(12)
+        Text($r('app.string.waterfall_no_more'))
+          .fontSize(14)
           .fontColor('#999999')
       }
-      Text($r('app.string.detail_retry_load'))
-        .fontSize(13)
-        .fontColor('#999999')
-        .margin({ top: 16 })
-        .onClick(() => {
-          this.loadDetail(this.illustId, true)
-        })
     }
     .width('100%')
     .height('100%')
@@ -1514,381 +295,37 @@ struct IllustDetailPage {
   }
 
   build() {
-    Stack({ alignContent: Alignment.BottomEnd }) {
-      Column() {
-        if (this.deletedSnapshot !== null && this.rows.length === 0) {
-          this.DeletedSnapshotCard(this.deletedSnapshot)
-        } else if (this.errorMessage && this.rows.length === 0) {
-          ErrorView({ message: this.errorMessage, onRetry: () => { this.loadDetail(this.illustId) } })
-        } else if (this.isLoading && this.rows.length === 0) {
-          LoadingView()
-        } else {
-          List() {
-            ForEach(this.rows, (row: DetailRow) => {
-              ListItem() {
-                if (row.kind === 'image') {
-                  this.ImageRow(row)
-                } else if (row.kind === 'info') {
-                  this.InfoRow()
-                } else if (row.kind === 'related_header') {
-                  this.RelatedHeaderRow()
-                } else {
-                  this.RelatedRow(row)
-                }
-              }
-            }, (row: DetailRow) => row.kind + '_' + row.pageIndex + '_' +
-              (row.related.length > 0 ? row.related[0].id : 0))
-          }
-          .width('100%')
-          .layoutWeight(1)
-          .onReachEnd(() => {
-            this.store.loadMoreRelated().then(() => {
-              this.rebuildRows()
-            }).catch((e: Object) => {
-              console.error('Load more related failed: ' + e)
-            })
+    if (this.dataSource.totalCount() === 0) {
+      // 非列表入口：单 Pane，行为与现状一致（prefetchNeighbors 内部按 contextToken 短路，不预取）
+      IllustDetailPane({
+        illustId: this.illustId,
+        isActive: true,
+        onDetailLoaded: () => {
+          this.prefetchNeighbors(this.currentIndex)
+        }
+      })
+    } else {
+      Swiper() {
+        LazyForEach(this.dataSource, (id: number, index: number) => {
+          IllustDetailPane({
+            illustId: id,
+            isActive: index === this.currentIndex,
+            onDetailLoaded: () => {
+              this.prefetchNeighbors(this.currentIndex)
+            }
           })
+        }, (id: number) => id.toString())
+        if (this.showTailSlide()) {
+          this.TailSlide()
         }
       }
+      .index(this.currentIndex)
+      .cachedCount(1)
+      .loop(false)
+      .indicator(false)
+      .onChange((index: number) => { this.onSwiperChange(index) })
       .width('100%')
       .height('100%')
-
-      // 双 FAB：主 Column 之后、各弹层之前；任一弹层打开时隐藏
-      if (this.illust.id > 0 && !this.exifPickerShown && !this.mergeReviewShown && !this.mergeDialogShown &&
-        !this.pageSelectShown) {
-        this.FabOverlay()
-      }
-
-      if (this.mergeDialogShown) {
-        this.MergeDialogOverlay()
-      }
-
-      if (this.pageSelectShown) {
-        this.PageSelectOverlay()
-      }
-
-      if (this.mergeReviewShown) {
-        Column() {
-          Column() {
-            Text($r('app.string.detail_merge_review_title'))
-              .fontSize(18)
-              .fontWeight(FontWeight.Bold)
-              .fontColor('#333333')
-              .width('100%')
-              .textAlign(TextAlign.Center)
-              .margin({ bottom: 12 })
-            Text($r('app.string.detail_merge_review_desc'))
-              .fontSize(12)
-              .fontColor('#666666')
-              .width('100%')
-              .margin({ bottom: 12 })
-
-            ForEach(this.mergeReviewGroups, (group: MergeGroup, groupIndex: number) => {
-              Column() {
-                Text(getStrf($r('app.string.detail_merge_translated'), group.translatedName))
-                  .fontSize(12)
-                  .fontColor('#999999')
-                  .width('100%')
-                  .margin({ bottom: 4 })
-                ForEach(group.tags, (tag: ExifTag, tagIndex: number) => {
-                  Row() {
-                    Radio({ value: tag.name, group: 'merge_group_' + groupIndex })
-                      .checked(this.mergeReviewSelected[groupIndex] === tag.name)
-                      .hitTestBehavior(HitTestMode.Transparent)
-                    Text(tag.name)
-                      .fontSize(14)
-                      .fontColor(this.mergeReviewSelected[groupIndex] === tag.name ? '#0096FA' : '#333333')
-                      .margin({ left: 8 })
-                    if (tag.translatedName.length > 0) {
-                      Text(tag.translatedName)
-                        .fontSize(11)
-                        .fontColor('#999999')
-                        .margin({ left: 4 })
-                    }
-                  }
-                  .width('100%')
-                  .height(40)
-                  .padding({ left: 8, right: 8 })
-                  .onClick(() => {
-                    let newSelected = this.mergeReviewSelected.slice()
-                    newSelected[groupIndex] = tag.name
-                    this.mergeReviewSelected = newSelected
-                  })
-                }, (tag: ExifTag) => tag.name)
-              }
-              .width('100%')
-              .padding({ left: 12, right: 12, top: 8, bottom: 8 })
-              .backgroundColor('#FFFFFF')
-              .borderRadius(8)
-              .margin({ bottom: 8 })
-            }, (group: MergeGroup, groupIndex: number) => group.translatedName + '_' + groupIndex)
-
-            Row() {
-              Button($r('app.string.detail_skip'))
-                .fontSize(14)
-                .backgroundColor('#F0F0F0')
-                .fontColor('#666666')
-                .layoutWeight(1)
-                .onClick(() => {
-                  this.mergeReviewShown = false
-                  this.mergeReviewGroups = []
-                  this.mergeReviewSelected = []
-                })
-              Button($r('app.string.detail_merge_confirm_btn'))
-                .fontSize(14)
-                .backgroundColor('#0096FA')
-                .fontColor('#FFFFFF')
-                .layoutWeight(1)
-                .margin({ left: 12 })
-                .onClick(() => { this.confirmMergeReview() })
-            }
-            .width('100%')
-            .margin({ top: 12 })
-          }
-          .width('90%')
-          .padding(16)
-          .backgroundColor('#F5F5F5')
-          .borderRadius(12)
-          .onClick(() => {})
-        }
-        .width('100%')
-        .height('100%')
-        .backgroundColor('rgba(0, 0, 0, 0.5)')
-        .justifyContent(FlexAlign.Center)
-        .onClick(() => {
-          this.mergeReviewShown = false
-          this.mergeReviewGroups = []
-          this.mergeReviewSelected = []
-        })
-      }
-
-      if (this.exifPickerShown) {
-        Column() {
-          Column() {
-            Text($r('app.string.detail_exif_picker_title'))
-              .fontSize(18)
-              .fontWeight(FontWeight.Bold)
-              .fontColor('#333333')
-              .width('100%')
-              .textAlign(TextAlign.Center)
-              .margin({ bottom: 12 })
-
-            // Preview area
-            Column() {
-              Text($r('app.string.common_preview'))
-                .fontSize(12)
-                .fontColor('#999999')
-                .margin({ bottom: 4 })
-              Text(this.exifPickerPreviewText)
-                .fontSize(12)
-                .fontColor('#333333')
-                .maxLines(3)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
-                .width('100%')
-              Text(getStrf($r('app.string.detail_exif_bytes'), this.exifPickerPreviewBytes, EXIF_FIELD_MAX_BYTES))
-                .fontSize(12)
-                .fontColor(this.exifPickerPreviewBytes > EXIF_FIELD_MAX_BYTES ? '#CC3333' : '#0096FA')
-                .margin({ top: 4 })
-            }
-            .width('100%')
-            .padding(8)
-            .backgroundColor('#F8F8F8')
-            .borderRadius(8)
-            .margin({ bottom: 12 })
-
-            // Writable tags section
-            Row() {
-              Text($r('app.string.detail_exif_writable'))
-                .fontSize(14)
-                .fontColor('#333333')
-                .fontWeight(FontWeight.Medium)
-              Text($r('app.string.detail_exif_writable_hint'))
-                .fontSize(10)
-                .fontColor('#999999')
-                .margin({ left: 8 })
-            }
-            .width('100%')
-            .margin({ bottom: 6 })
-
-            List() {
-              ForEach(this.exifPickerWritableItems, (item: ExifPickerItem, index: number) => {
-                ListItem() {
-                  Row() {
-                    Row() {
-                      Checkbox()
-                        .select(item.checked)
-                        .onChange((checked: boolean) => {
-                          if (index >= 0 && index < this.exifPickerWritableItems.length) {
-                            // 取消勾选 = 跳过本次写入（不持久化屏蔽）
-                            this.exifPickerWritableItems[index].checked = checked
-                            this.recalculateExifPickerPreview()
-                          }
-                        })
-                      Column() {
-                        Text(item.name)
-                          .fontSize(13)
-                          .fontColor('#333333')
-                        if (this.getDisplayTranslation(item.name, item.translatedName).length > 0) {
-                          Text(this.getDisplayTranslation(item.name, item.translatedName))
-                            .fontSize(11)
-                            .fontColor('#666666')
-                            .margin({ top: 2 })
-                        }
-                      }
-                      .layoutWeight(1)
-                      .margin({ left: 8 })
-                    }
-                    .layoutWeight(1)
-                    .gesture(
-                      LongPressGesture({ duration: 300 })
-                        .onAction(() => {
-                          this.exifPickerMuteConfirmTarget = item.name
-                        })
-                    )
-                    Text('≡')
-                      .fontSize(18)
-                      .fontColor('#999999')
-                      .padding({ left: 8, right: 4, top: 4, bottom: 4 })
-                  }
-                  .width('100%')
-                  .padding({ left: 12, right: 12, top: 8, bottom: 8 })
-                  .backgroundColor(item.withinBudget && item.checked ? '#E6F4FF' : '#F0F0F0')
-                  .borderRadius(6)
-                  .margin({ bottom: 4 })
-                }
-              }, (item: ExifPickerItem, index: number) => item.name + '_' + index)
-              .onMove((from: number, to: number) => {
-                let items = this.exifPickerWritableItems.slice()
-                let moved = items[from]
-                items.splice(from, 1)
-                items.splice(to, 0, moved)
-                this.exifPickerWritableItems = items
-                this.recalculateExifPickerPreview()
-              })
-            }
-            .width('100%')
-            .layoutWeight(1)
-            .divider({ strokeWidth: 0 })
-
-            // Muted tags section
-            if (this.exifPickerMutedItems.length > 0) {
-              Text($r('app.string.detail_exif_muted_section'))
-                .fontSize(14)
-                .fontColor('#CC3333')
-                .fontWeight(FontWeight.Medium)
-                .margin({ top: 8, bottom: 6 })
-
-              List() {
-                ForEach(this.exifPickerMutedItems, (item: ExifPickerItem, index: number) => {
-                  ListItem() {
-                    Row() {
-                      Text(item.name)
-                        .fontSize(13)
-                        .fontColor('#CC3333')
-                        .layoutWeight(1)
-                      if (this.getDisplayTranslation(item.name, item.translatedName).length > 0) {
-                        Text(this.getDisplayTranslation(item.name, item.translatedName))
-                          .fontSize(11)
-                          .fontColor('#999999')
-                          .margin({ left: 4 })
-                      }
-                      Text($r('app.string.detail_exif_restore'))
-                        .fontSize(12)
-                        .fontColor('#0096FA')
-                        .margin({ left: 8 })
-                        .onClick(() => {
-                          this.restoreExifPickerMutedTag(index)
-                        })
-                    }
-                    .width('100%')
-                    .padding({ left: 12, right: 12, top: 8, bottom: 8 })
-                    .backgroundColor('#FFEAEA')
-                    .borderRadius(6)
-                    .margin({ bottom: 4 })
-                  }
-                }, (item: ExifPickerItem, index: number) => 'muted_' + item.name + '_' + index)
-              }
-              .width('100%')
-              .height(Math.min(this.exifPickerMutedItems.length * 50, 150))
-              .divider({ strokeWidth: 0 })
-            }
-
-            // Action buttons
-            Row({ space: 12 }) {
-              Button($r('app.string.detail_skip'))
-                .fontSize(14)
-                .backgroundColor('#EEEEEE')
-                .fontColor('#333333')
-                .layoutWeight(1)
-                .onClick(() => {
-                  this.onExifPickerSkip()
-                })
-              Button($r('app.string.common_confirm_action'))
-                .fontSize(14)
-                .backgroundColor('#0096FA')
-                .fontColor('#FFFFFF')
-                .layoutWeight(1)
-                .onClick(() => {
-                  this.onExifPickerConfirm()
-                })
-            }
-            .width('100%')
-            .margin({ top: 12 })
-
-            // 长按屏蔽二次确认弹窗
-            if (this.exifPickerMuteConfirmTarget.length > 0) {
-              Column() {
-                Text(getStrf($r('app.string.detail_mute_confirm_title'), this.exifPickerMuteConfirmTarget))
-                  .fontSize(14)
-                  .fontColor('#333333')
-                  .margin({ bottom: 12 })
-                Text($r('app.string.detail_mute_confirm_desc'))
-                  .fontSize(12)
-                  .fontColor('#666666')
-                  .margin({ bottom: 16 })
-                Row({ space: 12 }) {
-                  Button($r('app.string.common_cancel'))
-                    .fontSize(13)
-                    .backgroundColor('#EEEEEE')
-                    .fontColor('#333333')
-                    .layoutWeight(1)
-                    .onClick(() => {
-                      this.exifPickerMuteConfirmTarget = ''
-                    })
-                  Button($r('app.string.detail_mute_confirm_btn'))
-                    .fontSize(13)
-                    .backgroundColor('#CC3333')
-                    .fontColor('#FFFFFF')
-                    .layoutWeight(1)
-                    .onClick(() => {
-                      this.muteExifPickerTag(this.exifPickerMuteConfirmTarget)
-                    })
-                }
-                .width('100%')
-              }
-              .width('100%')
-              .padding(16)
-              .backgroundColor('#FFF5F5')
-              .borderRadius(8)
-              .margin({ top: 8 })
-            }
-          }
-          .padding(16)
-          .width('100%')
-          .height('80%')
-          .backgroundColor('#FFFFFF')
-          .borderRadius({ topLeft: 16, topRight: 16 })
-        }
-        .width('100%')
-        .height('100%')
-        .backgroundColor('rgba(0, 0, 0, 0.4)')
-        .justifyContent(FlexAlign.End)
-        .onClick(() => {
-          // 点击遮罩层不关闭，需要用户明确选择
-        })
-      }
     }
-    .width('100%')
-    .height('100%')
   }
 }

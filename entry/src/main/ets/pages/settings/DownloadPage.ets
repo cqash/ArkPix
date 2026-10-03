@@ -1,12 +1,49 @@
-import { promptAction } from '@kit.ArkUI';
+import { promptAction, router } from '@kit.ArkUI';
 import { getDbService, DownloadTaskItem } from '../../services/DatabaseService';
 import { downloadService, RetryAllResult, TaskChangeListener } from '../../services/DownloadService';
 import { apiService } from '../../network/ApiService';
 import { Illust } from '../../models/Illust';
 import { getStr, getStrf } from '../../utils/I18nUtils';
+import { HapticUtils } from '../../utils/HapticUtils';
+import { CachedImage } from '../../components/common/CachedImage';
+import { EmptyView } from '../../components/common/CommonViews';
+import { IllustListPage } from '../../components/illust/IllustWaterfall';
+import { DetailListContextRegistry, DetailListContext } from '../../services/DetailListContextRegistry';
 
 interface IllustDetailResponse {
   illust: Object
+}
+
+/**
+ * 任务行缩略图（三级回退）：本地文件优先，Image onError（文件被清理）或 localPath 为空时
+ * 回退 CachedImage 网络图（自带加载/错误占位）。独立子组件自持 useLocal 状态，
+ * 规避轮询刷新下 ForEach 同 key 复用导致的行内状态不刷新问题。
+ */
+@Component
+struct TaskThumb {
+  @Prop localPath: string = ''
+  @Prop imageUrl: string = ''
+  @State useLocal: boolean = true
+
+  build() {
+    if (this.useLocal && this.localPath.length > 0) {
+      Image('file://' + this.localPath)
+        .width(56)
+        .height(56)
+        .borderRadius(4)
+        .clip(true)
+        .objectFit(ImageFit.Cover)
+        .onError(() => {
+          this.useLocal = false
+        })
+    } else {
+      CachedImage({ url: this.imageUrl, ratio: 1 })
+        .width(56)
+        .height(56)
+        .borderRadius(4)
+        .clip(true)
+    }
+  }
 }
 
 @Entry
@@ -14,6 +51,8 @@ interface IllustDetailResponse {
 export struct DownloadPage {
   @State tasks: DownloadTaskItem[] = []
   @State isLoading: boolean = false
+  /** 状态筛选：all/active(pending+downloading)/completed/failed，纯展示层过滤 */
+  @State filterMode: string = 'all'
   private pollTimer: number = -1
   private taskChangeListener: TaskChangeListener = () => {
     this.refreshTasksSilently()
@@ -68,7 +107,12 @@ export struct DownloadPage {
         return
       }
       let illust = Illust.fromJson(illustObj)
-      downloadService.enqueue(task.image_url, illust, task.page_index)
+      if (task.page_index === -1) {
+        // ugoira 任务重试走 GIF 编码管线（image_url 只是封面，普通 enqueue 会误下封面图）
+        downloadService.enqueueUgoira(illust)
+      } else {
+        downloadService.enqueue(task.image_url, illust, task.page_index)
+      }
       promptAction.showToast({ message: $r('app.string.common_added_download') })
       await this.refreshTasksSilently()
     } catch (e) {
@@ -116,8 +160,58 @@ export struct DownloadPage {
       },
       secondaryButton: {
         value: $r('app.string.common_confirm'),
-        action: onConfirm
+        action: () => {
+          HapticUtils.heavy()
+          onConfirm()
+        }
       }
+    })
+  }
+
+  /** 纯展示层过滤：轮询 refreshTasksSilently 只更新 this.tasks 数据源，不打断筛选 */
+  private getFilteredTasks(): DownloadTaskItem[] {
+    if (this.filterMode === 'active') {
+      return this.tasks.filter((task: DownloadTaskItem) => task.status === 'pending' || task.status === 'downloading')
+    }
+    if (this.filterMode === 'completed') {
+      return this.tasks.filter((task: DownloadTaskItem) => task.status === 'completed')
+    }
+    if (this.filterMode === 'failed') {
+      return this.tasks.filter((task: DownloadTaskItem) => task.status === 'failed')
+    }
+    return this.tasks
+  }
+
+  /**
+   * 点击任务行跳作品详情：ids=当前筛选后可见任务按 illust_id 去重（保列表顺序）、
+   * 无续页游标（nextUrl='' + fetchNext 返回空页，滑到末尾自然 No More），同 HistoryPage 模式
+   */
+  private openTaskDetail(task: DownloadTaskItem): void {
+    let visible = this.getFilteredTasks()
+    let ids: number[] = []
+    let seen: Set<number> = new Set<number>()
+    for (let i = 0; i < visible.length; i++) {
+      if (!seen.has(visible[i].illust_id)) {
+        seen.add(visible[i].illust_id)
+        ids.push(visible[i].illust_id)
+      }
+    }
+    let index = ids.indexOf(task.illust_id)
+    if (index < 0) {
+      index = 0
+    }
+    let ctx: DetailListContext = {
+      ids: ids,
+      nextUrl: '',
+      fetchNext: async (nextUrl: string): Promise<IllustListPage> => {
+        let empty: IllustListPage = { illusts: [], nextUrl: '' }
+        return empty
+      }
+    }
+    let token = DetailListContextRegistry.register(ctx)
+    router.pushUrl({
+      url: 'pages/detail/IllustDetailPage',
+      params: { illustId: task.illust_id, contextToken: token, contextIndex: index }
     })
   }
 
@@ -135,6 +229,21 @@ export struct DownloadPage {
     if (status === 'pending') { return '#999999' }
     if (status === 'failed') { return '#FF4444' }
     return '#999999'
+  }
+
+  @Builder
+  FilterChip(label: Resource, mode: string) {
+    Text(label)
+      .fontSize(12)
+      .fontColor(this.filterMode === mode ? '#FFFFFF' : '#666666')
+      .padding({ left: 12, right: 12, top: 5, bottom: 5 })
+      .backgroundColor(this.filterMode === mode ? '#0096FA' : '#EEEEEE')
+      .borderRadius(14)
+      .margin({ right: 8 })
+      .onClick(() => {
+        HapticUtils.selectionClick()
+        this.filterMode = mode
+      })
   }
 
   build() {
@@ -175,6 +284,19 @@ export struct DownloadPage {
       .justifyContent(FlexAlign.SpaceBetween)
       .backgroundColor('#FFFFFF')
 
+      if (!this.isLoading && this.tasks.length > 0) {
+        // 状态筛选 chips：全部 / 进行中(pending+downloading) / 已完成 / 失败（选中高亮 #0096FA）
+        Row() {
+          this.FilterChip($r('app.string.dl_filter_all'), 'all')
+          this.FilterChip($r('app.string.dl_filter_active'), 'active')
+          this.FilterChip($r('app.string.dl_filter_completed'), 'completed')
+          this.FilterChip($r('app.string.dl_filter_failed'), 'failed')
+        }
+        .width('100%')
+        .padding({ left: 16, right: 16, top: 8, bottom: 8 })
+        .backgroundColor('#FFFFFF')
+      }
+
       if (this.isLoading) {
         LoadingProgress()
           .width(40)
@@ -186,14 +308,23 @@ export struct DownloadPage {
           .fontSize(14)
           .fontColor('#999999')
           .margin({ top: 32 })
+      } else if (this.getFilteredTasks().length === 0) {
+        EmptyView({ message: getStr($r('app.string.dl_filter_empty')) })
+          .margin({ top: 32 })
       } else {
         List() {
-          ForEach(this.tasks, (task: DownloadTaskItem) => {
+          ForEach(this.getFilteredTasks(), (task: DownloadTaskItem) => {
             ListItem() {
               Row() {
+                TaskThumb({ localPath: task.local_path, imageUrl: task.image_url })
+                  .margin({ right: 12 })
                 Column() {
-                  Text(getStrf($r('app.string.dl_task_prefix'), task.illust_id) +
-                    (task.page_index > 0 ? getStrf($r('app.string.dl_task_page'), task.page_index + 1) : ''))
+                  // dl_task_prefix 资源为 %s（string 占位），必须显式 toString——传 number 会让
+                  // getStringSync 抛错被 getStrf 吞成 ''，任务行标题空白；dl_task_page 为 %d，传 number 正确
+                  // page_index=-1 为 ugoira 动图任务，显示"动图"标签而非页码
+                  Text(getStrf($r('app.string.dl_task_prefix'), task.illust_id.toString()) +
+                    (task.page_index === -1 ? ' ' + getStr($r('app.string.dl_ugoira_label')) :
+                      (task.page_index > 0 ? getStrf($r('app.string.dl_task_page'), task.page_index + 1) : '')))
                     .fontSize(14)
                     .fontColor('#333333')
                   Text(getStrf($r('app.string.dl_task_status'), this.statusText(task.status)))
@@ -212,6 +343,7 @@ export struct DownloadPage {
                   Button($r('app.string.common_retry'))
                     .fontSize(12)
                     .backgroundColor('#0096FA')
+                    // 按钮 onClick 不冒泡到父行，重试不会误触跳详情
                     .onClick(() => { this.retryTask(task) })
                 }
               }
@@ -219,6 +351,7 @@ export struct DownloadPage {
               .padding({ left: 16, right: 16, top: 12, bottom: 12 })
               .justifyContent(FlexAlign.SpaceBetween)
               .backgroundColor('#FFFFFF')
+              .onClick(() => { this.openTaskDetail(task) })
             }
             .width('100%')
             // key 含 status/progress：状态或进度变化即换 key 强制重建该行

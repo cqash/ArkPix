@@ -11,7 +11,7 @@ import { imageCacheService } from '../../services/ImageCacheService';
  */
 @Component
 export struct ZoomableImage {
-  @Prop url: string = ''
+  @Prop @Watch('onUrlPropChange') url: string = ''
   maxScale: number = 5
   onZoomChange: (isZoomed: boolean) => void = (isZoomed: boolean) => {}
   @State localPath: string = ''
@@ -31,6 +31,15 @@ export struct ZoomableImage {
 
   aboutToAppear() {
     this.uiContext = this.getUIContext()
+    this.load()
+  }
+
+  /** 外部 URL 变更（如查看器 HD 切换大图/原图）：重置缩放状态并重载 */
+  onUrlPropChange() {
+    this.scaleValue = 1
+    this.offsetX = 0
+    this.offsetY = 0
+    this.panOptions.setDistance(50)
     this.load()
   }
 

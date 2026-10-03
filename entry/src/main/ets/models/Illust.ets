@@ -127,6 +127,7 @@ export interface UserPreviewOptions {
   name?: string
   account?: string
   profileImageUrls?: ImageUrlsOptions
+  isFollowed?: boolean
 }
 
 interface RawUserPreview {
@@ -134,6 +135,7 @@ interface RawUserPreview {
   name: string
   account: string
   profile_image_urls: RawImageUrls
+  is_followed?: boolean
 }
 
 export class UserPreview {
@@ -141,6 +143,8 @@ export class UserPreview {
   name: string = ''
   account: string = ''
   profileImageUrls: ImageUrls = new ImageUrls()
+  /** 详情接口 user.is_followed（画师行三态关注按钮初始态） */
+  isFollowed: boolean = false
 
   constructor(options?: UserPreviewOptions) {
     if (options) {
@@ -148,6 +152,7 @@ export class UserPreview {
       this.name = options.name ?? ''
       this.account = options.account ?? ''
       this.profileImageUrls = new ImageUrls(options.profileImageUrls)
+      this.isFollowed = options.isFollowed ?? false
     }
   }
 
@@ -157,7 +162,8 @@ export class UserPreview {
       id: p?.id ?? 0,
       name: p?.name ?? '',
       account: p?.account ?? '',
-      profileImageUrls: p?.profile_image_urls ? ImageUrls.fromJson(p.profile_image_urls) : undefined
+      profileImageUrls: p?.profile_image_urls ? ImageUrls.fromJson(p.profile_image_urls) : undefined,
+      isFollowed: p?.is_followed ?? false
     }
     return opts
   }
@@ -184,6 +190,8 @@ export interface IllustOptions {
   restrict?: string
   xRestrict?: number
   illustAIType?: number
+  /** 作品简介（受限 HTML，经 CaptionParser 分段渲染） */
+  caption?: string
   /** 收藏页"已删除作品"占位卡片标记（由收藏快照构造的伪 Illust） */
   isDeletedPlaceholder?: boolean
 }
@@ -209,6 +217,7 @@ interface RawIllust {
   restrict: string
   x_restrict: number
   illust_ai_type: number
+  caption: string
 }
 
 export class Illust {
@@ -232,6 +241,8 @@ export class Illust {
   restrict: string = ''
   xRestrict: number = 0
   illustAIType: number = 0
+  /** 作品简介（受限 HTML，经 CaptionParser 分段渲染） */
+  caption: string = ''
   /** 收藏页"已删除作品"占位卡片标记（由收藏快照构造的伪 Illust） */
   isDeletedPlaceholder: boolean = false
 
@@ -257,6 +268,7 @@ export class Illust {
       this.restrict = options.restrict ?? ''
       this.xRestrict = options.xRestrict ?? 0
       this.illustAIType = options.illustAIType ?? 0
+      this.caption = options.caption ?? ''
       this.isDeletedPlaceholder = options.isDeletedPlaceholder ?? false
     }
   }
@@ -283,7 +295,8 @@ export class Illust {
       isMuted: p?.is_muted ?? false,
       restrict: p?.restrict ?? '',
       xRestrict: p?.x_restrict ?? 0,
-      illustAIType: p?.illust_ai_type ?? 0
+      illustAIType: p?.illust_ai_type ?? 0,
+      caption: p?.caption ?? ''
     }
     return new Illust(opts)
   }

@@ -101,6 +101,14 @@ export struct DownloadSettingsPage {
             }
           })
           SwitchItem({
+            title: getStr($r('app.string.settings_long_press_save_confirm')),
+            isOn: this.settings.longPressSaveConfirm,
+            onToggle: () => {
+              userSettingStore.setLongPressSaveConfirm(!this.settings.longPressSaveConfirm)
+              this.refresh()
+            }
+          })
+          SwitchItem({
             title: getStr($r('app.string.settings_auto_bookmark')),
             isOn: this.settings.autoBookmarkOnDownload,
             onToggle: () => {

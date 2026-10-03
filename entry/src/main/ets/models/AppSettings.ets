@@ -54,6 +54,8 @@ export interface AppSettingsOptions {
   syncEnabled?: boolean
   autoSyncForeground?: boolean
   deviceSyncEnabled?: boolean
+  hapticFeedback?: boolean
+  longPressSaveConfirm?: boolean
   prevAuthMode?: string
   prevApiMode?: string
 }
@@ -103,6 +105,10 @@ export class AppSettings {
   autoSyncForeground: boolean = true
   /** 设备间同步（分布式数据对象）开关：设备本地，不参与任何同步域，避免"关同步被同步"悖论 */
   deviceSyncEnabled: boolean = true
+  /** 触觉反馈总开关（设备本地，不随任何同步域） */
+  hapticFeedback: boolean = true
+  /** 长按保存前确认（设备本地，不随任何同步域） */
+  longPressSaveConfirm: boolean = false
   prevAuthMode: string = 'standard'
   prevApiMode: string = 'standard'
 
@@ -149,6 +155,8 @@ export class AppSettings {
       this.syncEnabled = options.syncEnabled ?? false
       this.autoSyncForeground = options.autoSyncForeground ?? true
       this.deviceSyncEnabled = options.deviceSyncEnabled ?? true
+      this.hapticFeedback = options.hapticFeedback ?? true
+      this.longPressSaveConfirm = options.longPressSaveConfirm ?? false
       this.prevAuthMode = options.prevAuthMode ?? 'standard'
       this.prevApiMode = options.prevApiMode ?? 'standard'
     }

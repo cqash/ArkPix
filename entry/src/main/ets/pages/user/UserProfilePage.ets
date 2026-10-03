@@ -1,8 +1,9 @@
-import { router, promptAction } from '@kit.ArkUI';
+import { router } from '@kit.ArkUI';
 import { apiService } from '../../network/ApiService';
 import { User, ProfileStats, profileStatsFromJson } from '../../models/User';
 import { imageCacheService } from '../../services/ImageCacheService';
 import { ErrorView } from '../../components/common/CommonViews';
+import { FollowButton } from '../../components/common/FollowButton';
 import { IllustWaterfall, IllustListPage, parseIllustListPage } from '../../components/illust/IllustWaterfall';
 import { continuationService } from '../../services/ContinuationService';
 import { ContinuationPayload, CONTINUATION_PAGE_USER_PROFILE } from '../../models/ContinuationPayload';
@@ -26,6 +27,8 @@ export struct UserProfilePage {
   @State avatarPath: string = ''
   @State profileError: string = ''
   @State userId: number = 0
+  /** 关注态（三态 FollowButton 由 @State 驱动，避免直接改 user 对象属性不刷新） */
+  @State isFollowed: boolean = false
 
   aboutToAppear() {
     let params = router.getParams() as UserRouteParams
@@ -53,6 +56,7 @@ export struct UserProfilePage {
       let detail = response as UserDetailResponse
       if (detail.user) {
         this.user = User.fromJson(detail.user)
+        this.isFollowed = this.user.isFollowed
         this.loadAvatar()
       }
       // 统计字段位于响应的 profile 对象内（user 对象不含这些字段）
@@ -77,22 +81,6 @@ export struct UserProfilePage {
   private async fetchFirst(): Promise<IllustListPage> {
     let response = await apiService.getUserIllusts(this.userId)
     return parseIllustListPage(response)
-  }
-
-  async toggleFollow() {
-    let wasFollowed = this.user.isFollowed
-    try {
-      if (wasFollowed) {
-        await apiService.unfollowUser(this.user.id)
-      } else {
-        await apiService.followUser(this.user.id, 'public')
-      }
-      this.user.isFollowed = !wasFollowed
-      promptAction.showToast({ message: wasFollowed ? $r('app.string.user_unfollowed') : $r('app.string.user_followed') })
-    } catch (e) {
-      console.error('Follow failed: ' + e)
-      promptAction.showToast({ message: wasFollowed ? $r('app.string.user_unfollow_failed') : $r('app.string.user_follow_failed') })
-    }
   }
 
   build() {
@@ -139,12 +127,13 @@ export struct UserProfilePage {
               .margin({ left: 16 })
           }
           .margin({ top: 8 })
-          Button(this.user.isFollowed ? $r('app.string.user_followed_btn') : $r('app.string.user_follow'))
-            .width(120)
-            .height(36)
-            .backgroundColor(this.user.isFollowed ? '#FF6B6B' : '#0096FA')
+          // 三态关注按钮（实心/描边/请求中小菊花；单击快关，长按精细关注菜单）
+          FollowButton({
+            userId: this.user.id,
+            isFollowed: this.isFollowed,
+            onChanged: (newState: boolean) => { this.isFollowed = newState }
+          })
             .margin({ top: 12 })
-            .onClick(() => { this.toggleFollow() })
         }
         .width('100%')
         .padding(16)

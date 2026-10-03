@@ -98,6 +98,8 @@ export class UserSettingStore {
       syncEnabled: preferenceService.getBoolean('sync_enabled', false),
       autoSyncForeground: preferenceService.getBoolean('auto_sync_foreground', true),
       deviceSyncEnabled: preferenceService.getBoolean('device_sync_enabled', true),
+      hapticFeedback: preferenceService.getBoolean('haptic_feedback', true),
+      longPressSaveConfirm: preferenceService.getBoolean('long_press_save_confirm', false),
       prevAuthMode: preferenceService.getString('prev_auth_mode', 'standard'),
       prevApiMode: preferenceService.getString('prev_api_mode', 'standard')
     }
@@ -145,6 +147,8 @@ export class UserSettingStore {
     preferenceService.setBoolean('sync_enabled', this.settings.syncEnabled)
     preferenceService.setBoolean('auto_sync_foreground', this.settings.autoSyncForeground)
     preferenceService.setBoolean('device_sync_enabled', this.settings.deviceSyncEnabled)
+    preferenceService.setBoolean('haptic_feedback', this.settings.hapticFeedback)
+    preferenceService.setBoolean('long_press_save_confirm', this.settings.longPressSaveConfirm)
     preferenceService.setString('prev_auth_mode', this.settings.prevAuthMode)
     preferenceService.setString('prev_api_mode', this.settings.prevApiMode)
     let newSettings: AppSettings = this.getSettings()
@@ -195,6 +199,8 @@ export class UserSettingStore {
       syncEnabled: this.settings.syncEnabled,
       autoSyncForeground: this.settings.autoSyncForeground,
       deviceSyncEnabled: this.settings.deviceSyncEnabled,
+      hapticFeedback: this.settings.hapticFeedback,
+      longPressSaveConfirm: this.settings.longPressSaveConfirm,
       prevAuthMode: this.settings.prevAuthMode,
       prevApiMode: this.settings.prevApiMode
     })
@@ -548,6 +554,18 @@ export class UserSettingStore {
   /** 设备本地开关（分布式对象同步）：不触发任何写钩子，避免"关同步被同步到对端"悖论 */
   setDeviceSyncEnabled(value: boolean): void {
     this.settings.deviceSyncEnabled = value
+    this.saveSettings()
+  }
+
+  /** 触觉反馈总开关：设备本地（震动偏好与设备马达能力相关），不触发任何写钩子 */
+  setHapticFeedback(value: boolean): void {
+    this.settings.hapticFeedback = value
+    this.saveSettings()
+  }
+
+  /** 长按保存前确认：设备本地（操作习惯），不触发任何写钩子 */
+  setLongPressSaveConfirm(value: boolean): void {
+    this.settings.longPressSaveConfirm = value
     this.saveSettings()
   }
 

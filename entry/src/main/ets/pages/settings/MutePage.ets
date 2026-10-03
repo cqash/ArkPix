@@ -132,7 +132,8 @@ struct MutePage {
 
             ForEach(this.settings.muteUsers, (userId: number) => {
               Row() {
-                Text(getStrf($r('app.string.mute_user_id'), userId))
+                // mute_user_id 资源为 %s（string 占位），number 实参需显式 toString
+                Text(getStrf($r('app.string.mute_user_id'), userId.toString()))
                   .fontSize(14)
                   .fontColor('#333333')
                   .layoutWeight(1)

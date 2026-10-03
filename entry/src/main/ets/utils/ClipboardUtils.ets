@@ -1,4 +1,5 @@
 import { pasteboard } from '@kit.BasicServicesKit';
+import { image } from '@kit.ImageKit';
 
 /**
  * 复制纯文本到系统剪贴板。
@@ -13,6 +14,33 @@ export async function copyText(text: string): Promise<boolean> {
   } catch (e) {
     console.error('Copy to clipboard failed: ' + e)
     return false
+  }
+}
+
+/**
+ * 复制本地图片文件到系统剪贴板（PixelMap 通道）。
+ * 写入剪贴板无需权限；任一步失败（解码/写剪贴板）捕获返回 false，由调用方回退复制链接。
+ */
+export async function copyImage(filePath: string): Promise<boolean> {
+  let pixelMap: image.PixelMap | undefined = undefined
+  try {
+    let source = image.createImageSource(filePath)
+    pixelMap = await source.createPixelMap()
+    let data = pasteboard.createData(pasteboard.MIMETYPE_PIXELMAP, pixelMap)
+    let systemPasteboard = pasteboard.getSystemPasteboard()
+    await systemPasteboard.setData(data)
+    return true
+  } catch (e) {
+    console.error('Copy image to clipboard failed: ' + e)
+    return false
+  } finally {
+    if (pixelMap !== undefined) {
+      try {
+        pixelMap.release()
+      } catch (e) {
+        console.error('Release pixelmap failed: ' + e)
+      }
+    }
   }
 }
 

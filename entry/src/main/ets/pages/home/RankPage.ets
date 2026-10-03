@@ -30,7 +30,20 @@ export struct RankPage {
   @State selectedMode: string = 'day'
   @State selectedDate: string = ''
   @State reloadToken: number = 0
+  /** 底栏 Tab 再点回顶：仅响应 tabIndex=2 的令牌（单瀑布流天然只回顶当前榜单） */
+  @StorageLink('tabRetapToken') @Watch('onTabRetap') tabRetapToken: string = ''
+  @State scrollTopToken: number = 0
   @StorageLink('appSettings') appSettings: AppSettings = new AppSettings()
+
+  onTabRetap() {
+    let idx = this.tabRetapToken.indexOf(':')
+    if (idx <= 0) {
+      return
+    }
+    if (Number(this.tabRetapToken.substring(0, idx)) === 2) {
+      this.scrollTopToken += 1
+    }
+  }
 
   aboutToAppear() {
     let yesterday = new Date()
@@ -118,7 +131,9 @@ export struct RankPage {
 
       IllustWaterfall({
         fetchFirst: (): Promise<IllustListPage> => this.fetchFirst(),
-        reloadToken: this.reloadToken
+        reloadToken: this.reloadToken,
+        scrollTopToken: this.scrollTopToken,
+        bottomInset: 72
       })
       .layoutWeight(1)
     }

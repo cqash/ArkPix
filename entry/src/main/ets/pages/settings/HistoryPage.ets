@@ -6,6 +6,9 @@ import { CachedImage } from '../../components/common/CachedImage';
 import { EmptyView, LoadingView } from '../../components/common/CommonViews';
 import { buildHistoryExportJson, buildHistoryPidText } from '../../utils/HistoryExport';
 import { getStr, getStrf } from '../../utils/I18nUtils';
+import { HapticUtils } from '../../utils/HapticUtils';
+import { IllustListPage } from '../../components/illust/IllustWaterfall';
+import { DetailListContextRegistry, DetailListContext } from '../../services/DetailListContextRegistry';
 
 @Entry
 @Component
@@ -45,6 +48,7 @@ struct HistoryPage {
       secondaryButton: {
         value: $r('app.string.common_clear'),
         action: () => {
+          HapticUtils.heavy()
           this.clearBrowseHistory()
         }
       }
@@ -187,7 +191,7 @@ struct HistoryPage {
             .padding(4)
           }
           .onClick(() => {
-            router.pushUrl({ url: 'pages/detail/IllustDetailPage', params: { illustId: item.illust_id } })
+            this.openBrowseHistoryDetail(item.illust_id)
           })
         }, (item: HistoryItem) => item.id.toString())
       }
@@ -215,6 +219,32 @@ struct HistoryPage {
       return 'UID'
     }
     return searchType
+  }
+
+  /**
+   * 浏览历史点击：注册滑动上下文（ids=当前展示序列 illust_id，时间倒序已按 illust_id 去重；
+   * 历史一次性取回无续页游标，nextUrl='' 且 fetchNext 返回空页，滑到末尾自然 No More），
+   * 再 pushUrl 传 { illustId, contextToken, contextIndex }
+   */
+  private openBrowseHistoryDetail(illustId: number): void {
+    let ids: number[] = this.browseHistory.map((item: HistoryItem) => item.illust_id)
+    let index = ids.indexOf(illustId)
+    if (index < 0) {
+      index = 0
+    }
+    let ctx: DetailListContext = {
+      ids: ids,
+      nextUrl: '',
+      fetchNext: async (nextUrl: string): Promise<IllustListPage> => {
+        let empty: IllustListPage = { illusts: [], nextUrl: '' }
+        return empty
+      }
+    }
+    let token = DetailListContextRegistry.register(ctx)
+    router.pushUrl({
+      url: 'pages/detail/IllustDetailPage',
+      params: { illustId: illustId, contextToken: token, contextIndex: index }
+    })
   }
 
   /** 按类型回放：illust→插画搜索、user→画师 Tab、pid→作品详情、uid→用户主页 */

@@ -4,6 +4,8 @@ import { PixivEndpoints } from './PixivEndpoints';
 import { authInterceptor } from './AuthInterceptor';
 import { retryInterceptor } from './RetryInterceptor';
 import { logInterceptor } from './LogInterceptor';
+import { BookmarkTag, bookmarkTagFromJson, RawBookmarkTag, RawBookmarkTagListResponse } from '../models/Bookmark';
+import { UgoiraMetadata, ugoiraMetadataFromJson, RawUgoiraMetadataResponse } from '../models/UgoiraMetadata';
 
 /** 携带 HTTP 状态码的错误（ensureSuccess 抛出），供调用方按状态码分流（如详情页识别 404） */
 export class HttpStatusError extends Error {
@@ -149,6 +151,21 @@ export class ApiService {
     return this.post(PixivEndpoints.illustBookmarkDelete(), fields)
   }
 
+  /** 用户历史收藏标签列表（带标签收藏面板用），失败抛既有类型化错误由面板层捕获显错误态 */
+  async getBookmarkTags(restrict: string = 'public'): Promise<BookmarkTag[]> {
+    let response = await this.get(PixivEndpoints.userBookmarkTagsIllust(restrict))
+    let raw = response as RawBookmarkTagListResponse
+    let tags: BookmarkTag[] = []
+    let arr: RawBookmarkTag[] = raw.bookmark_tags ?? []
+    for (let i = 0; i < arr.length; i++) {
+      let tag = bookmarkTagFromJson(arr[i])
+      if (tag.name.length > 0) {
+        tags.push(tag)
+      }
+    }
+    return tags
+  }
+
   async getUserDetail(userId: number): Promise<Object> {
     return this.get(PixivEndpoints.userDetail(userId))
   }
@@ -208,8 +225,9 @@ export class ApiService {
     return this.get(PixivEndpoints.spotlightArticles(category))
   }
 
-  async getUgoiraMetadata(id: number): Promise<Object> {
-    return this.get(PixivEndpoints.ugoiraMetadata(id))
+  async getUgoiraMetadata(id: number): Promise<UgoiraMetadata> {
+    let raw = await this.get(PixivEndpoints.ugoiraMetadata(id))
+    return ugoiraMetadataFromJson(raw as RawUgoiraMetadataResponse)
   }
 }
 

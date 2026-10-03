@@ -145,7 +145,7 @@ export struct SettingsPage {
           })
         }
         .width('100%')
-        .padding({ top: 8, bottom: 8 })
+        .padding({ top: 8, bottom: 80 })
       }
       .width('100%')
       .layoutWeight(1)

@@ -4,6 +4,7 @@ import { CommentStore } from '../../stores/CommentStore';
 import { CachedImage } from '../../components/common/CachedImage';
 import { EmptyView, ErrorView, LoadingView } from '../../components/common/CommonViews';
 import { getStr, getStrf } from '../../utils/I18nUtils';
+import { HapticUtils } from '../../utils/HapticUtils';
 
 interface RouteParams {
   illustId: number
@@ -100,6 +101,7 @@ struct CommentPage {
     }
     // 失败时不清空输入框，保留用户输入
     if (ok) {
+      HapticUtils.medium()
       this.inputText = ''
       this.cancelReply()
       this.syncFromStore()

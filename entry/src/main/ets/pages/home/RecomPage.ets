@@ -5,6 +5,20 @@ import { getStrf } from '../../utils/I18nUtils';
 
 @Component
 export struct RecomPage {
+  /** 底栏 Tab 再点回顶：仅响应 tabIndex=0 的令牌 */
+  @StorageLink('tabRetapToken') @Watch('onTabRetap') tabRetapToken: string = ''
+  @State scrollTopToken: number = 0
+
+  onTabRetap() {
+    let idx = this.tabRetapToken.indexOf(':')
+    if (idx <= 0) {
+      return
+    }
+    if (Number(this.tabRetapToken.substring(0, idx)) === 0) {
+      this.scrollTopToken += 1
+    }
+  }
+
   private async fetchFirst(): Promise<IllustListPage> {
     let db = await getDbService()
     try {
@@ -24,7 +38,26 @@ export struct RecomPage {
     }
   }
 
+  /** 冷启动缓存源：读取 DB 推荐缓存供瀑布流先渲染，无缓存/解析失败返回 null */
+  private async fetchCached(): Promise<IllustListPage | null> {
+    try {
+      let db = await getDbService()
+      let cached = await db.getRecommendCache()
+      if (cached) {
+        return parseIllustListPage(JSON.parse(cached))
+      }
+    } catch (e) {
+      console.error('RecomPage read cache failed: ' + e)
+    }
+    return null
+  }
+
   build() {
-    IllustWaterfall({ fetchFirst: (): Promise<IllustListPage> => this.fetchFirst() })
+    IllustWaterfall({
+      fetchFirst: (): Promise<IllustListPage> => this.fetchFirst(),
+      fetchCached: (): Promise<IllustListPage | null> => this.fetchCached(),
+      scrollTopToken: this.scrollTopToken,
+      bottomInset: 72
+    })
   }
 }

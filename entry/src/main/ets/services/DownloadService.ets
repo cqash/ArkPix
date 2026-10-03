@@ -13,6 +13,7 @@ import { preferenceService } from './PreferenceService';
 import { apiService } from '../network/ApiService';
 import { relayClient } from '../network/RelayClient';
 import { getStr, getStrf } from '../utils/I18nUtils';
+import { ugoiraService } from './UgoiraService';
 
 interface IllustDetailResponse {
   illust: Object
@@ -199,12 +200,13 @@ export class DownloadService {
    * 公开入队入口（fire-and-forget）：
    * 先写 DB pending 记录入 FIFO 队列；activeCount < 当前上限立即执行，否则排队等待补位。
    * 并发上限每次调度时读 userSettingStore.getSettings().downloadConcurrency（防御拷贝，配置即时生效）。
+   * 同步返回值（R4 下载反馈四态）：'inflight'=同页已在队列/下载中（跳过不入队）；'enqueued'=正常入队。
    */
-  enqueue(url: string, illust: Illust, pageIndex: number): void {
+  enqueue(url: string, illust: Illust, pageIndex: number): string {
     let taskId = illust.id + '_' + pageIndex
     if (this.inflightTaskIds.indexOf(taskId) >= 0) {
       // 同一页已在排队/下载中，跳过重复入队
-      return
+      return 'inflight'
     }
     this.inflightTaskIds.push(taskId)
     let dbReady: Promise<void> = getDbService()
@@ -225,6 +227,38 @@ export class DownloadService {
     // 通知监听方刷新（DownloadPage 可见 pending "排队中"）
     this.notifyTaskChanged()
     this.scheduleNext()
+    return 'enqueued'
+  }
+
+  /**
+   * ugoira（动图）入队入口：taskId=<id>_ugoira、page_index=-1、image_url 用封面 URL（供下载页缩略图回退）。
+   * 与普通 enqueue 共用 FIFO 队列/并发调度/在途去重；任务体经 runTask 分流到 runUgoiraTask。
+   */
+  enqueueUgoira(illust: Illust): string {
+    let taskId = illust.id + '_ugoira'
+    if (this.inflightTaskIds.indexOf(taskId) >= 0) {
+      return 'inflight'
+    }
+    this.inflightTaskIds.push(taskId)
+    let coverUrl = illust.imageUrls.large
+    let dbReady: Promise<void> = getDbService()
+      .then(async (db: DatabaseService): Promise<void> => {
+        await db.addDownloadTask(taskId, illust.id, -1, coverUrl)
+      })
+      .catch((e: Object) => {
+        console.error('Enqueue ugoira DB write failed: ' + e)
+      })
+    let task: QueuedDownloadTask = {
+      url: coverUrl,
+      illust: illust,
+      pageIndex: -1,
+      taskId: taskId,
+      dbReady: dbReady
+    }
+    this.queue.push(task)
+    this.notifyTaskChanged()
+    this.scheduleNext()
+    return 'enqueued'
   }
 
   private currentConcurrencyLimit(): number {
@@ -267,7 +301,13 @@ export class DownloadService {
   private async runTask(task: QueuedDownloadTask): Promise<void> {
     try {
       await task.dbReady
-      let localPath = await this.downloadToCache(task.url, task.illust, task.pageIndex)
+      let localPath = ''
+      if (task.pageIndex === -1) {
+        // ugoira 动图：拉帧包 → GIF 编码落盘（page_index=-1 标记）
+        localPath = await this.runUgoiraTask(task)
+      } else {
+        localPath = await this.downloadToCache(task.url, task.illust, task.pageIndex)
+      }
       if (localPath.length === 0) {
         this.showToastSafe(getStrf($r('app.string.svc_download_failed_title'), task.illust.title))
         return
@@ -672,6 +712,54 @@ export class DownloadService {
     return ''
   }
 
+  /**
+   * ugoira 任务体：UgoiraService 拉 metadata/zip 帧包并编码 GIF 到 <taskId>.gif.tmp，
+   * 成功后复用 finalizeDownload 非 EXIF 分支转成品 .gif（GIF 不嵌入元数据），状态落库与 notifyTaskChanged 语义同 downloadToCache。
+   */
+  private async runUgoiraTask(task: QueuedDownloadTask): Promise<string> {
+    let db = await getDbService()
+    let tmpPath = ''
+    try {
+      await db.updateDownloadStatus(task.taskId, 'downloading', 0, '')
+      let ctx = AppStorage.get<common.Context>('context')
+      if (!ctx) {
+        throw new Error('Context not found')
+      }
+      let cacheDir = ctx.cacheDir + '/downloads'
+      if (!fileIo.accessSync(cacheDir)) {
+        fileIo.mkdirSync(cacheDir)
+      }
+      tmpPath = cacheDir + '/' + task.taskId + '.gif.tmp'
+      let basePath = cacheDir + '/' + this.buildFilename(task.illust, 0)
+      // 进度节流写库：编码回调 ratio 0~1，≥2% 增量才写，100 由 finalize 的 completed 落库
+      let throttle: ProgressThrottle = { lastSavedPercent: 0 }
+      let ok = await ugoiraService.encodeToGif(task.illust.id, tmpPath, (ratio: number) => {
+        let percent = Math.floor(ratio * 100)
+        if (percent > 99) {
+          percent = 99
+        }
+        if (percent - throttle.lastSavedPercent >= 2) {
+          throttle.lastSavedPercent = percent
+          db.updateDownloadStatus(task.taskId, 'downloading', percent, '').catch((e: Object) => {
+            console.error('Ugoira progress write failed: ' + e)
+          })
+        }
+      })
+      if (!ok) {
+        throw new Error('Ugoira GIF encode failed')
+      }
+      let finalPath = await this.finalizeDownload(tmpPath, basePath, 'gif', false, task.illust, 0, task.taskId, db)
+      this.notifyTaskChanged()
+      return finalPath
+    } catch (e) {
+      this.deletePartFileQuietly(tmpPath)
+      await db.updateDownloadStatus(task.taskId, 'failed', 0, '')
+      this.notifyTaskChanged()
+      console.error('Ugoira download failed: ' + e)
+    }
+    return ''
+  }
+
   /** 静默写图库（需 SaveButton 临时授权窗口内才可用，否则抛错返回 false） */
   private async applySilentToGallery(localPath: string, context: common.Context): Promise<boolean> {
     try {
@@ -755,6 +843,39 @@ export class DownloadService {
     }
   }
 
+  /** ugoira 重复下载检测：completed 记录（page_index=-1，taskId=<id>_ugoira）且文件仍存在；DB 异常降级 false */
+  async isUgoiraDownloaded(illustId: number): Promise<boolean> {
+    try {
+      let db = await getDbService()
+      let task = await db.getDownloadTaskById(illustId + '_ugoira')
+      if (!task || task.status !== 'completed' || task.local_path.length === 0) {
+        return false
+      }
+      return fileIo.accessSync(task.local_path)
+    } catch (e) {
+      console.error('Check ugoira downloaded failed: ' + e)
+      return false
+    }
+  }
+
+  /** 已下载 ugoira GIF 的本地路径（查看器分享用）；无记录/文件不存在返回 '' */
+  async getUgoiraLocalPath(illustId: number): Promise<string> {
+    try {
+      let db = await getDbService()
+      let task = await db.getDownloadTaskById(illustId + '_ugoira')
+      if (!task || task.status !== 'completed' || task.local_path.length === 0) {
+        return ''
+      }
+      if (!fileIo.accessSync(task.local_path)) {
+        return ''
+      }
+      return task.local_path
+    } catch (e) {
+      console.error('Get ugoira local path failed: ' + e)
+      return ''
+    }
+  }
+
   /** 删除指定状态的任务记录（删记录前同步删除对应 part_ 临时文件，成品文件保留），返回删除数 */
   async clearTasksByStatus(status: string): Promise<number> {
     let db = await getDbService()
@@ -766,6 +887,11 @@ export class DownloadService {
         let tasks = await db.getDownloadTasks()
         for (let i = 0; i < tasks.length; i++) {
           if (tasks[i].status !== status) {
+            continue
+          }
+          if (tasks[i].page_index === -1) {
+            // ugoira 任务的临时文件为 <taskId>.gif.tmp（非 part_ 前缀）
+            this.deletePartFileQuietly(cacheDir + '/' + tasks[i].id + '.gif.tmp')
             continue
           }
           let partPath = cacheDir + '/' + Constants.DOWNLOAD_PART_PREFIX + tasks[i].id + '.' +
@@ -812,7 +938,12 @@ export class DownloadService {
           continue
         }
         result.started++
-        this.enqueue(task.image_url, illust, task.page_index)
+        if (task.page_index === -1) {
+          // ugoira 任务重建走 GIF 编码管线，而非普通图片下载（image_url 只是封面）
+          this.enqueueUgoira(illust)
+        } else {
+          this.enqueue(task.image_url, illust, task.page_index)
+        }
       } catch (e) {
         console.error('Retry task ' + task.id + ' failed: ' + e)
         result.failed++

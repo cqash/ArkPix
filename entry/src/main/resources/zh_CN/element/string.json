@@ -25,6 +25,10 @@
       "value": "在您的鸿蒙设备间同步设置与历史记录"
     },
     {
+      "name": "permission_vibrate_reason",
+      "value": "为交互操作提供触觉反馈震动"
+    },
+    {
       "name": "common_loading",
       "value": "加载中..."
     },
@@ -59,6 +63,26 @@
     {
       "name": "common_confirm",
       "value": "确定"
+    },
+    {
+      "name": "bookmark_tag_title",
+      "value": "带标签收藏"
+    },
+    {
+      "name": "bookmark_tag_public",
+      "value": "公开"
+    },
+    {
+      "name": "bookmark_tag_private",
+      "value": "私密"
+    },
+    {
+      "name": "bookmark_tag_failed",
+      "value": "标签加载失败，点击重试；也可以直接收藏"
+    },
+    {
+      "name": "bookmark_tag_empty",
+      "value": "暂无收藏标签，将以普通收藏保存"
     },
     {
       "name": "common_back",
@@ -153,6 +177,14 @@
       "value": "保存图片"
     },
     {
+      "name": "card_save_confirm_single",
+      "value": "保存该作品到本地？"
+    },
+    {
+      "name": "card_save_confirm_multi",
+      "value": "保存全部 %d 页到本地？"
+    },
+    {
       "name": "card_bookmark",
       "value": "收藏"
     },
@@ -163,6 +195,26 @@
     {
       "name": "card_mute_author",
       "value": "屏蔽该作者"
+    },
+    {
+      "name": "detail_copy_uid",
+      "value": "复制 UID"
+    },
+    {
+      "name": "detail_uid_copied",
+      "value": "已复制 UID"
+    },
+    {
+      "name": "detail_muted_placeholder",
+      "value": "该作品已被屏蔽规则隐藏"
+    },
+    {
+      "name": "detail_muted_temp_view",
+      "value": "临时查看"
+    },
+    {
+      "name": "detail_muted_view_settings",
+      "value": "查看屏蔽设置"
     },
     {
       "name": "card_deleted",
@@ -625,6 +677,14 @@
       "value": "画师 ID 直达: %s"
     },
     {
+      "name": "search_link_direct_illust",
+      "value": "链接直达：插画 %s"
+    },
+    {
+      "name": "search_link_direct_user",
+      "value": "链接直达：画师 %s"
+    },
+    {
       "name": "search_no_users",
       "value": "未找到匹配的画师"
     },
@@ -659,6 +719,18 @@
     {
       "name": "user_follow",
       "value": "关注"
+    },
+    {
+      "name": "user_follow_public",
+      "value": "公开关注"
+    },
+    {
+      "name": "user_follow_private",
+      "value": "悄悄关注"
+    },
+    {
+      "name": "user_unfollow_action",
+      "value": "取消关注"
     },
     {
       "name": "login_webview",
@@ -1119,6 +1191,38 @@
     {
       "name": "dl_task_progress",
       "value": "进度: %d%%"
+    },
+    {
+      "name": "dl_filter_all",
+      "value": "全部"
+    },
+    {
+      "name": "dl_filter_active",
+      "value": "进行中"
+    },
+    {
+      "name": "dl_filter_completed",
+      "value": "已完成"
+    },
+    {
+      "name": "dl_filter_failed",
+      "value": "失败"
+    },
+    {
+      "name": "dl_filter_empty",
+      "value": "无匹配任务"
+    },
+    {
+      "name": "ugoira_badge",
+      "value": "GIF"
+    },
+    {
+      "name": "dl_ugoira_label",
+      "value": "动图"
+    },
+    {
+      "name": "ugoira_share_download_first",
+      "value": "动图下载后可分享"
     },
     {
       "name": "exif_import_bad_version",
@@ -1665,6 +1769,10 @@
       "value": "下载时自动收藏"
     },
     {
+      "name": "settings_long_press_save_confirm",
+      "value": "长按保存前确认"
+    },
+    {
       "name": "settings_cache_cleared",
       "value": "图片缓存已清理"
     },
@@ -1751,6 +1859,10 @@
     {
       "name": "settings_device_sync_item",
       "value": "设备间同步（设置/屏蔽/历史）"
+    },
+    {
+      "name": "settings_haptic_feedback",
+      "value": "触觉反馈"
     },
     {
       "name": "settings_download_concurrency",
@@ -1955,6 +2067,74 @@
     {
       "name": "settings_sync_unauthorized",
       "value": "未授权"
+    },
+    {
+      "name": "dl_already_in_queue",
+      "value": "已在下载队列中"
+    },
+    {
+      "name": "detail_menu_share",
+      "value": "分享"
+    },
+    {
+      "name": "detail_copy_link",
+      "value": "复制链接"
+    },
+    {
+      "name": "detail_copy_caption",
+      "value": "复制文案"
+    },
+    {
+      "name": "detail_author_info",
+      "value": "画师信息"
+    },
+    {
+      "name": "detail_save_multi",
+      "value": "多图保存"
+    },
+    {
+      "name": "detail_link_copied",
+      "value": "链接已复制"
+    },
+    {
+      "name": "detail_caption_copied",
+      "value": "文案已复制"
+    },
+    {
+      "name": "detail_load_more",
+      "value": "加载更多"
+    },
+    {
+      "name": "viewer_hd_original",
+      "value": "原图"
+    },
+    {
+      "name": "viewer_hd_large",
+      "value": "大图"
+    },
+    {
+      "name": "viewer_copy_image",
+      "value": "复制图片"
+    },
+    {
+      "name": "viewer_image_copied",
+      "value": "已复制图片"
+    },
+    {
+      "name": "viewer_image_link_copied",
+      "value": "已复制图片链接"
+    },
+    {
+      "name": "viewer_fullscreen",
+      "value": "全屏"
+    },
+    {
+      "name": "viewer_exit_fullscreen",
+      "value": "退出全屏"
+    },
+    {
+      "name": "viewer_share_not_ready",
+      "value": "图片加载后可分享"
     }
   ]
 }

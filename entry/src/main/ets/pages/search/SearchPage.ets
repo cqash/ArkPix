@@ -6,6 +6,16 @@ import { UserPreview } from '../../models/Illust';
 import { CachedImage } from '../../components/common/CachedImage';
 import { EmptyView, ErrorView, LoadingView } from '../../components/common/CommonViews';
 import { getStr, getStrf } from '../../utils/I18nUtils';
+import { PixivLinkParser, PixivLinkTarget } from '../../utils/PixivLinkParser';
+
+/** /v2/search/autocomplete 响应 tags[] 元素 */
+interface RawAutoCompleteTag {
+  name?: string
+}
+
+interface RawAutoCompleteResponse {
+  tags?: Object[]
+}
 
 interface TrendingTagsResponse {
   trend_tags: string[]
@@ -42,6 +52,24 @@ export struct SearchPage {
   @State userLoadedOnce: boolean = false
   /** 结果区当前 Tab（0=插画，1=画师），决定搜索历史记录的 search_type */
   @State currentTabIndex: number = 0
+  /** 底栏 Tab 再点回顶：仅响应 tabIndex=3 的令牌（作用于插画结果瀑布流） */
+  @StorageLink('tabRetapToken') @Watch('onTabRetap') tabRetapToken: string = ''
+  @State scrollTopToken: number = 0
+  /** 链接直达目标（输入为可解析的 pixiv 链接时非 null）；不识别静默不显示入口 */
+  @State linkTarget: PixivLinkTarget | null = null
+  /** 自动补全建议（最多 10 条）；提交/失焦/清空时收起 */
+  @State suggestNames: string[] = []
+  private suggestTimer: number = -1
+
+  onTabRetap() {
+    let idx = this.tabRetapToken.indexOf(':')
+    if (idx <= 0) {
+      return
+    }
+    if (Number(this.tabRetapToken.substring(0, idx)) === 3) {
+      this.scrollTopToken += 1
+    }
+  }
 
   aboutToAppear() {
     this.loadTrendingTags()
@@ -53,6 +81,7 @@ export struct SearchPage {
       }
       if (params.keyword !== undefined && params.keyword.length > 0) {
         this.searchKeyword = params.keyword
+        this.linkTarget = PixivLinkParser.parse(params.keyword.trim())
         this.search()
       }
     }
@@ -95,6 +124,8 @@ export struct SearchPage {
     if (!keyword) {
       return
     }
+    // 提交时收起补全下拉
+    this.clearSuggestState()
     this.searchedKeyword = keyword
     this.hasSearched = true
     this.reloadToken++
@@ -132,6 +163,103 @@ export struct SearchPage {
 
   private numericInputValue(): number {
     return Number(this.searchKeyword.trim())
+  }
+
+  /** 输入变化：链接直达判定（即时）+ 补全防抖调度（300ms，非数字非 URL 时才调 API） */
+  private onKeywordChange(value: string): void {
+    let kw = value.trim()
+    this.linkTarget = PixivLinkParser.parse(kw)
+    if (this.suggestTimer >= 0) {
+      clearTimeout(this.suggestTimer)
+      this.suggestTimer = -1
+    }
+    if (kw.length === 0 || this.isNumericString(kw) || kw.startsWith('https://') || kw.startsWith('pixiv://')) {
+      this.suggestNames = []
+      return
+    }
+    this.suggestTimer = setTimeout(() => {
+      this.suggestTimer = -1
+      this.fetchSuggestions(kw)
+    }, 300)
+  }
+
+  private isNumericString(kw: string): boolean {
+    if (kw.length === 0) {
+      return false
+    }
+    for (let i = 0; i < kw.length; i++) {
+      let code = kw.charCodeAt(i)
+      if (code < 48 || code > 57) {
+        return false
+      }
+    }
+    return true
+  }
+
+  private clearSuggestState(): void {
+    if (this.suggestTimer >= 0) {
+      clearTimeout(this.suggestTimer)
+      this.suggestTimer = -1
+    }
+    this.suggestNames = []
+  }
+
+  /** 自动补全：/v2/search/autocomplete，去重截断 10 条；输入已变化则丢弃过期结果 */
+  private async fetchSuggestions(prefix: string): Promise<void> {
+    try {
+      let response = await apiService.getAutoComplete(prefix)
+      if (this.searchKeyword.trim() !== prefix) {
+        return
+      }
+      let raw = response as RawAutoCompleteResponse
+      let tags = raw.tags ?? []
+      let names: string[] = []
+      for (let i = 0; i < tags.length && names.length < 10; i++) {
+        let item = tags[i] as RawAutoCompleteTag
+        let name = item.name ?? ''
+        if (name.length === 0 || names.includes(name)) {
+          continue
+        }
+        names.push(name)
+      }
+      this.suggestNames = names
+    } catch (e) {
+      console.error('Search autocomplete failed: ' + e)
+    }
+  }
+
+  /** 点选补全：多词（空格分词≥2，含全角空格）仅替换最后一个词、光标置末尾、不提交；单词回填并直接提交 */
+  private pickSuggestion(name: string): void {
+    let kw = this.searchKeyword.trim()
+    let words = kw.split(new RegExp('[\\s　]+'))
+    if (words.length >= 2) {
+      let m = new RegExp('^(.*[\\s　])[^\\s　]+$').exec(kw)
+      if (m !== null && m.length >= 2) {
+        this.searchKeyword = m[1] + name
+      } else {
+        this.searchKeyword = name
+      }
+      this.clearSuggestState()
+      return
+    }
+    this.searchKeyword = name
+    this.clearSuggestState()
+    this.search()
+  }
+
+  /** 链接直达点击：跳详情/画师页并写搜索历史（复用 pid/uid 类型） */
+  private goLinkTarget(): void {
+    let target = this.linkTarget
+    if (target === null) {
+      return
+    }
+    if (target.kind === 'illust') {
+      this.recordSearchHistory(target.id.toString(), 'pid')
+      router.pushUrl({ url: 'pages/detail/IllustDetailPage', params: { illustId: target.id } })
+    } else {
+      this.recordSearchHistory(target.id.toString(), 'uid')
+      router.pushUrl({ url: 'pages/user/UserProfilePage', params: { userId: target.id } })
+    }
   }
 
   private parseUserPreviews(response: Object): UserPreview[] {
@@ -219,6 +347,8 @@ export struct SearchPage {
           .backgroundColor('#F5F5F5')
           .borderRadius(20)
           .padding({ left: 16, right: 16 })
+          .onChange((value: string) => { this.onKeywordChange(value) })
+          .onBlur(() => { this.clearSuggestState() })
           .onSubmit(() => { this.search() })
         Button($r('app.string.search_button'))
           .width('18%')
@@ -234,6 +364,29 @@ export struct SearchPage {
       // 直达入口需在两分支共用位置常驻可用）
       if (this.isNumericInput()) {
         this.NumericDirectEntries()
+      }
+
+      // 链接直达入口（pixiv 作品/用户链接；无法解析静默不显示）
+      if (this.linkTarget !== null) {
+        this.LinkDirectEntry()
+      }
+
+      // 自动补全下拉（最多 10 条；多词点选仅替换末词，单词点选回填并提交）
+      if (this.suggestNames.length > 0) {
+        Column() {
+          ForEach(this.suggestNames, (name: string, index: number) => {
+            Text(name)
+              .fontSize(14)
+              .fontColor('#333333')
+              .width('100%')
+              .padding({ left: 16, right: 16, top: 10, bottom: 10 })
+              .onClick(() => { this.pickSuggestion(name) })
+          }, (name: string, index: number) => name + '_' + index)
+        }
+        .width('100%')
+        .backgroundColor('#FFFFFF')
+        .borderRadius(8)
+        .margin({ left: 16, right: 16, bottom: 8 })
       }
 
       if (!this.hasSearched) {
@@ -301,7 +454,9 @@ export struct SearchPage {
           TabContent() {
             IllustWaterfall({
               fetchFirst: (): Promise<IllustListPage> => this.fetchFirst(),
-              reloadToken: this.reloadToken
+              reloadToken: this.reloadToken,
+              scrollTopToken: this.scrollTopToken,
+              bottomInset: 72
             })
           }
           .tabBar($r('app.string.search_tab_illust'))
@@ -319,6 +474,38 @@ export struct SearchPage {
     }
     .width('100%')
     .height('100%')
+  }
+
+  private linkDirectLabel(): string {
+    let target = this.linkTarget
+    if (target === null) {
+      return ''
+    }
+    if (target.kind === 'illust') {
+      return getStrf($r('app.string.search_link_direct_illust'), target.id.toString())
+    }
+    return getStrf($r('app.string.search_link_direct_user'), target.id.toString())
+  }
+
+  /** 链接直达入口（与 NumericDirectEntries 并列）：输入为可解析 pixiv 链接时显示 */
+  @Builder
+  LinkDirectEntry() {
+    Row() {
+      Text(this.linkDirectLabel())
+        .fontSize(14)
+        .fontColor('#0096FA')
+        .layoutWeight(1)
+      Text('>')
+        .fontSize(14)
+        .fontColor('#999999')
+    }
+    .width('100%')
+    .height(44)
+    .padding({ left: 12, right: 12 })
+    .backgroundColor('#E6F4FF')
+    .borderRadius(8)
+    .margin({ left: 16, right: 16, bottom: 8 })
+    .onClick(() => { this.goLinkTarget() })
   }
 
   /** 数字直达入口（插画 ID / 画师 ID），输入框之下、建议区与结果区共用 */
@@ -426,6 +613,12 @@ export struct SearchPage {
             router.pushUrl({ url: 'pages/user/UserProfilePage', params: { userId: user.id } })
           })
         }, (user: UserPreview) => user.id.toString())
+        // 底部留白用占位 ListItem 承载，勿用 List padding（padding 会在底部裁出永久空白带，
+        // 透出页面底色挡住首页悬浮胶囊底栏的沉浸背景）
+        ListItem() {
+        }
+        .width('100%')
+        .height(72)
       }
       .width('100%')
       .height('100%')

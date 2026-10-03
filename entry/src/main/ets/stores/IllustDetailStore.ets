@@ -69,17 +69,41 @@ export class IllustDetailStore {
   /** 由宿主页面注入，用于下载重复检测确认弹窗；未注入时降级为直接下载 */
   uiContext: UIContext | undefined = undefined
 
+  /**
+   * 全量加载（对外行为兼容拆分前）：缓存段（loadFromCache）+ 网络段（refreshFromNetwork）串联。
+   * 网络失败但有缓存 → 保留缓存内容返回 true（不暴露错误态）；仍被 forceRefresh/重试路径使用。
+   */
   async load(illustId: number, forceRefresh: boolean = false): Promise<boolean> {
     this.errorMessage = ''
     this.deletedSnapshot = null
     this.recoverState = RECOVER_STATE_IDLE
     this.recoverProgressText = ''
     this.recoveredImageUrls = []
-    let db = await getDbService()
     let hasCache = false
+    if (!forceRefresh) {
+      hasCache = await this.loadFromCache(illustId)
+    }
+    let refreshed = await this.refreshFromNetwork(illustId)
+    if (refreshed) {
+      return true
+    }
+    if (hasCache) {
+      this.errorMessage = ''
+      this.deletedSnapshot = null
+      return true
+    }
+    return false
+  }
+
+  /**
+   * R8：纯 DB 缓存读取（原 load 缓存分支抽出）。命中置 this.illust 并返回 true；未命中/异常返回 false。
+   * 红线：不发网络、不写浏览历史、无其他副作用（FR-047）。
+   */
+  async loadFromCache(illustId: number): Promise<boolean> {
     try {
+      let db = await getDbService()
       let cached = await db.getIllustDetailCache(illustId)
-      if (cached && !forceRefresh) {
+      if (cached) {
         let rawCached = (JSON.parse(cached) as IllustDetailResponse).illust
         if (rawCached) {
           let illust = Illust.fromJson(rawCached)
@@ -87,27 +111,32 @@ export class IllustDetailStore {
           bookmarkStateStore.seedFromList([illust])
           illust.isBookmarked = bookmarkStateStore.stateOf(illust.id, illust.isBookmarked) === BOOKMARK_DONE
           this.illust = illust
-          hasCache = true
+          return true
         }
       }
     } catch (e) {
       console.error('Load illust detail cache failed: ' + e)
     }
+    return false
+  }
+
+  /**
+   * R8：网络刷新（原 load 网络路径抽出）：API→解析校验→收藏对账→this.illust→落缓存→写浏览历史。
+   * 404 走 deletedSnapshot 快照兜底、解析失败置 errorMessage、异常捕获同原样；返回是否成功。
+   */
+  async refreshFromNetwork(illustId: number): Promise<boolean> {
     try {
+      let db = await getDbService()
       let response = await apiService.getIllustDetail(illustId)
       let raw = (response as IllustDetailResponse).illust
       if (!raw) {
-        if (!hasCache) {
-          this.errorMessage = getStr($r('app.string.store_detail_invalid_data'))
-        }
-        return hasCache
+        this.errorMessage = getStr($r('app.string.store_detail_invalid_data'))
+        return false
       }
       let parsed = Illust.fromJson(raw)
       if (!parsed.id || !parsed.title) {
-        if (!hasCache) {
-          this.errorMessage = getStr($r('app.string.store_detail_parse_failed'))
-        }
-        return hasCache
+        this.errorMessage = getStr($r('app.string.store_detail_parse_failed'))
+        return false
       }
       // 网络结果播种注册表，收藏状态以注册表为准
       bookmarkStateStore.seedFromList([parsed])
@@ -122,19 +151,17 @@ export class IllustDetailStore {
       }
       return true
     } catch (e) {
-      // 404（作品已删除）且无可用缓存：检查本地/同步收藏快照，命中则走兜底态
-      if (!hasCache && e instanceof HttpStatusError && e.statusCode === 404) {
+      // 404（作品已删除）：检查本地/同步收藏快照，命中则走兜底态
+      if (e instanceof HttpStatusError && e.statusCode === 404) {
         let snapshot = await this.findSnapshot(illustId)
         if (snapshot !== null) {
           this.deletedSnapshot = snapshot
           return false
         }
       }
-      if (!hasCache) {
-        this.errorMessage = getStrf($r('app.string.common_load_failed_detail'), String(e))
-      }
+      this.errorMessage = getStrf($r('app.string.common_load_failed_detail'), String(e))
       console.error('Load detail failed: ' + e)
-      return hasCache
+      return false
     }
   }
 
@@ -327,6 +354,15 @@ export class IllustDetailStore {
     await bookmarkStateStore.star(this.illust, restrict)
   }
 
+  /** 带标签收藏（BookmarkTagPanel 确认回调）：空标签退化为普通收藏 */
+  async starWithTags(restrict: string, tags: string[]): Promise<void> {
+    let state = bookmarkStateStore.stateOf(this.illust.id, this.illust.isBookmarked)
+    if (state !== 0) {
+      return
+    }
+    await bookmarkStateStore.star(this.illust, restrict, tags)
+  }
+
   private showToast(message: string): void {
     try {
       promptAction.showToast({ message: message })
@@ -365,10 +401,39 @@ export class IllustDetailStore {
   }
 
   private async doSavePage(pageIndex: number): Promise<void> {
+    if (this.illust.type === 'ugoira') {
+      let ugoiraDownloaded = await downloadService.isUgoiraDownloaded(this.illust.id)
+      let ugoiraCtx = this.uiContext
+      if (ugoiraDownloaded && ugoiraCtx !== undefined) {
+        ugoiraCtx.showAlertDialog({
+          title: getStr($r('app.string.common_tip')),
+          message: getStr($r('app.string.common_img_downloaded')),
+          autoCancel: true,
+          primaryButton: {
+            value: getStr($r('app.string.common_cancel')),
+            action: () => {}
+          },
+          secondaryButton: {
+            value: getStr($r('app.string.common_download_anyway')),
+            action: () => { this.doEnqueueUgoira() }
+          }
+        })
+        return
+      }
+      await this.doEnqueueUgoira()
+      return
+    }
     let quality = userSettingStore.getSettings().downloadQuality
     let url = pickDetailUrl(this.illust, pageIndex, quality)
-    downloadService.enqueue(url, this.illust, pageIndex)
-    this.showToast(getStr($r('app.string.common_added_download')))
+    let result = downloadService.enqueue(url, this.illust, pageIndex)
+    this.showToast(getStr(result === 'inflight' ? $r('app.string.dl_already_in_queue') : $r('app.string.common_added_download')))
+    await this.maybeAutoBookmark()
+  }
+
+  /** ugoira 入队（zip 帧包→GIF，与普通图片入队分离）；toast 与入队语义同 doSavePage */
+  private async doEnqueueUgoira(): Promise<void> {
+    let result = downloadService.enqueueUgoira(this.illust)
+    this.showToast(getStr(result === 'inflight' ? $r('app.string.dl_already_in_queue') : $r('app.string.common_added_download')))
     await this.maybeAutoBookmark()
   }
 
@@ -409,18 +474,31 @@ export class IllustDetailStore {
     await this.doSavePages(pageIndexes)
   }
 
-  /** 循环入队（fire-and-forget，不再 await 下载结果）；汇总 toast 语义为"已加入 N 个下载任务" */
+  /** 循环入队（fire-and-forget，不再 await 下载结果）；汇总 toast：全部在途→"已在下载队列中"，部分入队→"已加入下载任务" */
   private async doSavePages(pageIndexes: number[]): Promise<void> {
     if (pageIndexes.length === 0) {
       this.showToast(getStr($r('app.string.store_no_pages_to_download')))
       return
     }
     let quality = userSettingStore.getSettings().downloadQuality
+    let enqueuedCount = 0
+    let inflightCount = 0
     for (let i = 0; i < pageIndexes.length; i++) {
       let url = pickDetailUrl(this.illust, pageIndexes[i], quality)
-      downloadService.enqueue(url, this.illust, pageIndexes[i])
+      let result = downloadService.enqueue(url, this.illust, pageIndexes[i])
+      if (result === 'inflight') {
+        inflightCount++
+      } else {
+        enqueuedCount++
+      }
     }
-    this.showToast(getStrf($r('app.string.store_added_downloads'), pageIndexes.length))
+    if (enqueuedCount === 0 && inflightCount > 0) {
+      this.showToast(getStr($r('app.string.dl_already_in_queue')))
+    } else if (inflightCount > 0) {
+      this.showToast(getStr($r('app.string.common_added_download')))
+    } else {
+      this.showToast(getStrf($r('app.string.store_added_downloads'), pageIndexes.length))
+    }
     await this.maybeAutoBookmark()
   }
 

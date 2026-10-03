@@ -5,6 +5,7 @@ import { userSettingStore } from '../../stores/UserSettingStore';
 import { AppSettings } from '../../models/AppSettings';
 import { SettingItem, SwitchItem, SectionHeader, showQualityPicker, LANGUAGE_OPTIONS, LANGUAGE_VALUES, languageIndex, languageLabel } from './SettingWidgets';
 import { getStr } from '../../utils/I18nUtils';
+import { HapticUtils } from '../../utils/HapticUtils';
 
 @Entry
 @Component
@@ -103,6 +104,14 @@ export struct GeneralSettingsPage {
                 })
             }
           })
+          SwitchItem({
+            title: getStr($r('app.string.settings_haptic_feedback')),
+            isOn: this.settings.hapticFeedback,
+            onToggle: () => {
+              userSettingStore.setHapticFeedback(!this.settings.hapticFeedback)
+              this.settings = userSettingStore.getSettings()
+            }
+          })
           SettingItem({
             title: getStr($r('app.string.settings_my_bookmarks')),
             value: '',
@@ -132,6 +141,7 @@ export struct GeneralSettingsPage {
                 secondaryButton: {
                   value: $r('app.string.common_confirm'),
                   action: () => {
+                    HapticUtils.heavy()
                     imageCacheService.clearCache()
                     promptAction.showToast({ message: $r('app.string.settings_cache_cleared') })
                   }

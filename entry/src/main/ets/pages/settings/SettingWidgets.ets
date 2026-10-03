@@ -4,6 +4,7 @@
  */
 
 import { getStr } from '../../utils/I18nUtils';
+import { HapticUtils } from '../../utils/HapticUtils';
 
 @Component
 export struct SettingItem {
@@ -60,6 +61,7 @@ export struct SwitchItem {
       Toggle({ type: ToggleType.Switch, isOn: this.isOn })
         .selectedColor('#0096FA')
         .onChange((isOn: boolean) => {
+          HapticUtils.light()
           if (this.onToggle) {
             this.onToggle()
           }

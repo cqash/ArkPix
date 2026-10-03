@@ -25,6 +25,10 @@
       "value": "Sync settings and history across your HarmonyOS devices"
     },
     {
+      "name": "permission_vibrate_reason",
+      "value": "Provide haptic feedback for interactions"
+    },
+    {
       "name": "common_loading",
       "value": "Loading..."
     },
@@ -59,6 +63,26 @@
     {
       "name": "common_confirm",
       "value": "OK"
+    },
+    {
+      "name": "bookmark_tag_title",
+      "value": "Bookmark with tags"
+    },
+    {
+      "name": "bookmark_tag_public",
+      "value": "Public"
+    },
+    {
+      "name": "bookmark_tag_private",
+      "value": "Private"
+    },
+    {
+      "name": "bookmark_tag_failed",
+      "value": "Failed to load tags. Tap to retry, or bookmark without tags"
+    },
+    {
+      "name": "bookmark_tag_empty",
+      "value": "No bookmark tags yet; will save as a plain bookmark"
     },
     {
       "name": "common_back",
@@ -153,6 +177,14 @@
       "value": "Save image"
     },
     {
+      "name": "card_save_confirm_single",
+      "value": "Save this artwork to device?"
+    },
+    {
+      "name": "card_save_confirm_multi",
+      "value": "Save all %d pages to device?"
+    },
+    {
       "name": "card_bookmark",
       "value": "Bookmark"
     },
@@ -163,6 +195,26 @@
     {
       "name": "card_mute_author",
       "value": "Mute this author"
+    },
+    {
+      "name": "detail_copy_uid",
+      "value": "Copy UID"
+    },
+    {
+      "name": "detail_uid_copied",
+      "value": "UID copied"
+    },
+    {
+      "name": "detail_muted_placeholder",
+      "value": "This artwork is hidden by your mute rules"
+    },
+    {
+      "name": "detail_muted_temp_view",
+      "value": "View anyway"
+    },
+    {
+      "name": "detail_muted_view_settings",
+      "value": "Mute settings"
     },
     {
       "name": "card_deleted",
@@ -625,6 +677,14 @@
       "value": "Go to artist ID: %s"
     },
     {
+      "name": "search_link_direct_illust",
+      "value": "Open link: artwork %s"
+    },
+    {
+      "name": "search_link_direct_user",
+      "value": "Open link: artist %s"
+    },
+    {
       "name": "search_no_users",
       "value": "No matching artists found"
     },
@@ -659,6 +719,18 @@
     {
       "name": "user_follow",
       "value": "Follow"
+    },
+    {
+      "name": "user_follow_public",
+      "value": "Follow publicly"
+    },
+    {
+      "name": "user_follow_private",
+      "value": "Follow privately"
+    },
+    {
+      "name": "user_unfollow_action",
+      "value": "Unfollow"
     },
     {
       "name": "login_webview",
@@ -1119,6 +1191,38 @@
     {
       "name": "dl_task_progress",
       "value": "Progress: %d%%"
+    },
+    {
+      "name": "dl_filter_all",
+      "value": "All"
+    },
+    {
+      "name": "dl_filter_active",
+      "value": "Active"
+    },
+    {
+      "name": "dl_filter_completed",
+      "value": "Completed"
+    },
+    {
+      "name": "dl_filter_failed",
+      "value": "Failed"
+    },
+    {
+      "name": "dl_filter_empty",
+      "value": "No matching tasks"
+    },
+    {
+      "name": "ugoira_badge",
+      "value": "GIF"
+    },
+    {
+      "name": "dl_ugoira_label",
+      "value": "动图"
+    },
+    {
+      "name": "ugoira_share_download_first",
+      "value": "动图下载后可分享"
     },
     {
       "name": "exif_import_bad_version",
@@ -1665,6 +1769,10 @@
       "value": "Auto-bookmark on download"
     },
     {
+      "name": "settings_long_press_save_confirm",
+      "value": "Confirm before long-press save"
+    },
+    {
       "name": "settings_cache_cleared",
       "value": "Image cache cleared"
     },
@@ -1751,6 +1859,10 @@
     {
       "name": "settings_device_sync_item",
       "value": "Device sync (settings/mutes/history)"
+    },
+    {
+      "name": "settings_haptic_feedback",
+      "value": "Haptic feedback"
     },
     {
       "name": "settings_download_concurrency",
@@ -1955,6 +2067,74 @@
     {
       "name": "settings_sync_unauthorized",
       "value": "Unauthorized"
+    },
+    {
+      "name": "dl_already_in_queue",
+      "value": "Already in download queue"
+    },
+    {
+      "name": "detail_menu_share",
+      "value": "Share"
+    },
+    {
+      "name": "detail_copy_link",
+      "value": "Copy link"
+    },
+    {
+      "name": "detail_copy_caption",
+      "value": "Copy caption"
+    },
+    {
+      "name": "detail_author_info",
+      "value": "Author profile"
+    },
+    {
+      "name": "detail_save_multi",
+      "value": "Save pages"
+    },
+    {
+      "name": "detail_link_copied",
+      "value": "Link copied"
+    },
+    {
+      "name": "detail_caption_copied",
+      "value": "Caption copied"
+    },
+    {
+      "name": "detail_load_more",
+      "value": "Load more"
+    },
+    {
+      "name": "viewer_hd_original",
+      "value": "Original"
+    },
+    {
+      "name": "viewer_hd_large",
+      "value": "Large"
+    },
+    {
+      "name": "viewer_copy_image",
+      "value": "Copy image"
+    },
+    {
+      "name": "viewer_image_copied",
+      "value": "Image copied"
+    },
+    {
+      "name": "viewer_image_link_copied",
+      "value": "Image link copied"
+    },
+    {
+      "name": "viewer_fullscreen",
+      "value": "Fullscreen"
+    },
+    {
+      "name": "viewer_exit_fullscreen",
+      "value": "Exit fullscreen"
+    },
+    {
+      "name": "viewer_share_not_ready",
+      "value": "Share available after the image loads"
     }
   ]
 }

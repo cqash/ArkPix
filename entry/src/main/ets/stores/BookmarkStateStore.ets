@@ -3,6 +3,7 @@ import { apiService } from '../network/ApiService';
 import { getDbService } from '../services/DatabaseService';
 import { Illust } from '../models/Illust';
 import { getStr } from '../utils/I18nUtils';
+import { HapticUtils } from '../utils/HapticUtils';
 
 /**
  * 收藏状态三态：
@@ -92,8 +93,8 @@ export class BookmarkStateStore {
     }
   }
 
-  protected async requestStar(illustId: number, restrict: string): Promise<void> {
-    await apiService.addBookmark(illustId, restrict)
+  protected async requestStar(illustId: number, restrict: string, tags: string[] = []): Promise<void> {
+    await apiService.addBookmark(illustId, restrict, tags)
   }
 
   protected async requestUnstar(illustId: number): Promise<void> {
@@ -117,16 +118,17 @@ export class BookmarkStateStore {
     }
   }
 
-  async star(illust: Illust, restrict: string = 'public'): Promise<boolean> {
+  async star(illust: Illust, restrict: string = 'public', tags: string[] = []): Promise<boolean> {
     if (this.states.get(illust.id) === BOOKMARK_LOADING) {
       return false
     }
     this.setState(illust.id, BOOKMARK_LOADING)
     try {
-      await this.requestStar(illust.id, restrict)
+      await this.requestStar(illust.id, restrict, tags)
       illust.isBookmarked = true
       this.setState(illust.id, BOOKMARK_DONE)
       await this.invalidateDetailCache(illust.id)
+      HapticUtils.medium()
       this.showToast(restrict === 'private' ? getStr($r('app.string.store_bookmarked_private')) :
         getStr($r('app.string.store_bookmarked')))
       this.notifyBookmarkChanged(illust, true)
@@ -149,6 +151,7 @@ export class BookmarkStateStore {
       illust.isBookmarked = false
       this.setState(illust.id, BOOKMARK_NONE)
       await this.invalidateDetailCache(illust.id)
+      HapticUtils.light()
       this.showToast(getStr($r('app.string.store_unbookmarked')))
       this.notifyBookmarkChanged(illust, false)
       return true
